@@ -1,4 +1,5 @@
 import { MongoClient, Db } from 'mongodb';
+import { seedDatabase } from '@/lib/seed-db';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 const MONGODB_DB = process.env.MONGODB_DB;
@@ -18,18 +19,26 @@ if (!MONGODB_DB) {
  */
 let cachedClient: MongoClient | null = null;
 let cachedDb: Db | null = null;
+let isSeeded = false;
 
 export async function connectToDatabase() {
   if (cachedClient && cachedDb) {
     return { client: cachedClient, db: cachedDb };
   }
 
-  const client = await MongoClient.connect(MONGODB_URI!);
+  const client = new MongoClient(MONGODB_URI!);
+  await client.connect();
 
   const db = client.db(MONGODB_DB);
 
   cachedClient = client;
   cachedDb = db;
+
+  // Run the seed script only once when the first connection is established
+  if (!isSeeded) {
+    await seedDatabase();
+    isSeeded = true;
+  }
 
   return { client, db };
 }

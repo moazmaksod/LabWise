@@ -1,11 +1,8 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { encrypt } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
-import { compare, hash } from 'bcryptjs';
-import type { Role, User } from '@/lib/types';
-import { USERS } from '@/lib/constants';
-import { ObjectId } from 'mongodb';
+import { compare } from 'bcryptjs';
+import type { User } from '@/lib/types';
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,40 +13,10 @@ export async function POST(req: NextRequest) {
     }
     
     const { db } = await connectToDatabase();
-    let user = await db.collection<User>('users').findOne({ email });
-
-    // --- Development Only: Auto-seed mock users ---
-    if (!user && Object.values(USERS).some(u => u.email === email)) {
-        const mockUser = Object.values(USERS).find(u => u.email === email)!;
-        
-        const passwordToSeed = password || 'password123';
-        const passwordHash = await hash(passwordToSeed, 10);
-            
-        const newUserDocument: Omit<User, '_id'> = {
-            firstName: mockUser.firstName,
-            lastName: mockUser.lastName,
-            email: mockUser.email,
-            role: mockUser.role,
-            passwordHash,
-            isActive: true,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            avatar: mockUser.avatar
-        };
-
-        const result = await db.collection('users').insertOne(newUserDocument);
-        
-        if (result.acknowledged) {
-            // After seeding, refetch the user to proceed with login
-            user = await db.collection<User>('users').findOne({ _id: result.insertedId });
-        } else {
-             return NextResponse.json({ message: 'User seeding failed during development.' }, { status: 500 });
-        }
-    }
-    // --- End Development Only ---
+    const user = await db.collection<User>('users').findOne({ email });
 
     if (!user) {
-      return NextResponse.json({ message: 'Invalid credentials.' }, { status: 401 });
+        return NextResponse.json({ message: 'Invalid credentials.' }, { status: 401 });
     }
     
     const isPasswordValid = await compare(password, user.passwordHash);
