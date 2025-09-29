@@ -5,6 +5,7 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { compare, hash } from 'bcryptjs';
 import type { Role, User } from '@/lib/types';
 import { USERS } from '@/lib/constants';
+import { ObjectId } from 'mongodb';
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
     // --- Development Only: Auto-seed mock users ---
     if (!user && Object.values(USERS).some(u => u.email === email)) {
         const mockUser = Object.values(USERS).find(u => u.email === email)!;
-        // For mock users, we assume a default password for seeding
+        
         if (password === 'password123') {
             const passwordHash = await hash(password, 10);
             
@@ -38,7 +39,14 @@ export async function POST(req: NextRequest) {
 
             const result = await db.collection('users').insertOne(newUserDocument);
             // After seeding, refetch the user from the DB to ensure we have the correct document with the _id
-            user = await db.collection<User>('users').findOne({ _id: result.insertedId });
+            const insertedId = result.insertedId instanceof ObjectId ? result.insertedId : new ObjectId(result.insertedId);
+            user = await db.collection<User>('users').findOne({ _id: insertedId });
+            
+            if (user) {
+              // User was just created, so we know password is valid. Proceed to create token.
+              const accessToken = await encrypt({ userId: user._id.toHexString(), role: user.role });
+              return NextResponse.json({ accessToken }, { status: 200 });
+            }
         }
     }
     // --- End Development Only ---
