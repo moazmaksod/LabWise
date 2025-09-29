@@ -173,13 +173,13 @@ export default function PatientRegistrationPage() {
       <Card>
         <CardHeader>
           <CardTitle>Patient Search</CardTitle>
-          <CardDescription>Search for an existing patient by Name, MRN, or Date of Birth.</CardDescription>
+          <CardDescription>Search for an existing patient by Name, MRN, or Phone Number.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex gap-2">
             <Input
               type="search"
-              placeholder="Search by Name, MRN..."
+              placeholder="Search by Name, MRN, Phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}

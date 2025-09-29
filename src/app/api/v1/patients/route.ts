@@ -15,13 +15,14 @@ export async function GET(req: NextRequest) {
         
         let filter = {};
         if (query) {
-            // Basic search: checks for match in MRN, first name, or last name
+            // Basic search: checks for match in MRN, first name, last name, or phone
             const searchRegex = new RegExp(query, 'i');
             filter = {
                 $or: [
                     { mrn: searchRegex },
                     { firstName: searchRegex },
                     { lastName: searchRegex },
+                    { 'contactInfo.phone': searchRegex },
                 ],
             };
         }
