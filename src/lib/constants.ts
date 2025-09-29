@@ -85,7 +85,7 @@ type NavItem = {
 export const NAV_ITEMS: Record<Role, NavItem[]> = {
   receptionist: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/dashboard', label: 'Patient Registration', icon: UserPlus },
+    { href: '/patient-registration', label: 'Patient Registration', icon: UserPlus },
     { href: '/dashboard', label: 'Order Entry', icon: FilePlus },
     { href: '/dashboard', label: 'Scheduling', icon: CalendarDays },
   ],

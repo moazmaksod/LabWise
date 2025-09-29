@@ -95,3 +95,36 @@ export type TestCatalogItem = {
 export type ClientTestCatalogItem = Omit<TestCatalogItem, '_id'> & {
   id: string;
 };
+
+// --- Sprint 2 Additions ---
+export type Patient = {
+    _id: ObjectId;
+    mrn: string;
+    firstName: string;
+    lastName: string;
+    dateOfBirth: Date;
+    gender?: 'Male' | 'Female' | 'Other' | 'Prefer not to say';
+    contactInfo: {
+        phone: string;
+        email?: string;
+        address: {
+            street: string;
+            city: string;
+            state: string;
+            zipCode: string;
+            country: string;
+        };
+    };
+    insuranceInfo?: {
+        providerName: string;
+        policyNumber: string;
+        groupNumber?: string;
+        isPrimary: boolean;
+    }[];
+    createdAt: Date;
+    updatedAt: Date;
+};
+
+export type ClientPatient = Omit<Patient, '_id'> & {
+    id: string;
+};

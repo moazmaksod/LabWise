@@ -1,0 +1,273 @@
+
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Search, PlusCircle, UploadCloud, Loader2, User, ShieldAlert } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@/hooks/use-user';
+import { useRouter } from 'next/navigation';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
+import { handleSmartDataEntry } from '@/app/actions';
+import type { ClientPatient } from '@/lib/types';
+import { format } from 'date-fns';
+
+const patientSchema = z.object({
+  id: z.string().optional(),
+  mrn: z.string().min(1, 'MRN is required'),
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  dateOfBirth: z.string().min(1, 'Date of birth is required'),
+  contactInfo: z.object({
+    phone: z.string().min(1, 'Phone number is required'),
+    email: z.string().email('Invalid email address').optional().or(z.literal('')),
+    address: z.object({
+      street: z.string().min(1, 'Street address is required'),
+      city: z.string().min(1, 'City is required'),
+      state: z.string().min(1, 'State is required'),
+      zipCode: z.string().min(1, 'Zip code is required'),
+      country: z.string().default('USA'),
+    }),
+  }),
+  insuranceInfo: z.object({
+    providerName: z.string().optional(),
+    policyNumber: z.string().optional(),
+  }).optional(),
+});
+
+type PatientFormValues = z.infer<typeof patientSchema>;
+
+export default function PatientRegistrationPage() {
+  const { user, loading: userLoading } = useUser();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<ClientPatient[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isOcrLoading, setIsOcrLoading] = useState(false);
+  const [ocrFileName, setOcrFileName] = useState('');
+  
+  const form = useForm<PatientFormValues>({
+    resolver: zodResolver(patientSchema),
+    defaultValues: {
+      mrn: '',
+      firstName: '',
+      lastName: '',
+      dateOfBirth: '',
+      contactInfo: { phone: '', email: '', address: { street: '', city: '', state: '', zipCode: '', country: 'USA' } },
+      insuranceInfo: { providerName: 'Mock Insurance', policyNumber: '' },
+    },
+  });
+
+  const handleSearch = async () => {
+    if (!searchTerm) return;
+    setIsSearching(true);
+    try {
+      const response = await fetch(`/api/v1/patients?q=${searchTerm}`);
+      if (!response.ok) throw new Error('Search failed');
+      const data = await response.json();
+      setSearchResults(data);
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not perform patient search.' });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+  
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsOcrLoading(true);
+    setOcrFileName(file.name);
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+      const photoDataUri = reader.result as string;
+      const result = await handleSmartDataEntry({ photoDataUri });
+      
+      if ('error' in result) {
+        toast({ variant: 'destructive', title: 'Extraction Failed', description: result.error });
+      } else {
+        form.setValue('firstName', result.patientName?.split(' ')[0] || '');
+        form.setValue('lastName', result.patientName?.split(' ').slice(1).join(' ') || '');
+        form.setValue('contactInfo.address.street', result.address || '');
+        form.setValue('dateOfBirth', result.dateOfBirth || '');
+        form.setValue('insuranceInfo.policyNumber', result.insurancePolicyNumber || '');
+        toast({ title: 'Extraction Successful', description: 'Patient data has been populated.' });
+      }
+      setIsOcrLoading(false);
+    };
+  };
+
+  const onSubmit = async (data: PatientFormValues) => {
+    try {
+        const response = await fetch('/api/v1/patients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({...data, dateOfBirth: new Date(data.dateOfBirth)})
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to save patient.');
+        }
+
+        toast({ title: `Patient created successfully` });
+        setIsFormOpen(false);
+        form.reset();
+        handleSearch(); // Refresh search
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Error saving patient', description: error.message });
+    }
+  };
+
+  if (userLoading) {
+    return <Skeleton className="h-96 w-full" />;
+  }
+
+  if (user?.role !== 'receptionist' && user?.role !== 'manager') {
+    setTimeout(() => router.push('/dashboard'), 3000);
+    return (
+        <Alert variant="destructive">
+            <ShieldAlert className="h-4 w-4" />
+            <AlertTitle>Access Denied</AlertTitle>
+            <AlertDescription>
+                You do not have permission to access this page. You will be redirected.
+            </AlertDescription>
+        </Alert>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Patient Search</CardTitle>
+          <CardDescription>Search for an existing patient by Name, MRN, or Date of Birth.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            <Input
+              type="search"
+              placeholder="Search by Name, MRN..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              className="flex-grow"
+            />
+            <Button onClick={handleSearch} disabled={isSearching}>
+              <Search className="mr-2 h-4 w-4" />
+              {isSearching ? 'Searching...' : 'Search'}
+            </Button>
+            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" onClick={() => { form.reset(); setIsFormOpen(true); }}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  New Patient
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl">
+                 <DialogHeader>
+                    <DialogTitle>Create New Patient</DialogTitle>
+                    <DialogDescription>Fill out the form below to register a new patient record.</DialogDescription>
+                 </DialogHeader>
+                 <Form {...form}>
+                 <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 max-h-[75vh] overflow-y-auto pr-6">
+                    <div className="md:col-span-2 space-y-4">
+                        <div className="relative flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border text-center hover:border-primary">
+                          <UploadCloud className="h-8 w-8 text-muted-foreground" />
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            {isOcrLoading ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Processing...</span> : ocrFileName ? <span className="font-medium text-foreground">{ocrFileName}</span> : 'Scan ID / Insurance Card (Simulated)'}
+                          </p>
+                          <Input id="file-upload" type="file" className="absolute h-full w-full opacity-0" onChange={handleFileChange} disabled={isOcrLoading} accept="image/*,.pdf"/>
+                        </div>
+                    </div>
+                    <FormField control={form.control} name="mrn" render={({ field }) => ( <FormItem><FormLabel>Medical Record Number (MRN)</FormLabel><FormControl><Input placeholder="MRN12345" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="dateOfBirth" render={({ field }) => ( <FormItem><FormLabel>Date of Birth</FormLabel><FormControl><Input type="date" placeholder="YYYY-MM-DD" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="firstName" render={({ field }) => ( <FormItem><FormLabel>First Name</FormLabel><FormControl><Input placeholder="John" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="lastName" render={({ field }) => ( <FormItem><FormLabel>Last Name</FormLabel><FormControl><Input placeholder="Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="contactInfo.phone" render={({ field }) => ( <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="(555) 123-4567" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="contactInfo.email" render={({ field }) => ( <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input placeholder="john.doe@email.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="contactInfo.address.street" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Street Address</FormLabel><FormControl><Input placeholder="123 Main St" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="contactInfo.address.city" render={({ field }) => ( <FormItem><FormLabel>City</FormLabel><FormControl><Input placeholder="Anytown" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="contactInfo.address.state" render={({ field }) => ( <FormItem><FormLabel>State</FormLabel><FormControl><Input placeholder="CA" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="contactInfo.address.zipCode" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Zip Code</FormLabel><FormControl><Input placeholder="12345" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="insuranceInfo.policyNumber" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Insurance Policy #</FormLabel><FormControl><Input placeholder="XZ987654321" {...field} /></FormControl><FormMessage /></FormItem>)} />
+
+                    <DialogFooter className="md:col-span-2">
+                        <Button type="button" variant="ghost" onClick={() => setIsFormOpen(false)}>Cancel</Button>
+                        <Button type="submit">Save Patient</Button>
+                    </DialogFooter>
+                 </form>
+                 </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Search Results</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-hidden rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-secondary hover:bg-secondary">
+                  <TableHead>Patient</TableHead>
+                  <TableHead>MRN</TableHead>
+                  <TableHead>DOB</TableHead>
+                  <TableHead>Contact</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isSearching ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell colSpan={4}><Skeleton className="h-8 w-full" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : searchResults.length > 0 ? (
+                  searchResults.map((patient) => (
+                    <TableRow key={patient.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted"><User className="h-5 w-5 text-muted-foreground" /></div>
+                           <div className="font-medium">{patient.firstName} {patient.lastName}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{patient.mrn}</TableCell>
+                      <TableCell>{format(new Date(patient.dateOfBirth), 'MM/dd/yyyy')}</TableCell>
+                      <TableCell>{patient.contactInfo.phone}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
+                      No patients found. Use the search above to find a patient.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
