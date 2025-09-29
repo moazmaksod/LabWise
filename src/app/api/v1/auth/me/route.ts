@@ -3,6 +3,8 @@ import { decrypt } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import type { User, ClientUser } from '@/lib/types';
+import { USERS } from '@/lib/constants'; // Import mock users
+
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
@@ -19,6 +21,18 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // --- TEMPORARY MOCK USER FETCHING ---
+    const userById = Object.values(USERS).find(u => u.id === decryptedPayload.userId);
+
+    if (!userById) {
+      return NextResponse.json({ message: 'User not found.' }, { status: 404 });
+    }
+    
+    return NextResponse.json(userById, { status: 200 });
+    // --- END TEMPORARY MOCK USER FETCHING ---
+
+    /*
+    // --- REAL DATABASE USER FETCHING (Commented out for prototype) ---
     const { db } = await connectToDatabase();
     const usersCollection = db.collection<User>('users');
 
@@ -37,10 +51,11 @@ export async function GET(req: NextRequest) {
 
     const clientUser: ClientUser = {
       ...userWithoutPassword,
-      id: user._id.toHexString(),
+      _id: user._id, // Keep original ObjectId
     };
     
     return NextResponse.json(clientUser, { status: 200 });
+    */
 
   } catch (error) {
     console.error('Error fetching user profile:', error);
