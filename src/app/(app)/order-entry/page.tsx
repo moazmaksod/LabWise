@@ -29,7 +29,10 @@ const orderFormSchema = z.object({
   physicianId: z.string().min(1, 'A physician must be selected.'),
   icd10Code: z.string().min(1, 'ICD-10 code is required.'),
   priority: z.enum(['Routine', 'STAT']),
-  tests: z.array(z.string()).min(1, 'At least one test must be added.'),
+  samples: z.array(z.object({
+    sampleType: z.string(),
+    testCodes: z.array(z.string())
+  })).min(1, 'At least one test must be added.'),
 });
 
 type OrderFormValues = z.infer<typeof orderFormSchema>;
@@ -54,6 +57,8 @@ export default function OrderEntryPage() {
   // Physician Search State
   const [physicians, setPhysicians] = useState<ClientUser[]>([]);
   
+  const [addedTests, setAddedTests] = useState<ClientTestCatalogItem[]>([]);
+
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderFormSchema),
     defaultValues: {
@@ -61,18 +66,9 @@ export default function OrderEntryPage() {
       physicianId: '',
       icd10Code: '',
       priority: 'Routine',
-      tests: [],
+      samples: [],
     },
   });
-
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: 'tests',
-    keyName: 'key'
-  });
-
-  const addedTests = form.watch('tests');
-  const [selectedTestObjects, setSelectedTestObjects] = useState<ClientTestCatalogItem[]>([]);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('labwise-token');
@@ -98,6 +94,24 @@ export default function OrderEntryPage() {
     }
   }, [selectedPatient, form]);
 
+  useEffect(() => {
+    const samplesMap = new Map<string, string[]>();
+    addedTests.forEach(test => {
+        const sampleType = test.specimenRequirements.tubeType;
+        if (!samplesMap.has(sampleType)) {
+            samplesMap.set(sampleType, []);
+        }
+        samplesMap.get(sampleType)!.push(test.testCode);
+    });
+
+    const samplesForForm = Array.from(samplesMap.entries()).map(([sampleType, testCodes]) => ({
+        sampleType,
+        testCodes,
+    }));
+    form.setValue('samples', samplesForForm);
+  }, [addedTests, form]);
+
+
   const handlePatientSearch = async () => {
     if (!patientSearchTerm || !token) return;
     setIsPatientSearching(true);
@@ -108,7 +122,7 @@ export default function OrderEntryPage() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Search failed');
-      const data = await response.json();
+      const data: ClientPatient[] = await response.json();
       setPatientSearchResults(data);
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'Could not perform patient search.' });
@@ -139,19 +153,15 @@ export default function OrderEntryPage() {
   }
 
   const addTestToOrder = (test: ClientTestCatalogItem) => {
-    if (!addedTests.includes(test.testCode)) {
-        append(test.testCode);
-        setSelectedTestObjects([...selectedTestObjects, test]);
+    if (!addedTests.find(t => t.testCode === test.testCode)) {
+        setAddedTests([...addedTests, test]);
     }
     setTestSearchTerm('');
     setTestSearchResults([]);
   }
 
-  const removeTestFromOrder = (index: number) => {
-    remove(index);
-    const newSelectedTests = [...selectedTestObjects];
-    newSelectedTests.splice(index, 1);
-    setSelectedTestObjects(newSelectedTests);
+  const removeTestFromOrder = (testCode: string) => {
+    setAddedTests(addedTests.filter(t => t.testCode !== testCode));
   }
 
   const onSubmit = async (data: OrderFormValues) => {
@@ -176,7 +186,7 @@ export default function OrderEntryPage() {
         setSelectedPatient(null);
         setPatientSearchTerm('');
         setPatientSearchResults([]);
-        setSelectedTestObjects([]);
+        setAddedTests([]);
 
     } catch (error: any) {
         toast({ variant: 'destructive', title: 'Error creating order', description: error.message });
@@ -185,8 +195,9 @@ export default function OrderEntryPage() {
 
   if (userLoading) return <Skeleton className="h-96 w-full" />;
 
-  if (user?.role !== 'receptionist' && user?.role !== 'manager') {
-    setTimeout(() => router.push('/dashboard'), 3000);
+  // Redirect non-authorized users
+  if (!userLoading && user && !['receptionist', 'manager', 'physician'].includes(user.role)) {
+    router.push('/dashboard');
     return (
       <Alert variant="destructive">
         <ShieldAlert className="h-4 w-4" />
@@ -277,7 +288,7 @@ export default function OrderEntryPage() {
                                 <PopoverTrigger asChild>
                                     <FormControl>
                                         <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
-                                            {field.value ? `Dr. ${physicians.find((p) => p.id === field.value)?.lastName}` : "Select Physician"}
+                                            {field.value ? `Dr. ${physicians.find((p) => p.id === field.value)?.lastName}, ${physicians.find((p) => p.id === field.value)?.firstName}` : "Select Physician"}
                                             <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </FormControl>
@@ -286,13 +297,15 @@ export default function OrderEntryPage() {
                                      <Command>
                                         <CommandInput placeholder="Search physicians..." />
                                         <CommandEmpty>No physician found.</CommandEmpty>
-                                        <CommandGroup>
-                                        {physicians.map((p) => (
-                                            <CommandItem value={`${p.firstName} ${p.lastName}`} key={p.id} onSelect={() => form.setValue("physicianId", p.id)}>
-                                               Dr. {p.firstName} {p.lastName}
-                                            </CommandItem>
-                                        ))}
-                                        </CommandGroup>
+                                        <CommandList>
+                                            <CommandGroup>
+                                            {physicians.map((p) => (
+                                                <CommandItem value={`${p.firstName} ${p.lastName}`} key={p.id} onSelect={() => form.setValue("physicianId", p.id)}>
+                                                   Dr. {p.firstName} {p.lastName}
+                                                </CommandItem>
+                                            ))}
+                                            </CommandGroup>
+                                        </CommandList>
                                      </Command>
                                 </PopoverContent>
                             </Popover>
@@ -325,12 +338,14 @@ export default function OrderEntryPage() {
                          <CommandList className="relative">
                             {isTestSearching && <CommandItem disabled>Searching...</CommandItem>}
                             {testSearchResults.length > 0 && (
-                                <div className="absolute top-0 z-10 w-full rounded-md border bg-popover text-popover-foreground shadow-md">
+                                <div className="absolute top-full mt-1 w-full rounded-md border bg-popover text-popover-foreground shadow-md z-20">
+                                  <CommandGroup>
                                     {testSearchResults.map(test => (
                                         <CommandItem key={test.id} onSelect={() => addTestToOrder(test)} value={test.name}>
                                             <span>{test.name} ({test.testCode})</span>
                                         </CommandItem>
                                     ))}
+                                  </CommandGroup>
                                 </div>
                             )}
                          </CommandList>
@@ -338,28 +353,28 @@ export default function OrderEntryPage() {
 
                      <div className="mt-4 space-y-2">
                         <h4 className="text-sm font-medium">Selected Tests</h4>
-                        {selectedTestObjects.length > 0 ? (
+                        {addedTests.length > 0 ? (
                              <div className="space-y-2 rounded-md border p-2">
-                                {selectedTestObjects.map((test, index) => (
+                                {addedTests.map((test, index) => (
                                     <div key={test.id} className="flex items-center justify-between p-2 rounded-md hover:bg-secondary/50">
                                         <div>
                                             <p className="font-medium">{test.name}</p>
                                             <p className="text-xs text-muted-foreground">{test.testCode} - requires {test.specimenRequirements.tubeType}</p>
                                         </div>
-                                        <Button variant="ghost" size="icon" onClick={() => removeTestFromOrder(index)}><X className="h-4 w-4" /></Button>
+                                        <Button variant="ghost" size="icon" onClick={() => removeTestFromOrder(test.testCode)}><X className="h-4 w-4" /></Button>
                                     </div>
                                 ))}
                             </div>
                         ) : (
                             <div className="text-center text-sm text-muted-foreground py-4">No tests added yet.</div>
                         )}
-                         {form.formState.errors.tests && <p className="text-sm font-medium text-destructive">{form.formState.errors.tests.message}</p>}
+                         {form.formState.errors.samples && <p className="text-sm font-medium text-destructive">{form.formState.errors.samples.message}</p>}
                     </div>
                 </CardContent>
              </Card>
 
             <div className="flex justify-end gap-4">
-                <Button variant="ghost" onClick={() => setSelectedPatient(null)}>Cancel</Button>
+                <Button variant="ghost" onClick={() => { setSelectedPatient(null); setAddedTests([]); }}>Cancel</Button>
                 <Button type="submit" disabled={form.formState.isSubmitting}>
                     {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Create Order
@@ -371,3 +386,5 @@ export default function OrderEntryPage() {
     </div>
   );
 }
+
+    
