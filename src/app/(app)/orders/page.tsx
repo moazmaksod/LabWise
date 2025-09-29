@@ -9,7 +9,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Search, PlusCircle, X, Loader2, User, ShieldAlert, FilePlus, TestTube, FileSearch } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useUser } from '@/hooks/use-user';
 import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
@@ -18,7 +17,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -27,7 +25,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from '@/components/ui/badge';
 import type { ClientPatient, ClientTestCatalogItem, ClientUser, ClientOrder } from '@/lib/types';
 import { format } from 'date-fns';
-import { calculateAge } from '@/lib/utils';
 
 const orderFormSchema = z.object({
   patientId: z.string().min(1, 'A patient must be selected.'),
@@ -82,30 +79,6 @@ function NewOrderForm({ patient, onOrderCreated }: { patient: ClientPatient, onO
   useEffect(() => {
     fetchPhysicians();
   }, [token, fetchPhysicians]);
-
-  useEffect(() => {
-    if (!isTestPopoverOpen) return;
-
-    const search = setTimeout(async () => {
-      if (!token) return;
-      setIsTestSearching(true);
-      try {
-        const endpoint = testSearchInput.trim() ? `/api/v1/test-catalog?q=${testSearchInput}` : '/api/v1/test-catalog';
-        const response = await fetch(endpoint, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!response.ok) throw new Error('Test search failed');
-        const data = await response.json();
-        setTestSearchResults(data);
-      } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not search tests.' });
-      } finally {
-        setIsTestSearching(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(search);
-  }, [testSearchInput, token, toast, isTestPopoverOpen]);
   
   const handleTestPopoverOpenChange = useCallback(async (open: boolean) => {
     setIsTestPopoverOpen(open);
@@ -144,6 +117,30 @@ function NewOrderForm({ patient, onOrderCreated }: { patient: ClientPatient, onO
     setSelectedTests(newSelectedTests);
     form.setValue('testIds', newSelectedTests.map(t => t.testCode));
   };
+  
+  useEffect(() => {
+    if (!isTestPopoverOpen) return;
+
+    const search = setTimeout(async () => {
+      if (!token || !testSearchInput.trim()) return;
+      setIsTestSearching(true);
+      try {
+        const endpoint = `/api/v1/test-catalog?q=${testSearchInput}`;
+        const response = await fetch(endpoint, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Test search failed');
+        const data = await response.json();
+        setTestSearchResults(data);
+      } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not search tests.' });
+      } finally {
+        setIsTestSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(search);
+  }, [testSearchInput, token, toast, isTestPopoverOpen]);
   
   const onSubmit = async (data: OrderFormValues) => {
     if (!token) return;
@@ -187,7 +184,15 @@ function NewOrderForm({ patient, onOrderCreated }: { patient: ClientPatient, onO
             <FormLabel>Add Tests</FormLabel>
             <Popover open={isTestPopoverOpen} onOpenChange={handleTestPopoverOpenChange}>
                 <PopoverTrigger asChild>
-                    <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Search for tests to add..." className="pl-10" value={testSearchInput} onChange={(e) => setTestSearchInput(e.target.value)} /></div>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            placeholder="Click or type to search for tests..." 
+                            className="pl-10" 
+                            value={testSearchInput} 
+                            onChange={(e) => setTestSearchInput(e.target.value)} 
+                        />
+                    </div>
                 </PopoverTrigger>
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                      <Command><CommandList>{isTestSearching && <CommandEmpty>Searching...</CommandEmpty>}{!isTestSearching && testSearchResults.length === 0 && <CommandEmpty>No tests found.</CommandEmpty>}<CommandGroup>{testSearchResults.map((test) => (<CommandItem key={test.id} value={test.name} onSelect={() => handleSelectTest(test)}><TestTube className="mr-2 h-4 w-4" /><span>{test.name} ({test.testCode})</span></CommandItem>))}</CommandGroup></CommandList></Command>
@@ -241,7 +246,8 @@ function NewOrderDialogContent({ onOrderCreated }: { onOrderCreated: () => void 
           toast({ variant: 'destructive', title: 'Error', description: 'Could not load patient from URL.' });
         } finally {
           setIsPatientSearching(false);
-          router.replace('/orders'); // Clear URL params
+          // Use router.replace to clean up the URL without adding to history
+          router.replace('/orders', { scroll: false });
         }
       };
       fetchPatient();
@@ -281,7 +287,7 @@ function NewOrderDialogContent({ onOrderCreated }: { onOrderCreated: () => void 
         <DialogTitle>Create New Order</DialogTitle>
         <DialogDescription>
           {selectedPatient 
-            ? `Fill out order details for ${selectedPatient.firstName} ${selectedPatient.lastName} (MRN: ${selectedPatient.mrn})`
+            ? `Fill out order details for ${selectedPatient.firstName} ${selectedPatient.lastName}`
             : "Search for a patient to begin creating a new order."
           }
         </DialogDescription>
@@ -350,21 +356,18 @@ function OrdersPageComponent() {
   }, []);
 
   useEffect(() => {
-    // Initial fetch for recent orders
     if(token && !searchTerm) {
         fetchOrders();
     }
   }, [token, searchTerm, fetchOrders]);
 
   useEffect(() => {
-    // Check for patientId on initial load to open dialog
     if (searchParams.get('patientId')) {
       setIsNewOrderDialogOpen(true);
     }
   }, [searchParams]);
 
   useEffect(() => {
-    // Debounced search
     const searchDebounce = setTimeout(() => {
         if(searchTerm) fetchOrders(searchTerm);
     }, 500);
@@ -384,7 +387,7 @@ function OrdersPageComponent() {
   const handleOrderCreated = () => {
     setIsNewOrderDialogOpen(false);
     setSearchTerm('');
-    fetchOrders(); // Refresh the list of orders
+    fetchOrders(); 
   }
 
   return (
@@ -406,7 +409,7 @@ function OrdersPageComponent() {
       <Card>
         <CardHeader>
           <CardTitle>Find an Order</CardTitle>
-          <CardDescription>Search by Order ID, Patient Name, MRN, or Phone Number.</CardDescription>
+          <CardDescription>Search by Order ID, Patient Name, or MRN.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="relative">
