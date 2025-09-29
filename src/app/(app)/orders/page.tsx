@@ -232,7 +232,7 @@ function NewOrderDialogContent({ onOrderCreated }: { onOrderCreated: () => void 
 
   useEffect(() => {
     const patientIdFromUrl = searchParams.get('patientId');
-    if (patientIdFromUrl && token) {
+    if (patientIdFromUrl && token && !selectedPatient) {
       const fetchPatient = async () => {
         setIsPatientSearching(true);
         try {
@@ -252,7 +252,7 @@ function NewOrderDialogContent({ onOrderCreated }: { onOrderCreated: () => void 
       };
       fetchPatient();
     }
-  }, [searchParams, token, toast, router]);
+  }, [searchParams, token, toast, router, selectedPatient]);
 
   useEffect(() => {
     if (!patientSearchTerm.trim() || !token) {
