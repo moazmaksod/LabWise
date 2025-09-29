@@ -47,6 +47,24 @@ const patientSchema = z.object({
 
 type PatientFormValues = z.infer<typeof patientSchema>;
 
+const MOCK_FIRST_NAMES = ['Olivia', 'Liam', 'Emma', 'Noah', 'Amelia', 'Oliver', 'Ava', 'Elijah'];
+const MOCK_LAST_NAMES = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis'];
+const MOCK_STREETS = ['Maple St', 'Oak Ave', 'Pine Ln', 'Cedar Blvd', 'Elm Ct', 'Birch Rd'];
+const MOCK_CITIES = ['Springfield', 'Fairview', 'Riverside', 'Greenwood', 'Oakville'];
+const MOCK_STATES = ['CA', 'TX', 'FL', 'NY', 'PA', 'IL', 'OH'];
+
+const getRandomItem = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+const getRandomZip = () => String(Math.floor(10000 + Math.random() * 90000));
+const getRandomPhone = () => `(${Math.floor(200 + Math.random() * 800)}) ${Math.floor(100 + Math.random() * 900)}-${Math.floor(1000 + Math.random() * 9000)}`;
+const getRandomDateOfBirth = () => {
+    const year = Math.floor(1950 + Math.random() * 55);
+    const month = String(Math.floor(1 + Math.random() * 12)).padStart(2, '0');
+    const day = String(Math.floor(1 + Math.random() * 28)).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+const getRandomPolicyNumber = () => `ID${String(Math.random()).substring(2, 12)}`;
+
+
 export default function PatientRegistrationPage() {
   const { user, loading: userLoading } = useUser();
   const router = useRouter();
@@ -100,24 +118,26 @@ export default function PatientRegistrationPage() {
     setIsOcrLoading(true);
     setOcrFileName(file.name);
 
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = async () => {
-      const photoDataUri = reader.result as string;
-      const result = await handleSmartDataEntry({ photoDataUri });
-      
-      if ('error' in result) {
-        toast({ variant: 'destructive', title: 'Extraction Failed', description: result.error });
-      } else {
-        form.setValue('firstName', result.patientName?.split(' ')[0] || '');
-        form.setValue('lastName', result.patientName?.split(' ').slice(1).join(' ') || '');
-        form.setValue('contactInfo.address.street', result.address || '');
-        form.setValue('dateOfBirth', result.dateOfBirth ? format(new Date(result.dateOfBirth), 'yyyy-MM-dd') : '');
-        form.setValue('insuranceInfo.policyNumber', result.insurancePolicyNumber || '');
-        toast({ title: 'Extraction Successful', description: 'Patient data has been populated.' });
-      }
-      setIsOcrLoading(false);
-    };
+    // Simulate a network delay for the OCR process
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    const fName = getRandomItem(MOCK_FIRST_NAMES);
+    const lName = getRandomItem(MOCK_LAST_NAMES);
+
+    form.setValue('firstName', fName);
+    form.setValue('lastName', lName);
+    form.setValue('contactInfo.address.street', `${Math.floor(100 + Math.random() * 900)} ${getRandomItem(MOCK_STREETS)}`);
+    form.setValue('contactInfo.address.city', getRandomItem(MOCK_CITIES));
+    form.setValue('contactInfo.address.state', getRandomItem(MOCK_STATES));
+    form.setValue('contactInfo.address.zipCode', getRandomZip());
+    form.setValue('contactInfo.phone', getRandomPhone());
+    form.setValue('contactInfo.email', `${fName.toLowerCase()}.${lName.toLowerCase()}@example.com`);
+    form.setValue('dateOfBirth', getRandomDateOfBirth());
+    form.setValue('insuranceInfo.policyNumber', getRandomPolicyNumber());
+
+    toast({ title: 'Simulation Successful', description: 'Patient data has been populated with random values.' });
+    
+    setIsOcrLoading(false);
   };
 
   const onSubmit = async (data: PatientFormValues) => {
@@ -289,3 +309,5 @@ export default function PatientRegistrationPage() {
     </div>
   );
 }
+
+    
