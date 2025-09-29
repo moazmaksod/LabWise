@@ -1,8 +1,10 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { encrypt } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
-import { compare } from 'bcryptjs';
-import type { User } from '@/lib/types';
+import { compare, hash } from 'bcryptjs';
+import type { Role, User } from '@/lib/types';
+import { USERS } from '@/lib/constants';
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,7 +15,29 @@ export async function POST(req: NextRequest) {
     }
     
     const { db } = await connectToDatabase();
-    const user = await db.collection<User>('users').findOne({ email });
+    let user = await db.collection<User>('users').findOne({ email });
+
+    // --- Development Only: Auto-seed mock users ---
+    if (!user && Object.values(USERS).some(u => u.email === email)) {
+        const mockUser = Object.values(USERS).find(u => u.email === email)!;
+        const passwordHash = await hash('password123', 10);
+        
+        const newUserDocument: Omit<User, '_id'> = {
+            firstName: mockUser.firstName,
+            lastName: mockUser.lastName,
+            email: mockUser.email,
+            role: mockUser.role,
+            passwordHash,
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            avatar: mockUser.avatar
+        };
+
+        const result = await db.collection('users').insertOne(newUserDocument);
+        user = await db.collection<User>('users').findOne({ _id: result.insertedId });
+    }
+    // --- End Development Only ---
 
     if (!user) {
       return NextResponse.json({ message: 'Invalid credentials.' }, { status: 401 });
@@ -23,6 +47,10 @@ export async function POST(req: NextRequest) {
 
     if (!isPasswordValid) {
       return NextResponse.json({ message: 'Invalid credentials.' }, { status: 401 });
+    }
+
+    if (!user.isActive) {
+      return NextResponse.json({ message: 'This account has been deactivated.' }, { status: 403 });
     }
 
     const accessToken = await encrypt({ userId: user._id.toHexString(), role: user.role });
