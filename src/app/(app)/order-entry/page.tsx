@@ -81,27 +81,34 @@ export default function OrderEntryPage() {
     form.setValue('patientId', patient.id);
   };
 
-  // --- Patient Search ---
-  const handlePatientSearch = async () => {
+  // --- Patient Search (Debounced) ---
+  useEffect(() => {
     if (!patientSearchTerm.trim() || !token) {
         setPatientSearchResults([]);
+        if(isPatientSearching) setIsPatientSearching(false);
         return;
     };
+    
     setIsPatientSearching(true);
-    try {
-      const response = await fetch(`/api/v1/patients?q=${patientSearchTerm}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!response.ok) throw new Error('Search failed');
-      const data = await response.json();
-      setPatientSearchResults(data);
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not perform patient search.' });
-      setPatientSearchResults([]);
-    } finally {
-      setIsPatientSearching(false);
-    }
-  };
+    const searchDebounce = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/v1/patients?q=${patientSearchTerm}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Search failed');
+        const data = await response.json();
+        setPatientSearchResults(data);
+      } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not perform patient search.' });
+        setPatientSearchResults([]);
+      } finally {
+        setIsPatientSearching(false);
+      }
+    }, 500); // 500ms debounce delay
+
+    return () => clearTimeout(searchDebounce);
+  }, [patientSearchTerm, token, toast]);
+
 
   // --- Order Form Data Fetching ---
   const fetchPhysicians = useCallback(async () => {
@@ -111,7 +118,9 @@ export default function OrderEntryPage() {
           headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) {
-        throw new Error('Failed to fetch physicians');
+        const errorData = await response.json();
+        console.error('Physician fetch error:', errorData);
+        throw new Error(errorData.message || 'Failed to fetch physicians');
       }
       const data = await response.json();
       setPhysicians(data);
@@ -128,19 +137,20 @@ export default function OrderEntryPage() {
 
   // --- Test Search (Debounced on input change) ---
   useEffect(() => {
-    // This effect handles searching as the user types
-    if (!testSearchInput.trim() || !token || !isTestPopoverOpen) {
-      return;
-    }
-    
+    if (!isTestPopoverOpen) return; // Only search when popover is open
+
     const search = setTimeout(async () => {
+      if (!token) return;
       setIsTestSearching(true);
       try {
-        const response = await fetch(`/api/v1/test-catalog?q=${testSearchInput}`, {
+        const endpoint = testSearchInput.trim() ? `/api/v1/test-catalog?q=${testSearchInput}` : '/api/v1/test-catalog';
+        const response = await fetch(endpoint, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!response.ok) {
-           throw new Error('Test search failed');
+           const errorData = await response.json();
+           console.error('Test search error:', errorData);
+           throw new Error(errorData.message || 'Test search failed');
         }
         const data = await response.json();
         setTestSearchResults(data);
@@ -157,8 +167,7 @@ export default function OrderEntryPage() {
   // --- Test Search (On popover open) ---
   const handleTestPopoverOpenChange = useCallback(async (open: boolean) => {
     setIsTestPopoverOpen(open);
-    if (open && !testSearchInput.trim() && token) {
-        // If opening and input is empty, fetch all tests
+    if (open && !testSearchInput.trim() && token) { // If opening and input is empty, fetch all tests
         setIsTestSearching(true);
         try {
             const response = await fetch(`/api/v1/test-catalog`, {
@@ -271,19 +280,15 @@ export default function OrderEntryPage() {
             <CardDescription>Search for the patient by Name, MRN, or Phone Number to create an order.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Search..."
+                placeholder="Start typing to search for a patient..."
                 value={patientSearchTerm}
                 onChange={(e) => setPatientSearchTerm(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handlePatientSearch()}
-                className="flex-grow"
+                className="pl-10"
               />
-              <Button onClick={handlePatientSearch} disabled={isPatientSearching}>
-                {isPatientSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                Search
-              </Button>
             </div>
             <div className="mt-4 overflow-hidden rounded-md border">
               <Table>
@@ -313,7 +318,7 @@ export default function OrderEntryPage() {
                       </TableRow>
                     ))
                   ) : (
-                    <TableRow><TableCell colSpan={4} className="h-24 text-center">No patients found.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={4} className="h-24 text-center">{patientSearchTerm ? 'No patients found.' : 'Start typing to see results.'}</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

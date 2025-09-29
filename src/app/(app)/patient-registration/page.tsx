@@ -93,24 +93,35 @@ export default function PatientRegistrationPage() {
     const storedToken = localStorage.getItem('labwise-token');
     setToken(storedToken);
   }, []);
-
-  const handleSearch = async () => {
-    if (!searchTerm || !token) return;
-    setIsSearching(true);
-    try {
-      const response = await fetch(`/api/v1/patients?q=${searchTerm}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!response.ok) throw new Error('Search failed');
-      const data = await response.json();
-      setSearchResults(data);
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not perform patient search.' });
-    } finally {
-      setIsSearching(false);
-    }
-  };
   
+  useEffect(() => {
+    if (!searchTerm.trim() || !token) {
+        setSearchResults([]);
+        if(isSearching) setIsSearching(false);
+        return;
+    }
+    
+    setIsSearching(true);
+    const searchDebounce = setTimeout(async () => {
+        try {
+            const response = await fetch(`/api/v1/patients?q=${searchTerm}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error('Search failed');
+            const data = await response.json();
+            setSearchResults(data);
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not perform patient search.' });
+            setSearchResults([]);
+        } finally {
+            setIsSearching(false);
+        }
+    }, 500); // 500ms debounce delay
+
+    return () => clearTimeout(searchDebounce);
+  }, [searchTerm, token, toast]);
+
+
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -165,7 +176,10 @@ export default function PatientRegistrationPage() {
         toast({ title: `Patient created successfully`, description: `MRN: ${newPatient.mrn}` });
         setIsFormOpen(false);
         form.reset();
-        await handleSearch(); // Refresh search
+        // Trigger a new search to include the new patient
+        setSearchTerm(prev => prev + ' ');
+        setSearchTerm(newPatient.lastName);
+
     } catch (error: any) {
         toast({ variant: 'destructive', title: 'Error saving patient', description: error.message });
     }
@@ -192,23 +206,21 @@ export default function PatientRegistrationPage() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Patient Search</CardTitle>
-          <CardDescription>Search for an existing patient by Name, MRN, or Phone Number.</CardDescription>
+          <CardTitle>Patient Registration & Search</CardTitle>
+          <CardDescription>Search for an existing patient or create a new record.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex gap-2">
-            <Input
-              type="search"
-              placeholder="Search by Name, MRN, Phone..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="flex-grow"
-            />
-            <Button onClick={handleSearch} disabled={isSearching}>
-              {isSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-              {isSearching ? 'Searching...' : 'Search'}
-            </Button>
+            <div className="relative flex-grow">
+               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+               <Input
+                  type="search"
+                  placeholder="Start typing to search by Name, MRN, Phone..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+            </div>
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" onClick={() => { form.reset(); setIsFormOpen(true); }}>
@@ -297,7 +309,7 @@ export default function PatientRegistrationPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={4} className="h-24 text-center">
-                      No patients found. Use the search above to find a patient.
+                     {searchTerm ? 'No patients found.' : 'Start typing to see results.'}
                     </TableCell>
                   </TableRow>
                 )}
