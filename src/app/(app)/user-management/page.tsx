@@ -2,11 +2,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PlusCircle, MoreHorizontal } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, ShieldAlert } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@/hooks/use-user';
+import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -47,6 +49,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from '@/components/ui/alert';
 
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -91,6 +98,8 @@ export default function UserManagementPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<ClientUser | null>(null);
   const { toast } = useToast();
+  const { user, loading: userLoading } = useUser();
+  const router = useRouter();
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
@@ -106,14 +115,19 @@ export default function UserManagementPage() {
     setLoading(true);
     try {
       const response = await fetch('/api/v1/users');
-      if (!response.ok) throw new Error('Failed to fetch users');
+      if (!response.ok) {
+        if (response.status === 403) {
+           throw new Error('You do not have permission to view users.');
+        }
+        throw new Error('Failed to fetch users');
+      }
       const data = await response.json();
       setUsers(data);
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Could not fetch users.',
+        description: error.message || 'Could not fetch users.',
       });
     } finally {
       setLoading(false);
@@ -121,8 +135,47 @@ export default function UserManagementPage() {
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (!userLoading && user?.role === 'manager') {
+      fetchUsers();
+    }
+  }, [user, userLoading]);
+
+  if (userLoading) {
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-10 w-28" />
+            </div>
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-6 w-48" />
+                    <Skeleton className="h-4 w-96" />
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-64 w-full" />
+                </CardContent>
+            </Card>
+        </div>
+    )
+  }
+
+  if (user?.role !== 'manager') {
+    // Redirect non-managers after a short delay so they can see the message
+    setTimeout(() => {
+        router.push('/dashboard');
+    }, 3000);
+
+    return (
+        <Alert variant="destructive">
+            <ShieldAlert className="h-4 w-4" />
+            <AlertTitle>Access Denied</AlertTitle>
+            <AlertDescription>
+                You do not have permission to access this page. You will be redirected to your dashboard.
+            </AlertDescription>
+        </Alert>
+    );
+  }
 
   const handleEdit = (user: ClientUser) => {
     setEditingUser(user);
