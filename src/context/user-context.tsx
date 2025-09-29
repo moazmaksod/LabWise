@@ -30,11 +30,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             const userData: ClientUser = await response.json();
             setUser(userData);
         } else {
-            console.error('Failed to fetch user, logging out.');
+            const errorBody = await response.text();
+            console.error('Failed to fetch user, logging out. Status:', response.status, 'Body:', errorBody);
             logout();
         }
     } catch (error) {
-        console.error('Failed to fetch user', error);
+        console.error('Exception during fetchUser', error);
         logout();
     } finally {
         setLoading(false);
