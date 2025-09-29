@@ -1,11 +1,11 @@
 'use client';
 
 import React, { createContext, useState, useEffect, useCallback } from 'react';
-import type { Role, User } from '@/lib/types';
+import type { Role, ClientUser } from '@/lib/types';
 import { USERS } from '@/lib/constants';
 
 interface UserContextType {
-  user: User | null;
+  user: ClientUser | null;
   loading: boolean;
   login: (role: Role) => void;
   logout: () => void;
@@ -14,7 +14,7 @@ interface UserContextType {
 export const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<ClientUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

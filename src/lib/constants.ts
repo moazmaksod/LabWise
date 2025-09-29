@@ -16,10 +16,12 @@ import {
   Users, 
   ClipboardCopy 
 } from 'lucide-react';
-import type { Role, User, Sample } from '@/lib/types';
+import type { Role, ClientUser, Sample } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
-export const USERS: Record<Role, User> = {
+const now = new Date();
+
+export const USERS: Record<Role, ClientUser> = {
   receptionist: {
     id: 'user-rec-01',
     firstName: 'Sarah',
@@ -27,6 +29,9 @@ export const USERS: Record<Role, User> = {
     email: 'sarah.chen@labwise.com',
     role: 'receptionist',
     avatar: PlaceHolderImages.find(img => img.id === 'receptionist-avatar')?.imageUrl || '',
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
   },
   technician: {
     id: 'user-tech-01',
@@ -35,6 +40,9 @@ export const USERS: Record<Role, User> = {
     email: 'david.r@labwise.com',
     role: 'technician',
     avatar: PlaceHolderImages.find(img => img.id === 'technician-avatar')?.imageUrl || '',
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
   },
   manager: {
     id: 'user-mgr-01',
@@ -43,6 +51,9 @@ export const USERS: Record<Role, User> = {
     email: 'emily.jones@labwise.com',
     role: 'manager',
     avatar: PlaceHolderImages.find(img => img.id === 'manager-avatar')?.imageUrl || '',
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
   },
   physician: {
     id: 'user-phy-01',
@@ -51,6 +62,9 @@ export const USERS: Record<Role, User> = {
     email: 'msmith@clinic.com',
     role: 'physician',
     avatar: PlaceHolderImages.find(img => img.id === 'physician-avatar')?.imageUrl || '',
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
   },
   patient: {
     id: 'user-pat-01',
@@ -59,6 +73,9 @@ export const USERS: Record<Role, User> = {
     email: 'johndoe@email.com',
     role: 'patient',
     avatar: PlaceHolderImages.find(img => img.id === 'patient-avatar')?.imageUrl || '',
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
   }
 };
 
