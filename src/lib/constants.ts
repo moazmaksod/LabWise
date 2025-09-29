@@ -100,6 +100,7 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
   manager: [
     { href: '/dashboard', label: 'KPI Dashboard', icon: AreaChart },
     { href: '/user-management', label: 'User Management', icon: Users },
+    { href: '/patient-registration', label: 'Patient Registration', icon: UserPlus },
     { href: '/test-catalog', label: 'Test Catalog', icon: FlaskConical },
     { href: '/reports', label: 'Reports & Analytics', icon: BarChart },
     { href: '/inventory', label: 'Inventory Mgmt', icon: Boxes },
