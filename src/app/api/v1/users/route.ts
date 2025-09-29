@@ -1,19 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { hash } from 'bcryptjs';
-import { USERS, MOCK_USERS_FOR_UI } from '@/lib/constants';
-import type { ClientUser, Role } from '@/lib/types';
+import type { Role } from '@/lib/types';
+import { ObjectId } from 'mongodb';
 
 // GET all users
 export async function GET(req: NextRequest) {
-    // This is a mock implementation. In a real scenario, you'd fetch from the DB.
-    // const { db } = await connectToDatabase();
-    // const users = await db.collection('users').find({}).toArray();
-    // const clientUsers = users.map(user => {
-    //     const { passwordHash, ...clientUser } = user;
-    //     return { ...clientUser, id: user._id.toHexString() };
-    // });
-    return NextResponse.json(MOCK_USERS_FOR_UI);
+    try {
+        const { db } = await connectToDatabase();
+        const users = await db.collection('users').find({}).toArray();
+        
+        const clientUsers = users.map(user => {
+            const { passwordHash, _id, ...clientUser } = user;
+            return { ...clientUser, id: _id.toHexString() };
+        });
+
+        return NextResponse.json(clientUsers);
+    } catch (error) {
+        console.error('Failed to fetch users:', error);
+        return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
+    }
 }
 
 // POST a new user
@@ -25,36 +31,70 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
         }
 
-        // This is a mock implementation.
-        console.log('Creating user (mock):', { firstName, lastName, email, role });
+        const { db } = await connectToDatabase();
         
-        const newUser: ClientUser = {
-            id: `user-mock-${Math.random().toString(36).substring(7)}`,
+        const existingUser = await db.collection('users').findOne({ email });
+        if (existingUser) {
+            return NextResponse.json({ message: 'User with this email already exists' }, { status: 409 });
+        }
+        
+        const passwordHash = await hash(password, 10);
+        
+        const newUserDocument = {
             firstName,
             lastName,
             email,
             role: role as Role,
+            passwordHash,
             isActive: true,
             createdAt: new Date(),
             updatedAt: new Date(),
             avatar: `https://i.pravatar.cc/150?u=${email}`
         };
 
-        MOCK_USERS_FOR_UI.push(newUser);
+        const result = await db.collection('users').insertOne(newUserDocument);
+
+        const createdUser = {
+            id: result.insertedId.toHexString(),
+            ...newUserDocument
+        };
         
-        // In a real scenario:
-        // const { db } = await connectToDatabase();
-        // const existingUser = await db.collection('users').findOne({ email });
-        // if (existingUser) {
-        //     return NextResponse.json({ message: 'User with this email already exists' }, { status: 409 });
-        // }
-        // const passwordHash = await hash(password, 10);
-        // const result = await db.collection('users').insertOne({ ... });
-        
-        return NextResponse.json(newUser, { status: 201 });
+        const { passwordHash: _, ...clientUser } = createdUser;
+
+        return NextResponse.json(clientUser, { status: 201 });
 
     } catch (error) {
         console.error('Failed to create user:', error);
+        return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
+    }
+}
+
+// PUT (update) a user
+export async function PUT(req: NextRequest) {
+    try {
+        const { id, ...updateData } = await req.json();
+
+        if (!id) {
+            return NextResponse.json({ message: 'User ID is required for updates' }, { status: 400 });
+        }
+
+        const { db } = await connectToDatabase();
+        
+        // Ensure not to update the password this way
+        delete updateData.password;
+        
+        const result = await db.collection('users').updateOne(
+            { _id: new ObjectId(id) },
+            { $set: { ...updateData, updatedAt: new Date() } }
+        );
+
+        if (result.matchedCount === 0) {
+            return NextResponse.json({ message: 'User not found' }, { status: 404 });
+        }
+
+        return NextResponse.json({ message: 'User updated successfully' }, { status: 200 });
+    } catch (error) {
+        console.error('Failed to update user:', error);
         return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
     }
 }
