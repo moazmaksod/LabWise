@@ -16,26 +16,31 @@ export async function POST(req: NextRequest) {
     
     const { db } = await connectToDatabase();
     let user = await db.collection<User>('users').findOne({ email });
+    let isPasswordValid = false;
 
     // --- Development Only: Auto-seed mock users ---
     if (!user && Object.values(USERS).some(u => u.email === email)) {
         const mockUser = Object.values(USERS).find(u => u.email === email)!;
-        const passwordHash = await hash('password123', 10);
-        
-        const newUserDocument: Omit<User, '_id'> = {
-            firstName: mockUser.firstName,
-            lastName: mockUser.lastName,
-            email: mockUser.email,
-            role: mockUser.role,
-            passwordHash,
-            isActive: true,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            avatar: mockUser.avatar
-        };
+        // For mock users, we assume a default password for seeding
+        if (password === 'password123') {
+            const passwordHash = await hash(password, 10);
+            
+            const newUserDocument: Omit<User, '_id'> = {
+                firstName: mockUser.firstName,
+                lastName: mockUser.lastName,
+                email: mockUser.email,
+                role: mockUser.role,
+                passwordHash,
+                isActive: true,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                avatar: mockUser.avatar
+            };
 
-        const result = await db.collection('users').insertOne(newUserDocument);
-        user = await db.collection<User>('users').findOne({ _id: result.insertedId });
+            const result = await db.collection('users').insertOne(newUserDocument);
+            user = await db.collection<User>('users').findOne({ _id: result.insertedId });
+            isPasswordValid = true; // The user was just created with this password
+        }
     }
     // --- End Development Only ---
 
@@ -43,7 +48,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Invalid credentials.' }, { status: 401 });
     }
 
-    const isPasswordValid = await compare(password, user.passwordHash);
+    // If password wasn't validated during seeding, check it now
+    if (!isPasswordValid) {
+        isPasswordValid = await compare(password, user.passwordHash);
+    }
 
     if (!isPasswordValid) {
       return NextResponse.json({ message: 'Invalid credentials.' }, { status: 401 });
