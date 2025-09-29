@@ -66,12 +66,13 @@ export default function OrderEntryPage() {
   });
 
   useEffect(() => {
-    // Component mounts, try to get the token.
+    // DEBUG: Check if token is retrieved from localStorage
     const storedToken = localStorage.getItem('labwise-token');
+    console.log('[DEBUG] Component Mount: Retrieved token from localStorage:', storedToken ? 'found' : 'not found');
     if (storedToken) {
       setToken(storedToken);
     } else {
-      // Handle case where token is not available.
+      console.error('[DEBUG] Authentication Error: Could not find user session token.');
       toast({ variant: 'destructive', title: 'Authentication Error', description: 'Could not find user session.' });
     }
   }, [toast]);
@@ -105,43 +106,69 @@ export default function OrderEntryPage() {
 
   // --- Order Form Data Fetching ---
   const fetchPhysicians = useCallback(async () => {
-    if (!token) return;
+    if (!token) {
+        console.log('[DEBUG] fetchPhysicians: Aborted, no token available.');
+        return;
+    }
+    console.log('[DEBUG] fetchPhysicians: Starting fetch with token.');
     try {
-      // CORRECTED: Added ?role=physician to filter results
       const response = await fetch('/api/v1/users?role=physician', {
           headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (!response.ok) throw new Error('Failed to fetch physicians');
+      console.log('[DEBUG] fetchPhysicians: API response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[DEBUG] fetchPhysicians: API request failed. Status:', response.status, 'Body:', errorText);
+        throw new Error('Failed to fetch physicians');
+      }
+
       const data = await response.json();
+      console.log('[DEBUG] fetchPhysicians: Received data:', data);
       setPhysicians(data);
+
     } catch (error) {
+       console.error('[DEBUG] fetchPhysicians: Caught an error.', error);
        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch physician list.' });
     }
   }, [token, toast]);
 
   useEffect(() => {
-    if(selectedPatient && token) { // Ensure token exists before fetching
+    console.log('[DEBUG] useEffect for fetchPhysicians triggered. selectedPatient:', !!selectedPatient, 'token:', !!token);
+    if(selectedPatient && token) {
         fetchPhysicians();
     }
   }, [selectedPatient, token, fetchPhysicians]);
 
   // --- Test Search ---
   useEffect(() => {
+    console.log('[DEBUG] Test search useEffect triggered. Input:', testSearchInput, 'Token:', !!token);
     if (!testSearchInput.trim() || !token) {
         setTestSearchResults([]);
         return;
     }
     
     const search = setTimeout(async () => {
+      console.log(`[DEBUG] Test Search: Performing search for "${testSearchInput}"`);
       setIsTestSearching(true);
       try {
         const response = await fetch(`/api/v1/test-catalog?q=${testSearchInput}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        if (!response.ok) throw new Error('Test search failed');
+        console.log('[DEBUG] Test Search: API response status:', response.status);
+
+        if (!response.ok) {
+           const errorText = await response.text();
+           console.error('[DEBUG] Test Search: API request failed. Status:', response.status, 'Body:', errorText);
+           throw new Error('Test search failed');
+        }
+
         const data = await response.json();
+        console.log('[DEBUG] Test Search: Received data:', data);
         setTestSearchResults(data);
+
       } catch (error) {
+        console.error('[DEBUG] Test Search: Caught an error.', error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not search tests.' });
       } finally {
         setIsTestSearching(false);
@@ -414,3 +441,5 @@ export default function OrderEntryPage() {
     </div>
   );
 }
+
+    
