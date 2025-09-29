@@ -72,21 +72,33 @@ export default function OrderEntryPage() {
 
   useEffect(() => {
     const storedToken = localStorage.getItem('labwise-token');
-    setToken(storedToken);
-    
+    if (storedToken) {
+      setToken(storedToken);
+    }
+  }, []);
+
+  useEffect(() => {
     async function fetchPhysicians() {
-        if (!storedToken) return;
+        if (!token) return;
         try {
-            const res = await fetch('/api/v1/users', { headers: { 'Authorization': `Bearer ${storedToken}` }});
+            const res = await fetch('/api/v1/users', { 
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) {
+              throw new Error('Could not fetch physicians');
+            }
             const allUsers: ClientUser[] = await res.json();
             setPhysicians(allUsers.filter(u => u.role === 'physician'));
         } catch (e) {
+            console.error(e);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch physicians.' });
         }
     }
-    fetchPhysicians();
+    if (token) {
+      fetchPhysicians();
+    }
+  }, [token, toast]);
 
-  }, [toast]);
 
   useEffect(() => {
     if (selectedPatient) {
@@ -117,6 +129,7 @@ export default function OrderEntryPage() {
     setIsPatientSearching(true);
     setSelectedPatient(null);
     form.reset();
+    setAddedTests([]);
     try {
       const response = await fetch(`/api/v1/patients?q=${patientSearchTerm}`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -166,11 +179,17 @@ export default function OrderEntryPage() {
 
   const onSubmit = async (data: OrderFormValues) => {
     if (!token) return;
+    
+    const submissionData = {
+      ...data,
+      tests: addedTests.map(t => t.testCode) // Send only the test codes
+    }
+
     try {
         const response = await fetch('/api/v1/orders', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify(data),
+            body: JSON.stringify(submissionData),
         });
 
         if (!response.ok) {
@@ -386,5 +405,3 @@ export default function OrderEntryPage() {
     </div>
   );
 }
-
-    
