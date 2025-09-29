@@ -3,6 +3,8 @@ import { encrypt } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
 import { compare } from 'bcryptjs';
 import type { User } from '@/lib/types';
+import { hash } from 'bcryptjs';
+import { USERS } from '@/lib/constants';
 
 export async function POST(req: NextRequest) {
   try {
