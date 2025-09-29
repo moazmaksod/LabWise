@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { decrypt } from '@/lib/auth';
-import { ObjectId } from 'mongodb';
-import type { User, ClientUser } from '@/lib/types';
+import type { ClientUser } from '@/lib/types';
 import { USERS } from '@/lib/constants';
 
 
@@ -20,13 +19,30 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const userById = Object.values(USERS).find(u => u.id === decryptedPayload.userId);
+    // The payload userId might contain slashes which would fail a direct lookup.
+    // However, since our mock USERS object keys are the same as the user IDs,
+    // we can look it up directly.
+    const userById = USERS[decryptedPayload.userId as keyof typeof USERS];
 
     if (!userById) {
       return NextResponse.json({ message: 'User not found.' }, { status: 404 });
     }
     
-    return NextResponse.json(userById, { status: 200 });
+    // We create a client-safe user object without the password hash.
+    // In our mock, there is no hash, but this is good practice.
+    const clientUser: ClientUser = {
+      id: userById.id,
+      firstName: userById.firstName,
+      lastName: userById.lastName,
+      email: userById.email,
+      role: userById.role,
+      avatar: userById.avatar,
+      isActive: userById.isActive,
+      createdAt: userById.createdAt,
+      updatedAt: userById.updatedAt,
+    }
+    
+    return NextResponse.json(clientUser, { status: 200 });
 
   } catch (error) {
     console.error('Error fetching user profile:', error);
