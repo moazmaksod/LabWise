@@ -1,3 +1,4 @@
+
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { decrypt } from '@/lib/auth';
@@ -48,6 +49,7 @@ export async function middleware(request: NextRequest) {
   // 2. Define public paths that don't require authentication
   const publicPaths = [
     '/api/v1/auth/login',
+    '/api/v1/health/db-check',
   ];
 
   // Let the request through if it's a public path or for internal Next.js assets
