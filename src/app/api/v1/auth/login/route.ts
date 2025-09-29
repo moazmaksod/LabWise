@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { compare } from 'bcryptjs';
 import { encrypt } from '@/lib/auth';
 import type { User } from '@/lib/types';
 import { USERS } from '@/lib/constants'; 
@@ -11,13 +10,23 @@ export async function POST(req: NextRequest) {
     if (!email || !password) {
       return NextResponse.json({ message: 'Email and password are required.' }, { status: 400 });
     }
-
+    
+    // In a real app, you'd find the user in the DB and then compare passwords.
+    // const { db } = await connectToDatabase();
+    // const user = await db.collection<User>('users').findOne({ email });
     const userByEmail = Object.values(USERS).find(u => u.email === email);
     
     if (!userByEmail) {
         return NextResponse.json({ message: 'Invalid credentials.' }, { status: 401 });
     }
 
+    // In a real app, you would use bcrypt.compare:
+    // const passwordsMatch = await compare(password, user.passwordHash);
+    // if (!passwordsMatch) {
+    //   return NextResponse.json({ message: 'Invalid credentials.' }, { status: 401 });
+    // }
+
+    // For now, we accept any password for the mock user
     const accessToken = await encrypt({ userId: userByEmail.id, role: userByEmail.role });
 
     const response = NextResponse.json({ accessToken }, { status: 200 });

@@ -8,25 +8,11 @@ import { USERS } from '@/lib/constants';
 interface UserContextType {
   user: ClientUser | null;
   loading: boolean;
-  login: (role: Role) => Promise<void>;
+  login: (email: string, password?: string) => Promise<boolean>;
   logout: () => void;
 }
 
 export const UserContext = createContext<UserContextType | undefined>(undefined);
-
-const mockPasswords: Record<Role, string> = {
-    receptionist: 'receptionist123',
-    technician: 'technician123',
-    manager: 'manager123',
-    physician: 'physician123',
-    patient: 'patient123'
-}
-
-const getMockEmailByRole = (role: Role): string => {
-  const user = Object.values(USERS).find(u => u.role === role);
-  return user ? user.email : 'emily.jones@labwise.com'; // Default to manager
-}
-
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<ClientUser | null>(null);
@@ -44,7 +30,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             const userData: ClientUser = await response.json();
             setUser(userData);
         } else {
-            // Token is invalid or expired, so log out
             console.error('Failed to fetch user, logging out.');
             logout();
         }
@@ -65,7 +50,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   }, [fetchUser]);
 
-  const login = useCallback(async (role: Role) => {
+  const login = useCallback(async (email: string, password?: string) => {
     setLoading(true);
     try {
         const response = await fetch('/api/v1/auth/login', {
@@ -73,20 +58,23 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ email: getMockEmailByRole(role), password: 'anypassword' })
+            body: JSON.stringify({ email, password: password || 'anypassword' })
         });
 
         if (response.ok) {
             const { accessToken } = await response.json();
             localStorage.setItem('labwise-token', accessToken);
             await fetchUser(accessToken);
+            return true;
         } else {
             console.error('Login failed');
             setLoading(false);
+            return false;
         }
     } catch (error) {
         console.error('Login request failed', error);
         setLoading(false);
+        return false;
     }
   }, [fetchUser]);
 
