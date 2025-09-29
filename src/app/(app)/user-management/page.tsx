@@ -71,8 +71,17 @@ const userFormSchema = z.object({
   lastName: z.string().min(1, 'Last name is required'),
   email: z.string().email('Invalid email address'),
   role: z.enum(['receptionist', 'technician', 'manager', 'physician', 'patient']),
-  password: z.string().min(8, 'Password must be at least 8 characters').optional(),
+  password: z.string().optional(),
+}).refine(data => {
+    if (!data.id) { // Only require password for new users
+        return data.password && data.password.length >= 8;
+    }
+    return true;
+}, {
+    message: "Password must be at least 8 characters for new users",
+    path: ["password"],
 });
+
 
 type UserFormValues = z.infer<typeof userFormSchema>;
 
@@ -123,6 +132,7 @@ export default function UserManagementPage() {
       lastName: user.lastName,
       email: user.email,
       role: user.role,
+      password: '', // Clear password field for edits
     });
     setIsFormOpen(true);
   };
@@ -141,8 +151,13 @@ export default function UserManagementPage() {
   };
 
   const onSubmit = async (data: UserFormValues) => {
-    const apiEndpoint = data.id ? `/api/v1/users/${data.id}` : '/api/v1/users';
+    const apiEndpoint = data.id ? `/api/v1/users` : '/api/v1/users';
     const method = data.id ? 'PUT' : 'POST';
+
+    // Don't send an empty password field on updates
+    if (data.id && !data.password) {
+        delete data.password;
+    }
 
     try {
         const response = await fetch(apiEndpoint, {
@@ -222,7 +237,7 @@ export default function UserManagementPage() {
                                     <FormItem>
                                         <FormLabel>Email</FormLabel>
                                         <FormControl>
-                                            <Input placeholder="john.doe@email.com" {...field} />
+                                            <Input type="email" placeholder="john.doe@email.com" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>

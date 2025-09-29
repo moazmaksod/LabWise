@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { hash } from 'bcryptjs';
-import type { Role } from '@/lib/types';
+import type { Role, User } from '@/lib/types';
 import { ObjectId } from 'mongodb';
 
 // GET all users
 export async function GET(req: NextRequest) {
     try {
         const { db } = await connectToDatabase();
-        const users = await db.collection('users').find({}).toArray();
+        const users = await db.collection('users').find({}).sort({ createdAt: -1 }).toArray();
         
         const clientUsers = users.map(user => {
             const { passwordHash, _id, ...clientUser } = user;
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
         
         const passwordHash = await hash(password, 10);
         
-        const newUserDocument = {
+        const newUserDocument: Omit<User, '_id'> = {
             firstName,
             lastName,
             email,
@@ -80,12 +80,21 @@ export async function PUT(req: NextRequest) {
 
         const { db } = await connectToDatabase();
         
-        // Ensure not to update the password this way
+        // You would add logic here to check if the user has permission to update.
+        // For now, we'll allow it.
+
+        // Prevent password from being updated this way. A separate "change password" endpoint is better.
         delete updateData.password;
         
+        // Prepare the update object, ensuring not to overwrite critical fields unintentionally
+        const updateObject: Partial<User> = {
+            ...updateData,
+            updatedAt: new Date(),
+        };
+
         const result = await db.collection('users').updateOne(
             { _id: new ObjectId(id) },
-            { $set: { ...updateData, updatedAt: new Date() } }
+            { $set: updateObject }
         );
 
         if (result.matchedCount === 0) {
