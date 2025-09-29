@@ -16,7 +16,6 @@ export async function POST(req: NextRequest) {
     
     const { db } = await connectToDatabase();
     let user = await db.collection<User>('users').findOne({ email });
-    let isPasswordValid = false;
 
     // --- Development Only: Auto-seed mock users ---
     if (!user && Object.values(USERS).some(u => u.email === email)) {
@@ -38,8 +37,8 @@ export async function POST(req: NextRequest) {
             };
 
             const result = await db.collection('users').insertOne(newUserDocument);
+            // After seeding, refetch the user from the DB to ensure we have the correct document with the _id
             user = await db.collection<User>('users').findOne({ _id: result.insertedId });
-            isPasswordValid = true; // The user was just created with this password
         }
     }
     // --- End Development Only ---
@@ -48,10 +47,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Invalid credentials.' }, { status: 401 });
     }
 
-    // If password wasn't validated during seeding, check it now
-    if (!isPasswordValid) {
-        isPasswordValid = await compare(password, user.passwordHash);
-    }
+    const isPasswordValid = await compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
       return NextResponse.json({ message: 'Invalid credentials.' }, { status: 401 });
