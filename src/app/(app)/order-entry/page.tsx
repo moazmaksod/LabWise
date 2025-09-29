@@ -17,22 +17,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import type { ClientPatient, ClientTestCatalogItem, ClientUser } from '@/lib/types';
+import type { ClientPatient } from '@/lib/types';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
-import { Check } from 'lucide-react';
 
 const orderFormSchema = z.object({
   patientId: z.string().min(1, 'A patient must be selected.'),
-  physicianId: z.string().min(1, 'A physician must be selected.'),
-  icd10Code: z.string().min(1, 'ICD-10 code is required.'),
-  priority: z.enum(['Routine', 'STAT']),
-  samples: z.array(z.object({
-    sampleType: z.string(),
-    testCodes: z.array(z.string())
-  })).min(1, 'At least one test must be added.'),
 });
 
 type OrderFormValues = z.infer<typeof orderFormSchema>;
@@ -43,30 +32,18 @@ export default function OrderEntryPage() {
   const { toast } = useToast();
   const [token, setToken] = useState<string | null>(null);
 
+  // State to manage the two-step workflow
+  const [selectedPatient, setSelectedPatient] = useState<ClientPatient | null>(null);
+
   // Patient Search State
   const [patientSearchTerm, setPatientSearchTerm] = useState('');
   const [patientSearchResults, setPatientSearchResults] = useState<ClientPatient[]>([]);
   const [isPatientSearching, setIsPatientSearching] = useState(false);
-  const [selectedPatient, setSelectedPatient] = useState<ClientPatient | null>(null);
-
-  // Test Search State
-  const [testSearchTerm, setTestSearchTerm] = useState('');
-  const [testSearchResults, setTestSearchResults] = useState<ClientTestCatalogItem[]>([]);
-  const [isTestSearching, setIsTestSearching] = useState(false);
   
-  // Physician Search State
-  const [physicians, setPhysicians] = useState<ClientUser[]>([]);
-  
-  const [addedTests, setAddedTests] = useState<ClientTestCatalogItem[]>([]);
-
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderFormSchema),
     defaultValues: {
       patientId: '',
-      physicianId: '',
-      icd10Code: '',
-      priority: 'Routine',
-      samples: [],
     },
   });
 
@@ -77,59 +54,11 @@ export default function OrderEntryPage() {
     }
   }, []);
 
-  useEffect(() => {
-    async function fetchPhysicians() {
-        if (!token) return;
-        try {
-            const res = await fetch('/api/v1/users', { 
-              headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!res.ok) {
-              throw new Error('Could not fetch physicians');
-            }
-            const allUsers: ClientUser[] = await res.json();
-            setPhysicians(allUsers.filter(u => u.role === 'physician'));
-        } catch (e) {
-            console.error(e);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch physicians.' });
-        }
-    }
-    if (token) {
-      fetchPhysicians();
-    }
-  }, [token, toast]);
-
-
-  useEffect(() => {
-    if (selectedPatient) {
-      form.setValue('patientId', selectedPatient.id);
-    }
-  }, [selectedPatient, form]);
-
-  useEffect(() => {
-    const samplesMap = new Map<string, string[]>();
-    addedTests.forEach(test => {
-        const sampleType = test.specimenRequirements.tubeType;
-        if (!samplesMap.has(sampleType)) {
-            samplesMap.set(sampleType, []);
-        }
-        samplesMap.get(sampleType)!.push(test.testCode);
-    });
-
-    const samplesForForm = Array.from(samplesMap.entries()).map(([sampleType, testCodes]) => ({
-        sampleType,
-        testCodes,
-    }));
-    form.setValue('samples', samplesForForm);
-  }, [addedTests, form]);
-
-
   const handlePatientSearch = async () => {
     if (!patientSearchTerm || !token) return;
     setIsPatientSearching(true);
     setSelectedPatient(null);
     form.reset();
-    setAddedTests([]);
     try {
       const response = await fetch(`/api/v1/patients?q=${patientSearchTerm}`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -144,75 +73,10 @@ export default function OrderEntryPage() {
     }
   };
 
-  const handleTestSearch = async (query: string) => {
-    setTestSearchTerm(query);
-    if (!query || !token) {
-        setTestSearchResults([]);
-        return;
-    };
-    setIsTestSearching(true);
-    try {
-        const response = await fetch(`/api/v1/test-catalog?q=${query}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!response.ok) throw new Error('Test search failed');
-        const data = await response.json();
-        setTestSearchResults(data);
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not perform test search.' });
-    } finally {
-        setIsTestSearching(false);
-    }
-  }
-
-  const addTestToOrder = (test: ClientTestCatalogItem) => {
-    if (!addedTests.find(t => t.testCode === test.testCode)) {
-        setAddedTests([...addedTests, test]);
-    }
-    setTestSearchTerm('');
-    setTestSearchResults([]);
-  }
-
-  const removeTestFromOrder = (testCode: string) => {
-    setAddedTests(addedTests.filter(t => t.testCode !== testCode));
-  }
-
   const onSubmit = async (data: OrderFormValues) => {
-    if (!token) return;
-    
-    const submissionData = {
-      patientId: data.patientId,
-      physicianId: data.physicianId,
-      icd10Code: data.icd10Code,
-      priority: data.priority,
-      samples: data.samples
-    };
-
-    try {
-        const response = await fetch('/api/v1/orders', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify(submissionData),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to create order.');
-        }
-
-        const newOrder = await response.json();
-        toast({ title: `Order created successfully`, description: `Order ID: ${newOrder.orderId}` });
-        
-        // Reset state
-        form.reset();
-        setSelectedPatient(null);
-        setPatientSearchTerm('');
-        setPatientSearchResults([]);
-        setAddedTests([]);
-
-    } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Error creating order', description: error.message });
-    }
+    // This function will be fully implemented in a later step.
+    console.log("Submitting order...", data);
+    toast({ title: "Order Submitted (Placeholder)"});
   };
 
   if (userLoading) return <Skeleton className="h-96 w-full" />;
@@ -233,6 +97,7 @@ export default function OrderEntryPage() {
       <h1 className="text-3xl font-bold tracking-tight">Order Entry</h1>
 
       {!selectedPatient ? (
+        // STEP 1: PATIENT SEARCH
         <Card>
           <CardHeader>
             <CardTitle>Step 1: Find Patient</CardTitle>
@@ -289,6 +154,7 @@ export default function OrderEntryPage() {
           </CardContent>
         </Card>
       ) : (
+        // STEP 2: ORDER FORM
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <Card>
@@ -301,102 +167,13 @@ export default function OrderEntryPage() {
                         <Button variant="outline" size="sm" onClick={() => setSelectedPatient(null)}>Change Patient</Button>
                     </div>
                 </CardHeader>
-                <CardContent className="grid md:grid-cols-2 gap-6">
-                    <FormField control={form.control} name="physicianId" render={({ field }) => (
-                         <FormItem>
-                            <FormLabel>Ordering Physician</FormLabel>
-                             <Popover>
-                                <PopoverTrigger asChild>
-                                    <FormControl>
-                                        <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
-                                            {field.value ? `Dr. ${physicians.find((p) => p.id === field.value)?.lastName}, ${physicians.find((p) => p.id === field.value)?.firstName}` : "Select Physician"}
-                                            <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-full p-0">
-                                     <Command>
-                                        <CommandInput placeholder="Search physicians..." />
-                                        <CommandEmpty>No physician found.</CommandEmpty>
-                                        <CommandGroup>
-                                            <CommandList>
-                                            {physicians.map((p) => (
-                                                <CommandItem value={`${p.firstName} ${p.lastName}`} key={p.id} onSelect={() => form.setValue("physicianId", p.id)}>
-                                                   <Check className={cn("mr-2 h-4 w-4", field.value === p.id ? "opacity-100" : "opacity-0")} />
-                                                   Dr. {p.firstName} {p.lastName}
-                                                </CommandItem>
-                                            ))}
-                                            </CommandList>
-                                        </CommandGroup>
-                                     </Command>
-                                </PopoverContent>
-                            </Popover>
-                             <FormMessage />
-                         </FormItem>
-                    )} />
-
-                    <FormField control={form.control} name="icd10Code" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>ICD-10 Diagnosis Code</FormLabel>
-                            <FormControl><Input placeholder="e.g., E11.9" {...field} /></FormControl>
-                             <FormMessage />
-                        </FormItem>
-                    )} />
+                <CardContent>
+                    <p>Order form components will be added here in the next steps.</p>
                 </CardContent>
             </Card>
 
-             <Card>
-                <CardHeader>
-                    <CardTitle>Step 2: Add Tests</CardTitle>
-                </CardHeader>
-                <CardContent>
-                     <Command className="overflow-visible">
-                        <CommandInput 
-                            placeholder="Search for a test to add..."
-                            value={testSearchTerm}
-                            onValueChange={handleTestSearch}
-                            disabled={!selectedPatient}
-                        />
-                         <CommandList className="relative">
-                            {isTestSearching && <CommandItem disabled>Searching...</CommandItem>}
-                            {testSearchResults.length > 0 && (
-                                <div className="absolute top-full mt-1 w-full rounded-md border bg-popover text-popover-foreground shadow-md z-20">
-                                  <CommandGroup>
-                                    {testSearchResults.map(test => (
-                                        <CommandItem key={test.id} onSelect={() => addTestToOrder(test)} value={test.name}>
-                                            <span>{test.name} ({test.testCode})</span>
-                                        </CommandItem>
-                                    ))}
-                                  </CommandGroup>
-                                </div>
-                            )}
-                         </CommandList>
-                    </Command>
-
-                     <div className="mt-4 space-y-2">
-                        <h4 className="text-sm font-medium">Selected Tests</h4>
-                        {addedTests.length > 0 ? (
-                             <div className="space-y-2 rounded-md border p-2">
-                                {addedTests.map((test, index) => (
-                                    <div key={test.id} className="flex items-center justify-between p-2 rounded-md hover:bg-secondary/50">
-                                        <div>
-                                            <p className="font-medium">{test.name}</p>
-                                            <p className="text-xs text-muted-foreground">{test.testCode} - requires {test.specimenRequirements.tubeType}</p>
-                                        </div>
-                                        <Button variant="ghost" size="icon" onClick={() => removeTestFromOrder(test.testCode)}><X className="h-4 w-4" /></Button>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center text-sm text-muted-foreground py-4">No tests added yet.</div>
-                        )}
-                         {form.formState.errors.samples && <p className="text-sm font-medium text-destructive">{form.formState.errors.samples.message}</p>}
-                    </div>
-                </CardContent>
-             </Card>
-
             <div className="flex justify-end gap-4">
-                <Button variant="ghost" onClick={() => { setSelectedPatient(null); setAddedTests([]); }}>Cancel</Button>
+                <Button variant="ghost" onClick={() => { setSelectedPatient(null); }}>Cancel</Button>
                 <Button type="submit" disabled={form.formState.isSubmitting}>
                     {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Create Order
