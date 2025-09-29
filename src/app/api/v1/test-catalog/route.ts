@@ -1,4 +1,5 @@
 
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
@@ -9,10 +10,11 @@ export async function GET(req: NextRequest) {
     try {
         const { searchParams } = new URL(req.url);
         const query = searchParams.get('q');
+        const codes = searchParams.get('codes');
         
         const { db } = await connectToDatabase();
 
-        let filter = {};
+        let filter: any = {};
         if (query) {
             const searchRegex = new RegExp(query, 'i');
             filter = {
@@ -20,6 +22,10 @@ export async function GET(req: NextRequest) {
                     { name: searchRegex },
                     { testCode: searchRegex },
                 ]
+            }
+        } else if (codes) {
+            filter = {
+                testCode: { $in: codes.split(',') }
             }
         }
 
@@ -99,3 +105,5 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
     }
 }
+
+    

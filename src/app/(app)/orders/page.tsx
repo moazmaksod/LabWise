@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Search, PlusCircle, X, Loader2, User, ShieldAlert, FilePlus, TestTube, FileSearch } from 'lucide-react';
+import { Search, PlusCircle, X, Loader2, User, ShieldAlert, FilePlus, TestTube, FileSearch, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
@@ -27,6 +27,7 @@ import type { ClientPatient, ClientTestCatalogItem, ClientUser, ClientOrder } fr
 import { format } from 'date-fns';
 
 const orderFormSchema = z.object({
+  id: z.string().optional(),
   patientId: z.string().min(1, 'A patient must be selected.'),
   physicianId: z.string().min(1, 'An ordering physician must be selected.'),
   icd10Code: z.string().min(3, 'A valid ICD-10 code is required.'),
@@ -36,7 +37,15 @@ const orderFormSchema = z.object({
 
 type OrderFormValues = z.infer<typeof orderFormSchema>;
 
-function NewOrderForm({ patient, onOrderCreated }: { patient: ClientPatient, onOrderCreated: () => void }) {
+function OrderForm({
+  patient,
+  onOrderSaved,
+  editingOrder,
+}: {
+  patient: ClientPatient;
+  onOrderSaved: () => void;
+  editingOrder?: ClientOrder | null;
+}) {
   const { toast } = useToast();
   const [token, setToken] = useState<string | null>(null);
 
@@ -46,14 +55,15 @@ function NewOrderForm({ patient, onOrderCreated }: { patient: ClientPatient, onO
   const [testSearchResults, setTestSearchResults] = useState<ClientTestCatalogItem[]>([]);
   const [isTestSearching, setIsTestSearching] = useState(false);
   const [selectedTests, setSelectedTests] = useState<ClientTestCatalogItem[]>([]);
-
+  
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderFormSchema),
     defaultValues: {
+      id: editingOrder?.id,
       patientId: patient.id,
-      physicianId: '',
-      icd10Code: '',
-      testIds: [],
+      physicianId: editingOrder?.physicianId,
+      icd10Code: editingOrder?.icd10Code,
+      testIds: editingOrder?.samples[0].tests.map(t => t.testCode),
     },
   });
 
@@ -76,9 +86,27 @@ function NewOrderForm({ patient, onOrderCreated }: { patient: ClientPatient, onO
     }
   }, [token, toast]);
 
+  const fetchInitialTests = useCallback(async (testCodes: string[]) => {
+      if (!token || testCodes.length === 0) return;
+      try {
+          const response = await fetch(`/api/v1/test-catalog?codes=${testCodes.join(',')}`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (!response.ok) throw new Error('Failed to fetch initial tests');
+          const tests = await response.json();
+          setSelectedTests(tests);
+      } catch (error) {
+          console.error(error);
+          toast({ variant: 'destructive', title: 'Error', description: 'Could not load existing tests for this order.' });
+      }
+  }, [token, toast]);
+
   useEffect(() => {
     fetchPhysicians();
-  }, [token, fetchPhysicians]);
+    if(editingOrder) {
+        fetchInitialTests(editingOrder.samples[0].tests.map(t => t.testCode));
+    }
+  }, [token, editingOrder, fetchPhysicians, fetchInitialTests]);
   
   const handleTestPopoverOpenChange = useCallback(async (open: boolean) => {
     setIsTestPopoverOpen(open);
@@ -102,7 +130,7 @@ function NewOrderForm({ patient, onOrderCreated }: { patient: ClientPatient, onO
   }, [testSearchInput, token, toast]);
 
   const handleSelectTest = (test: ClientTestCatalogItem) => {
-    if (!selectedTests.find(t => t.id === test.id)) {
+    if (!selectedTests.find(t => t.testCode === test.testCode)) {
       const newSelectedTests = [...selectedTests, test];
       setSelectedTests(newSelectedTests);
       form.setValue('testIds', newSelectedTests.map(t => t.testCode));
@@ -112,8 +140,8 @@ function NewOrderForm({ patient, onOrderCreated }: { patient: ClientPatient, onO
     setIsTestPopoverOpen(false);
   };
 
-  const handleRemoveTest = (testId: string) => {
-    const newSelectedTests = selectedTests.filter(t => t.id !== testId);
+  const handleRemoveTest = (testCode: string) => {
+    const newSelectedTests = selectedTests.filter(t => t.testCode !== testCode);
     setSelectedTests(newSelectedTests);
     form.setValue('testIds', newSelectedTests.map(t => t.testCode));
   };
@@ -144,32 +172,35 @@ function NewOrderForm({ patient, onOrderCreated }: { patient: ClientPatient, onO
   
   const onSubmit = async (data: OrderFormValues) => {
     if (!token) return;
+    const isEditing = !!data.id;
+    
     try {
         const payload = {
+            id: data.id,
             patientId: data.patientId,
             physicianId: data.physicianId,
             icd10Code: data.icd10Code,
-            priority: 'Routine',
+            priority: 'Routine', // This could be a form field in the future
             samples: [{ sampleType: data.sampleType, testCodes: data.testIds }]
         };
         
-        const response = await fetch('/api/v1/orders', {
-            method: 'POST',
+        const response = await fetch(isEditing ? `/api/v1/orders/${data.id}` : '/api/v1/orders', {
+            method: isEditing ? 'PUT' : 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to create order.');
+            throw new Error(errorData.message || `Failed to ${isEditing ? 'update' : 'create'} order.`);
         }
         
-        const newOrder = await response.json();
-        toast({ title: "Order Created Successfully", description: `Order ID: ${newOrder.orderId}` });
-        onOrderCreated();
+        const result = await response.json();
+        toast({ title: `Order ${isEditing ? 'Updated' : 'Created'} Successfully`, description: `Order ID: ${result.orderId}` });
+        onOrderSaved();
 
     } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Order Creation Failed', description: error.message });
+        toast({ variant: 'destructive', title: `Order ${isEditing ? 'Update' : 'Creation'} Failed`, description: error.message });
     }
   };
 
@@ -201,21 +232,21 @@ function NewOrderForm({ patient, onOrderCreated }: { patient: ClientPatient, onO
         </div>
         <div className="space-y-2">
             <FormLabel>Selected Tests</FormLabel>
-            {selectedTests.length > 0 ? ( <div className="flex flex-wrap gap-2">{selectedTests.map(test => (<Badge key={test.id} variant="secondary" className="text-base py-1 pl-3 pr-1">{test.name}<button type="button" onClick={() => handleRemoveTest(test.id)} className="ml-2 rounded-full p-0.5 hover:bg-destructive/20 text-destructive"><X className="h-3 w-3" /></button></Badge>))}</div>) : (<div className="text-sm text-muted-foreground">No tests added yet.</div>)}
+            {selectedTests.length > 0 ? ( <div className="flex flex-wrap gap-2">{selectedTests.map(test => (<Badge key={test.testCode} variant="secondary" className="text-base py-1 pl-3 pr-1">{test.name}<button type="button" onClick={() => handleRemoveTest(test.testCode)} className="ml-2 rounded-full p-0.5 hover:bg-destructive/20 text-destructive"><X className="h-3 w-3" /></button></Badge>))}</div>) : (<div className="text-sm text-muted-foreground">No tests added yet.</div>)}
             <FormField control={form.control} name="testIds" render={({ field }) => ( <FormItem><FormMessage /></FormItem>)} />
         </div>
         <DialogFooter>
             <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Order
+                {editingOrder ? 'Save Changes' : 'Create Order'}
             </Button>
         </DialogFooter>
       </form>
     </Form>
-  )
+  );
 }
 
-function NewOrderDialogContent({ onOrderCreated }: { onOrderCreated: () => void }) {
+function OrderDialogContent({ onOrderSaved, editingOrder, setEditingOrder }: { onOrderSaved: () => void, editingOrder?: ClientOrder | null, setEditingOrder: (order: ClientOrder | null) => void }) {
   const [patientSearchTerm, setPatientSearchTerm] = useState('');
   const [patientSearchResults, setPatientSearchResults] = useState<ClientPatient[]>([]);
   const [isPatientSearching, setIsPatientSearching] = useState(false);
@@ -225,34 +256,48 @@ function NewOrderDialogContent({ onOrderCreated }: { onOrderCreated: () => void 
   const searchParams = useSearchParams();
   const router = useRouter();
 
+  const isEditing = !!editingOrder;
+  const dialogTitle = isEditing ? `Edit Order ${editingOrder.orderId}` : 'Create New Order';
+  const dialogDescription = isEditing
+    ? `Modify details for this order.`
+    : (selectedPatient 
+        ? `Fill out order details for ${selectedPatient.firstName} ${selectedPatient.lastName}`
+        : "Search for a patient to begin creating a new order."
+      );
+
+
+  const fetchPatientById = useCallback(async (patientId: string) => {
+    setIsPatientSearching(true);
+    try {
+      const response = await fetch(`/api/v1/patients/${patientId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Patient not found');
+      const patientData = await response.json();
+      setSelectedPatient(patientData);
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not load patient.' });
+    } finally {
+      setIsPatientSearching(false);
+    }
+  }, [token, toast]);
+
   useEffect(() => {
     const storedToken = localStorage.getItem('labwise-token');
     if (storedToken) setToken(storedToken);
   }, []);
 
   useEffect(() => {
-    const patientIdFromUrl = searchParams.get('patientId');
-    if (patientIdFromUrl && token && !selectedPatient) {
-      const fetchPatient = async () => {
-        setIsPatientSearching(true);
-        try {
-          const response = await fetch(`/api/v1/patients/${patientIdFromUrl}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (!response.ok) throw new Error('Patient not found');
-          const patientData = await response.json();
-          setSelectedPatient(patientData);
-        } catch (error) {
-          toast({ variant: 'destructive', title: 'Error', description: 'Could not load patient from URL.' });
-        } finally {
-          setIsPatientSearching(false);
-          // Use router.replace to clean up the URL without adding to history
-          router.replace('/orders', { scroll: false });
-        }
-      };
-      fetchPatient();
-    }
-  }, [searchParams, token, toast, router, selectedPatient]);
+      if (isEditing && editingOrder?.patientId) {
+          fetchPatientById(editingOrder.patientId);
+      } else if (!isEditing) {
+          const patientIdFromUrl = searchParams.get('patientId');
+          if (patientIdFromUrl && token && !selectedPatient) {
+              fetchPatientById(patientIdFromUrl);
+              router.replace('/orders', { scroll: false });
+          }
+      }
+  }, [searchParams, token, isEditing, editingOrder, selectedPatient, router, fetchPatientById]);
 
   useEffect(() => {
     if (!patientSearchTerm.trim() || !token) {
@@ -280,20 +325,17 @@ function NewOrderDialogContent({ onOrderCreated }: { onOrderCreated: () => void 
 
     return () => clearTimeout(searchDebounce);
   }, [patientSearchTerm, token, toast]);
+  
+  const showPatientSearch = !isEditing && !selectedPatient;
 
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Create New Order</DialogTitle>
-        <DialogDescription>
-          {selectedPatient 
-            ? `Fill out order details for ${selectedPatient.firstName} ${selectedPatient.lastName}`
-            : "Search for a patient to begin creating a new order."
-          }
-        </DialogDescription>
+        <DialogTitle>{dialogTitle}</DialogTitle>
+        <DialogDescription>{dialogDescription}</DialogDescription>
       </DialogHeader>
       
-      {!selectedPatient ? (
+      {showPatientSearch ? (
         <div className="space-y-4 py-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -316,9 +358,14 @@ function NewOrderDialogContent({ onOrderCreated }: { onOrderCreated: () => void 
               </Table>
             </div>
         </div>
+      ) : selectedPatient ? (
+        <OrderForm patient={selectedPatient} onOrderSaved={onOrderSaved} editingOrder={editingOrder} />
       ) : (
-        <NewOrderForm patient={selectedPatient} onOrderCreated={onOrderCreated} />
-      )}
+        <div className="flex h-60 items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      )
+      }
     </>
   );
 }
@@ -330,7 +377,8 @@ function OrdersPageComponent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<ClientOrder[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [isNewOrderDialogOpen, setIsNewOrderDialogOpen] = useState(false);
+  const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<ClientOrder | null>(null);
   
   const searchParams = useSearchParams();
 
@@ -363,7 +411,7 @@ function OrdersPageComponent() {
 
   useEffect(() => {
     if (searchParams.get('patientId')) {
-      setIsNewOrderDialogOpen(true);
+      handleOpenDialog();
     }
   }, [searchParams]);
 
@@ -384,8 +432,13 @@ function OrdersPageComponent() {
     }
   }
 
-  const handleOrderCreated = () => {
-    setIsNewOrderDialogOpen(false);
+  const handleOpenDialog = (order: ClientOrder | null = null) => {
+    setEditingOrder(order);
+    setIsOrderDialogOpen(true);
+  }
+
+  const handleOrderSaved = () => {
+    setIsOrderDialogOpen(false);
     setSearchTerm('');
     fetchOrders(); 
   }
@@ -394,17 +447,16 @@ function OrdersPageComponent() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
-        <Dialog open={isNewOrderDialogOpen} onOpenChange={setIsNewOrderDialogOpen}>
-            <DialogTrigger asChild>
-                <Button><PlusCircle className="mr-2 h-4 w-4" />New Order</Button>
-            </DialogTrigger>
+         <Button onClick={() => handleOpenDialog()}><PlusCircle className="mr-2 h-4 w-4" />New Order</Button>
+      </div>
+
+       <Dialog open={isOrderDialogOpen} onOpenChange={setIsOrderDialogOpen}>
             <DialogContent className="max-w-4xl">
               <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-                <NewOrderDialogContent onOrderCreated={handleOrderCreated} />
+                <OrderDialogContent onOrderSaved={handleOrderSaved} editingOrder={editingOrder} setEditingOrder={setEditingOrder} />
               </Suspense>
             </DialogContent>
         </Dialog>
-      </div>
 
       <Card>
         <CardHeader>
@@ -431,8 +483,15 @@ function OrdersPageComponent() {
               <TableBody>
                 {isSearching ? (Array.from({ length: 5 }).map((_, i) => (<TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell></TableRow>))) 
                 : searchResults.length > 0 ? (searchResults.map((order) => (
-                    <TableRow key={order.id} className="cursor-pointer hover:bg-muted/80">
-                      <TableCell className="font-mono">{order.orderId}</TableCell>
+                    <TableRow key={order.id}>
+                       <TableCell>
+                          <div
+                            onClick={() => handleOpenDialog(order)}
+                            className="font-mono cursor-pointer hover:underline text-primary"
+                          >
+                            {order.orderId}
+                          </div>
+                      </TableCell>
                       <TableCell>
                         {order.patientInfo ? (
                           <>
@@ -465,3 +524,5 @@ export default function OrdersPage() {
         </Suspense>
     )
 }
+
+    
