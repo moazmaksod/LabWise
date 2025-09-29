@@ -21,9 +21,8 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 const now = new Date();
 
-export const USERS: Record<string, ClientUser> = {
+export const USERS: Record<string, Omit<ClientUser, 'id'>> = {
   'user-rec-01': {
-    id: 'user-rec-01',
     firstName: 'Sarah',
     lastName: 'Chen',
     email: 'sarah.chen@labwise.com',
@@ -34,7 +33,6 @@ export const USERS: Record<string, ClientUser> = {
     updatedAt: now,
   },
   'user-tech-01': {
-    id: 'user-tech-01',
     firstName: 'David',
     lastName: 'Rodriguez',
     email: 'david.r@labwise.com',
@@ -45,7 +43,6 @@ export const USERS: Record<string, ClientUser> = {
     updatedAt: now,
   },
   'user-mgr-01': {
-    id: 'user-mgr-01',
     firstName: 'Emily',
     lastName: 'Jones',
     email: 'emily.jones@labwise.com',
@@ -56,7 +53,6 @@ export const USERS: Record<string, ClientUser> = {
     updatedAt: now,
   },
   'user-phy-01': {
-    id: 'user-phy-01',
     firstName: 'Dr. Michael',
     lastName: 'Smith',
     email: 'msmith@clinic.com',
@@ -67,7 +63,6 @@ export const USERS: Record<string, ClientUser> = {
     updatedAt: now,
   },
   'user-pat-01': {
-    id: 'user-pat-01',
     firstName: 'John',
     lastName: 'Doe',
     email: 'johndoe@email.com',
@@ -78,8 +73,6 @@ export const USERS: Record<string, ClientUser> = {
     updatedAt: now,
   }
 };
-
-export const MOCK_USERS_FOR_UI: ClientUser[] = Object.values(USERS);
 
 
 type NavItem = {

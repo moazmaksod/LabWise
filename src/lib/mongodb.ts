@@ -19,12 +19,27 @@ if (!MONGODB_DB) {
  */
 let cachedClient: MongoClient | null = null;
 let cachedDb: Db | null = null;
-let isSeeded = false;
+
+// A global promise to ensure seeding is only attempted once.
+let seedingPromise: Promise<void> | null = null;
 
 export async function connectToDatabase() {
   if (cachedClient && cachedDb) {
     return { client: cachedClient, db: cachedDb };
   }
+
+  // If seeding isn't already in progress, start it.
+  if (!seedingPromise) {
+    seedingPromise = seedDatabase().catch(err => {
+      console.error('Database seeding failed:', err);
+      // Prevent future attempts if it fails catastrophically
+      // You might want a more sophisticated retry logic here
+      process.exit(1); 
+    });
+  }
+  
+  // Wait for the seeding to complete before returning the connection
+  await seedingPromise;
 
   const client = new MongoClient(MONGODB_URI!);
   await client.connect();
@@ -33,12 +48,6 @@ export async function connectToDatabase() {
 
   cachedClient = client;
   cachedDb = db;
-
-  // Run the seed script only once when the first connection is established
-  if (!isSeeded) {
-    await seedDatabase();
-    isSeeded = true;
-  }
 
   return { client, db };
 }
