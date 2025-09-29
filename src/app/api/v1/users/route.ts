@@ -1,14 +1,24 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { hash } from 'bcryptjs';
 import type { Role, User } from '@/lib/types';
 import { ObjectId } from 'mongodb';
 
-// GET all users
+// GET all users (with role filter)
 export async function GET(req: NextRequest) {
     try {
+        const { searchParams } = new URL(req.url);
+        const role = searchParams.get('role');
+
         const { db } = await connectToDatabase();
-        const users = await db.collection('users').find({}).sort({ createdAt: -1 }).toArray();
+
+        let filter: any = {};
+        if (role) {
+            filter.role = role;
+        }
+        
+        const users = await db.collection('users').find(filter).sort({ createdAt: -1 }).toArray();
         
         const clientUsers = users.map(user => {
             const { passwordHash, _id, ...clientUser } = user;

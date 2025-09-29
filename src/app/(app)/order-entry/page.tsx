@@ -66,11 +66,15 @@ export default function OrderEntryPage() {
   });
 
   useEffect(() => {
+    // Component mounts, try to get the token.
     const storedToken = localStorage.getItem('labwise-token');
     if (storedToken) {
       setToken(storedToken);
+    } else {
+      // Handle case where token is not available.
+      toast({ variant: 'destructive', title: 'Authentication Error', description: 'Could not find user session.' });
     }
-  }, []);
+  }, [toast]);
   
   const handleSelectPatient = (patient: ClientPatient) => {
     setSelectedPatient(patient);
@@ -103,6 +107,7 @@ export default function OrderEntryPage() {
   const fetchPhysicians = useCallback(async () => {
     if (!token) return;
     try {
+      // CORRECTED: Added ?role=physician to filter results
       const response = await fetch('/api/v1/users?role=physician', {
           headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -115,18 +120,19 @@ export default function OrderEntryPage() {
   }, [token, toast]);
 
   useEffect(() => {
-    if(selectedPatient) {
+    if(selectedPatient && token) { // Ensure token exists before fetching
         fetchPhysicians();
     }
-  }, [selectedPatient, fetchPhysicians]);
+  }, [selectedPatient, token, fetchPhysicians]);
 
   // --- Test Search ---
   useEffect(() => {
-    const search = setTimeout(async () => {
-      if (testSearchInput.length < 2 || !token) {
+    if (!testSearchInput.trim() || !token) {
         setTestSearchResults([]);
         return;
-      }
+    }
+    
+    const search = setTimeout(async () => {
       setIsTestSearching(true);
       try {
         const response = await fetch(`/api/v1/test-catalog?q=${testSearchInput}`, {
