@@ -18,7 +18,7 @@ export type PhysicianInfo = {
 export type User = {
   _id: ObjectId;
   firstName: string;
-  lastName: string;
+  lastName:string;
   email: string;
   passwordHash: string;
   role: Role;
@@ -27,7 +27,7 @@ export type User = {
   updatedAt: Date;
   trainingRecords?: TrainingRecord[];
   physicianInfo?: PhysicianInfo;
-  avatar?: string; // Kept for UI continuity, may be moved later
+  avatar?: string;
 };
 
 // This is a client-safe version of the User object
