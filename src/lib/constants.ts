@@ -21,8 +21,8 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 const now = new Date();
 
-export const USERS: Record<Role, ClientUser> = {
-  receptionist: {
+export const USERS: Record<string, ClientUser> = {
+  'user-rec-01': {
     id: 'user-rec-01',
     firstName: 'Sarah',
     lastName: 'Chen',
@@ -33,7 +33,7 @@ export const USERS: Record<Role, ClientUser> = {
     createdAt: now,
     updatedAt: now,
   },
-  technician: {
+  'user-tech-01': {
     id: 'user-tech-01',
     firstName: 'David',
     lastName: 'Rodriguez',
@@ -44,7 +44,7 @@ export const USERS: Record<Role, ClientUser> = {
     createdAt: now,
     updatedAt: now,
   },
-  manager: {
+  'user-mgr-01': {
     id: 'user-mgr-01',
     firstName: 'Emily',
     lastName: 'Jones',
@@ -55,7 +55,7 @@ export const USERS: Record<Role, ClientUser> = {
     createdAt: now,
     updatedAt: now,
   },
-  physician: {
+  'user-phy-01': {
     id: 'user-phy-01',
     firstName: 'Dr. Michael',
     lastName: 'Smith',
@@ -66,7 +66,7 @@ export const USERS: Record<Role, ClientUser> = {
     createdAt: now,
     updatedAt: now,
   },
-  patient: {
+  'user-pat-01': {
     id: 'user-pat-01',
     firstName: 'John',
     lastName: 'Doe',
@@ -78,6 +78,9 @@ export const USERS: Record<Role, ClientUser> = {
     updatedAt: now,
   }
 };
+
+export const MOCK_USERS_FOR_UI: ClientUser[] = Object.values(USERS);
+
 
 type NavItem = {
   href: string;
@@ -104,7 +107,7 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
     { href: '/dashboard', label: 'Reports & Analytics', icon: BarChart },
     { href: '/dashboard', label: 'Inventory Mgmt', icon: Boxes },
     { href: '/dashboard', label: 'Quality Assurance', icon: FileCheck },
-    { href: '/dashboard', label: 'User Management', icon: Users },
+    { href: '/user-management', label: 'User Management', icon: Users },
     { href: '/dashboard', label: 'Audit Trail', icon: ClipboardCopy },
   ],
   physician: [],

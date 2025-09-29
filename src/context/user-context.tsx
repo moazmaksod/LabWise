@@ -3,6 +3,7 @@
 
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import type { Role, ClientUser } from '@/lib/types';
+import { USERS } from '@/lib/constants';
 
 interface UserContextType {
   user: ClientUser | null;
@@ -21,12 +22,9 @@ const mockPasswords: Record<Role, string> = {
     patient: 'patient123'
 }
 
-const mockEmails: Record<Role, string> = {
-    receptionist: 'sarah.chen@labwise.com',
-    technician: 'david.r@labwise.com',
-    manager: 'emily.jones@labwise.com',
-    physician: 'msmith@clinic.com',
-    patient: 'johndoe@email.com'
+const getMockEmailByRole = (role: Role): string => {
+  const user = Object.values(USERS).find(u => u.role === role);
+  return user ? user.email : 'emily.jones@labwise.com'; // Default to manager
 }
 
 
@@ -35,6 +33,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchUser = useCallback(async (token: string) => {
+    setLoading(true);
     try {
         const response = await fetch('/api/v1/auth/me', {
             headers: {
@@ -46,6 +45,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             setUser(userData);
         } else {
             // Token is invalid or expired, so log out
+            console.error('Failed to fetch user, logging out.');
             logout();
         }
     } catch (error) {
@@ -73,7 +73,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ email: mockEmails[role], password: mockPasswords[role] })
+            body: JSON.stringify({ email: getMockEmailByRole(role), password: 'anypassword' })
         });
 
         if (response.ok) {
