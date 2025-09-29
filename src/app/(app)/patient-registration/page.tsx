@@ -22,7 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { handleSmartDataEntry } from '@/app/actions';
 import type { ClientPatient } from '@/lib/types';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, calculateAge } from '@/lib/utils';
 
 const patientSchema = z.object({
   id: z.string().optional(),
@@ -316,7 +316,7 @@ export default function PatientRegistrationPage() {
                 <TableRow className="bg-secondary hover:bg-secondary">
                   <TableHead>Patient</TableHead>
                   <TableHead>MRN</TableHead>
-                  <TableHead>DOB</TableHead>
+                  <TableHead>Age</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -341,7 +341,7 @@ export default function PatientRegistrationPage() {
                         </div>
                       </TableCell>
                       <TableCell>{patient.mrn}</TableCell>
-                      <TableCell>{format(new Date(patient.dateOfBirth), 'MM/dd/yyyy')}</TableCell>
+                      <TableCell>{calculateAge(patient.dateOfBirth)}</TableCell>
                       <TableCell>{patient.contactInfo.phone}</TableCell>
                       <TableCell className="text-right">
                          <Button asChild size="sm">

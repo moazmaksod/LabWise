@@ -25,6 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from '@/components/ui/badge';
 import type { ClientPatient, ClientTestCatalogItem, ClientUser } from '@/lib/types';
 import { format } from 'date-fns';
+import { calculateAge } from '@/lib/utils';
 
 const orderFormSchema = z.object({
   patientId: z.string().min(1, 'A patient must be selected.'),
@@ -323,7 +324,7 @@ function OrderEntryComponent() {
                   <TableRow className="bg-secondary hover:bg-secondary">
                     <TableHead>Patient</TableHead>
                     <TableHead>MRN</TableHead>
-                    <TableHead>DOB</TableHead>
+                    <TableHead>Age</TableHead>
                     <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -335,7 +336,7 @@ function OrderEntryComponent() {
                       <TableRow key={patient.id}>
                         <TableCell className="font-medium">{patient.firstName} {patient.lastName}</TableCell>
                         <TableCell>{patient.mrn}</TableCell>
-                        <TableCell>{format(new Date(patient.dateOfBirth), 'MM/dd/yyyy')}</TableCell>
+                        <TableCell>{calculateAge(patient.dateOfBirth)}</TableCell>
                         <TableCell className="text-right">
                           <Button size="sm" onClick={() => handleSelectPatient(patient)}>
                             <FilePlus className="mr-2 h-4 w-4" />
@@ -361,7 +362,7 @@ function OrderEntryComponent() {
                     <div className='flex justify-between items-start'>
                         <div>
                             <CardTitle>Step 2: Create Order for {selectedPatient.firstName} {selectedPatient.lastName}</CardTitle>
-                            <CardDescription>MRN: {selectedPatient.mrn} | DOB: {format(new Date(selectedPatient.dateOfBirth), 'MM/dd/yyyy')}</CardDescription>
+                            <CardDescription>MRN: {selectedPatient.mrn} | Age: {calculateAge(selectedPatient.dateOfBirth)}</CardDescription>
                         </div>
                         <Button variant="outline" size="sm" onClick={resetToPatientSearch}>Change Patient</Button>
                     </div>
