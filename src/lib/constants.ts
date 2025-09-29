@@ -17,6 +17,7 @@ import {
   Users, 
   ClipboardCopy,
   FlaskConical,
+  FileSearch,
 } from 'lucide-react';
 import type { Role, ClientUser, Sample } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -88,6 +89,7 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/patient-registration', label: 'Patient Registration', icon: UserPlus },
     { href: '/order-entry', label: 'Order Entry', icon: FilePlus },
+    { href: '/search-orders', label: 'Search Orders', icon: FileSearch },
     { href: '/scheduling', label: 'Scheduling', icon: CalendarDays },
   ],
   technician: [
@@ -101,6 +103,7 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
     { href: '/dashboard', label: 'KPI Dashboard', icon: AreaChart },
     { href: '/user-management', label: 'User Management', icon: Users },
     { href: '/patient-registration', label: 'Patient Registration', icon: UserPlus },
+    { href: '/search-orders', label: 'Search Orders', icon: FileSearch },
     { href: '/test-catalog', label: 'Test Catalog', icon: FlaskConical },
     { href: '/reports', label: 'Reports & Analytics', icon: BarChart },
     { href: '/inventory', label: 'Inventory Mgmt', icon: Boxes },

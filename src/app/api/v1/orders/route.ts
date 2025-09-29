@@ -101,11 +101,66 @@ export async function POST(req: NextRequest) {
     }
 }
 
-// GET orders (will be enhanced later for different roles)
+// GET orders with search
 export async function GET(req: NextRequest) {
-     try {
+    try {
+        const { searchParams } = new URL(req.url);
+        const query = searchParams.get('q');
+        
         const { db } = await connectToDatabase();
-        const orders = await db.collection('orders').find({}).sort({ createdAt: -1 }).limit(50).toArray();
+
+        let aggregationPipeline: any[] = [];
+        
+        // If there's a search query, build the aggregation pipeline
+        if (query) {
+             const searchRegex = new RegExp(query, 'i');
+
+            // Stage 1: Initial match on orders collection
+            aggregationPipeline.push({
+                $match: {
+                    $or: [
+                        { orderId: searchRegex },
+                        { 'samples.accessionNumber': searchRegex }
+                    ]
+                }
+            });
+
+            // Stage 2: Join with patients collection
+            aggregationPipeline.push({
+                $lookup: {
+                    from: 'patients',
+                    localField: 'patientId',
+                    foreignField: '_id',
+                    as: 'patientInfo'
+                }
+            });
+            
+            // Stage 3: Unwind the patientInfo array
+            aggregationPipeline.push({ $unwind: '$patientInfo' });
+            
+            // Stage 4: Add a match stage for patient fields
+             aggregationPipeline.push({
+                $match: {
+                     $or: [
+                        // This allows orders matched in stage 1 to pass through
+                        { orderId: searchRegex },
+                        { 'samples.accessionNumber': searchRegex },
+                        // Now search on patient fields
+                        { 'patientInfo.mrn': searchRegex },
+                        { 'patientInfo.firstName': searchRegex },
+                        { 'patientInfo.lastName': searchRegex },
+                        { 'patientInfo.contactInfo.phone': searchRegex },
+                    ]
+                }
+            });
+
+        }
+
+        // Add sorting and limiting to the pipeline
+        aggregationPipeline.push({ $sort: { createdAt: -1 } });
+        aggregationPipeline.push({ $limit: 50 });
+
+        const orders = await db.collection('orders').aggregate(aggregationPipeline).toArray();
 
         const clientOrders = orders.map(order => {
           const { _id, ...rest } = order;
@@ -113,6 +168,7 @@ export async function GET(req: NextRequest) {
         });
 
         return NextResponse.json(clientOrders, { status: 200 });
+
     } catch (error) {
         console.error('Failed to fetch orders:', error);
         return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
