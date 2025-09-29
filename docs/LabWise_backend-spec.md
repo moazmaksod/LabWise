@@ -1,23 +1,23 @@
 
-LabFlow Technical Specification: Data Architecture and API Design
+LabWise Technical Specification: Data Architecture and API Design
 
 
-Part 1: The LabFlow Data Architecture: A MongoDB Schema
+Part 1: The LabWise Data Architecture: A MongoDB Schema
 
 
 1.1 Core Architectural Principles
 
-The design of the LabFlow database schema is governed by a set of foundational principles derived directly from the system's core business objectives: ensuring unparalleled data integrity, facilitating stringent regulatory compliance, and enabling high-performance, scalable laboratory operations.1 The architecture is not merely a data store but an active component in enforcing the business rules and workflows that define a modern clinical laboratory.
+The design of the LabWise database schema is governed by a set of foundational principles derived directly from the system's core business objectives: ensuring unparalleled data integrity, facilitating stringent regulatory compliance, and enabling high-performance, scalable laboratory operations.1 The architecture is not merely a data store but an active component in enforcing the business rules and workflows that define a modern clinical laboratory.
 
 1.1.1 Rationale for a Document-Oriented Database (MongoDB)
 
-The selection of MongoDB as the core database technology is a strategic decision rooted in the nature of clinical laboratory data. The central entity in the LabFlow ecosystem is the Order, which represents a complete patient testing event. This event is a complex, hierarchical structure encompassing patient information, one or more physical samples, multiple tests performed on each sample, and the resulting data.
+The selection of MongoDB as the core database technology is a strategic decision rooted in the nature of clinical laboratory data. The central entity in the LabWise ecosystem is the Order, which represents a complete patient testing event. This event is a complex, hierarchical structure encompassing patient information, one or more physical samples, multiple tests performed on each sample, and the resulting data.
 In a traditional relational database, representing a single Order would necessitate joining across numerous tables (e.g., patients, orders, samples, tests, results). While normalized, this approach introduces significant performance overhead for read operations, which are the most common in a LIMS environment (e.g., fetching an order to view its status, retrieving results for a report).
 A document-oriented model, by contrast, allows for the Order to be stored as a single, rich JSON document. This structure naturally maps to the real-world entity, co-locating all related data. This co-location dramatically improves read performance, as a single query can retrieve the entire order without complex joins. Furthermore, MongoDB's flexible schema is highly advantageous in a clinical setting. As the laboratory introduces new, specialized tests, they may come with unique result formats or data fields. A document model can accommodate these variations without requiring disruptive, schema-wide migrations, providing essential agility.1
 
 1.1.2 Data Modeling Strategy: A Hybrid Approach to Relationships
 
-To balance the benefits of data co-location with the need for data consistency and a single source of truth, LabFlow will employ a hybrid data modeling strategy that intelligently combines data embedding with referencing.
+To balance the benefits of data co-location with the need for data consistency and a single source of truth, LabWise will employ a hybrid data modeling strategy that intelligently combines data embedding with referencing.
 ●	Embedding: Data that is intrinsically part of an object and has a one-to-few relationship will be embedded. For example, the test results for a specific sample are part of that sample's record and will be embedded within the Order document. This optimizes for the common use case of retrieving an order and all its results simultaneously.
 ●	Referencing: Data that has a one-to-many or many-to-many relationship, or data that is frequently updated and referenced by multiple other documents, will be stored in a separate collection and linked via an ObjectId reference. The canonical example is the Patient record. A single patient may have hundreds of orders over time. Storing the full patient demographic data in every order would lead to massive data duplication and create a consistency nightmare if the patient's address or phone number needed to be updated. Instead, each Order will store a reference to the single, authoritative Patient document.1
 
@@ -25,7 +25,7 @@ To balance the benefits of data co-location with the need for data consistency a
 
 A more nuanced and critical aspect of the data model is the deliberate de-normalization, or "snapshotting," of version-dependent data for regulatory compliance. The Clinical Laboratory Improvement Amendments (CLIA) mandate that all patient test records be accurate and auditable, reflecting the exact conditions under which a test was performed.1
 Laboratory test definitions are not static. A test's reference range might be updated due to a new reagent lot, a change in methodology, or a new population study. If an Order document from six months ago merely contained a reference to the testCatalog entry for "Glucose," viewing that patient's report today would incorrectly apply the current glucose reference range, not the one that was valid at the time of testing. This would constitute a major compliance failure and a potential patient safety risk.
-To prevent this, the LabFlow architecture mandates that when a test is added to an order, critical, version-specific information from the testCatalog is snapshotted directly into the Order document. This includes the test name, methodology, units, and, most importantly, the exact reference range that was in effect on that date. This transforms the Order document from a simple transactional record into a self-contained, immutable, and legally auditable artifact that guarantees historical accuracy, irrespective of any future changes to the laboratory's test catalog. This design choice is a non-negotiable cornerstone of the system's compliance strategy.1
+To prevent this, the LabWise architecture mandates that when a test is added to an order, critical, version-specific information from the testCatalog is snapshotted directly into the Order document. This includes the test name, methodology, units, and, most importantly, the exact reference range that was in effect on that date. This transforms the Order document from a simple transactional record into a self-contained, immutable, and legally auditable artifact that guarantees historical accuracy, irrespective of any future changes to the laboratory's test catalog. This design choice is a non-negotiable cornerstone of the system's compliance strategy.1
 The following table provides a high-level overview of the primary collections and their relationships, illustrating this hybrid approach.
 Source Collection	Target Collection	Relationship Type	Rationale
 orders	patients	Reference (ObjectId)	A patient can have many orders. Maintains a single source of truth for patient demographics.
@@ -90,7 +90,7 @@ isActive	Boolean	Flag to enable or disable a test from being ordered.	Required. 
 
 1.2.4 orders Collection
 
-This is the central transactional collection in LabFlow. Each document represents a complete testing order and serves as the primary auditable record for a patient encounter.1
+This is the central transactional collection in LabWise. Each document represents a complete testing order and serves as the primary auditable record for a patient encounter.1
 Field Name	BSON Type	Description	Validation & Notes
 _id	ObjectId	Unique identifier for the order document.	Auto-generated by MongoDB. Primary key.
 orderId	String	A human-readable, unique identifier for the order (e.g., ORD-2025-00001).	Required, unique. Indexed.
@@ -162,12 +162,12 @@ To support the full scope of laboratory operations, the following collections ar
 ●	appointments Collection: Manages the phlebotomy schedule for the Receptionist dashboard.2
 ○	Fields: patientId (ref), scheduledTime (indexed), durationMinutes, status (Scheduled, CheckedIn, Completed, NoShow), notes.
 
-Part 2: The LabFlow Application Programming Interface (API) Specification
+Part 2: The LabWise Application Programming Interface (API) Specification
 
 
 2.1 General Principles & Conventions
 
-The LabFlow RESTful API is designed to be predictable, consistent, and secure. All interactions with the API will adhere to the following global conventions.
+The LabWise RESTful API is designed to be predictable, consistent, and secure. All interactions with the API will adhere to the following global conventions.
 ●	Authentication: With the exception of the public login endpoint, all API endpoints are protected and require a valid JSON Web Token (JWT) to be passed in the Authorization header using the Bearer scheme. The JWT payload will contain the userId and role, which are decoded and used by the server for authentication and authorization on every request.
 ●	API Versioning: All API endpoints are prefixed with /api/v1/. This ensures that future iterations of the API can be introduced without breaking existing client integrations.
 ●	Standardized Error Responses: The API will use standard HTTP status codes to indicate the success or failure of a request. All error responses (4xx and 5xx status codes) will return a JSON body with a consistent structure to simplify client-side error handling:
@@ -223,8 +223,8 @@ Note on Limited Fields: A Technician's R access to patients will be restricted a
 
 2.3 Asynchronous Workflows & External Integrations
 
-Certain operations within LabFlow are either long-running or dependent on external, third-party systems. Forcing these operations to run synchronously within an API request would lead to a poor user experience (e.g., a frozen UI) and make the system brittle (e.g., an outage in an external service could crash the LabFlow API).
-To address this, LabFlow will utilize a message queue (e.g., RabbitMQ, AWS SQS) to decouple these tasks from the main API request/response cycle. This pattern is essential for features like:
+Certain operations within LabWise are either long-running or dependent on external, third-party systems. Forcing these operations to run synchronously within an API request would lead to a poor user experience (e.g., a frozen UI) and make the system brittle (e.g., an outage in an external service could crash the LabWise API).
+To address this, LabWise will utilize a message queue (e.g., RabbitMQ, AWS SQS) to decouple these tasks from the main API request/response cycle. This pattern is essential for features like:
 ●	Real-time Insurance Eligibility Checks (US-REC-02): Communicating with an external insurance provider's API can be slow.
 ●	Automated Critical Value Alerts (US-PHY-03): Sending SMS messages or emails via a third-party service should not block the result verification process.
 ●	Large Report Generation: Compiling a complex PDF report with historical data and trend graphs can be resource-intensive.
@@ -426,5 +426,5 @@ JSON
 ■	403 Forbidden: If the user tries to access an order that does not belong to them.
 ■	404 Not Found: If the order id does not exist.
 Works cited
-1.	LabFlow: Business Requirements Foundation
-2.	LabFlow UI/UX Design Blueprint
+1.	LabWise: Business Requirements Foundation
+2.	LabWise UI/UX Design Blueprint

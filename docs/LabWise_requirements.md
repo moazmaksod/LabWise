@@ -1,37 +1,37 @@
 
-LabFlow: Business Requirements Document
+LabWise: Business Requirements Document
 
 
 Executive Summary
 
-This document specifies the business, functional, and non-functional requirements for LabFlow, a next-generation Laboratory Information Management System (LIMS). Its purpose is to serve as the foundational blueprint for the design, development, and implementation of the system, ensuring it meets the complex operational needs of a modern clinical laboratory.
+This document specifies the business, functional, and non-functional requirements for LabWise, a next-generation Laboratory Information Management System (LIMS). Its purpose is to serve as the foundational blueprint for the design, development, and implementation of the system, ensuring it meets the complex operational needs of a modern clinical laboratory.
 The contemporary clinical laboratory operates under immense pressure. It is expected to handle escalating test volumes and a wider variety of assays with static or shrinking staff levels.1 This environment is further complicated by significant staffing shortages and the need to adhere to a stringent regulatory landscape, including the Clinical Laboratory Improvement Amendments (CLIA) and the Health Insurance Portability and Accountability Act (HIPAA).2 The ultimate mandate is to produce rapid, reliable, and reproducible results, as clinical decisions and patient outcomes depend on their accuracy and timeliness.1 Analysis of laboratory operations reveals that the majority of critical errors do not occur during the highly automated analytical testing phase. Instead, they arise in the human-centric pre-analytical and post-analytical stages, which include patient registration, sample collection, data entry, and the communication of results.4
-LabFlow is conceived as an end-to-end, persona-driven LIMS engineered to mitigate these specific challenges. The system will automate and streamline the entire sample lifecycle, from the initial test order to the final archiving of the report. By implementing intelligent workflows, robust validation rules, and seamless instrument integration, LabFlow will minimize the potential for manual error at every touchpoint. It will provide laboratory managers with actionable, real-time insights into operational performance, enabling proactive quality management and resource optimization. The system's core design will be grounded in ensuring unwavering compliance with all regulatory standards through built-in controls, comprehensive audit trails, and state-of-the-art security protocols.
-The successful implementation of LabFlow will be measured against the following key objectives:
+LabWise is conceived as an end-to-end, persona-driven LIMS engineered to mitigate these specific challenges. The system will automate and streamline the entire sample lifecycle, from the initial test order to the final archiving of the report. By implementing intelligent workflows, robust validation rules, and seamless instrument integration, LabWise will minimize the potential for manual error at every touchpoint. It will provide laboratory managers with actionable, real-time insights into operational performance, enabling proactive quality management and resource optimization. The system's core design will be grounded in ensuring unwavering compliance with all regulatory standards through built-in controls, comprehensive audit trails, and state-of-the-art security protocols.
+The successful implementation of LabWise will be measured against the following key objectives:
 ●	A reduction in pre-analytical and post-analytical errors by a target of 50%.
 ●	An improvement in average sample turnaround time (TAT) by a target of 25%.
 ●	The complete automation of inventory management processes to eliminate stock-out events of critical reagents and consumables.
 ●	The delivery of a seamless, intuitive, and role-specific user experience for all laboratory personnel, as well as for external stakeholders such as referring physicians and patients.
 ●	Guaranteed 100% compliance with HIPAA and CLIA regulations through systematically integrated and auditable system controls.
 
-The LabFlow Operational Ecosystem: An End-to-End Perspective
+The LabWise Operational Ecosystem: An End-to-End Perspective
 
-To build a system that effectively serves a clinical laboratory, it is essential to first understand the complete operational context. The laboratory is not merely a place where tests are run; it is a complex ecosystem through which physical samples and digital information flow in parallel. LabFlow must be architected to manage and harmonize these two lifecycles. The entire workflow can be logically segmented into three distinct phases, a structure that is fundamental to laboratory science and will serve as the architectural foundation for the LabFlow system.6
-A critical understanding that must inform the system's design priorities is that these phases do not carry equal risk. The analytical phase, characterized by sophisticated and highly automated instrumentation, accounts for less than 10% of all laboratory errors.5 The vast majority of mistakes, including those with the most severe clinical consequences, occur at the beginning and end of the process: the pre-analytical and post-analytical phases.4 These stages are defined by human interaction—patient identification, manual data entry, specimen handling, and the communication of complex results. Therefore, LabFlow's primary value is not simply in automating testing, but in systematically error-proofing the human touchpoints that bracket the automated core. This principle dictates a focus on features that enforce data validation, leverage barcode scanning to eliminate ambiguity, and automate critical communications to ensure patient safety.
+To build a system that effectively serves a clinical laboratory, it is essential to first understand the complete operational context. The laboratory is not merely a place where tests are run; it is a complex ecosystem through which physical samples and digital information flow in parallel. LabWise must be architected to manage and harmonize these two lifecycles. The entire workflow can be logically segmented into three distinct phases, a structure that is fundamental to laboratory science and will serve as the architectural foundation for the LabWise system.6
+A critical understanding that must inform the system's design priorities is that these phases do not carry equal risk. The analytical phase, characterized by sophisticated and highly automated instrumentation, accounts for less than 10% of all laboratory errors.5 The vast majority of mistakes, including those with the most severe clinical consequences, occur at the beginning and end of the process: the pre-analytical and post-analytical phases.4 These stages are defined by human interaction—patient identification, manual data entry, specimen handling, and the communication of complex results. Therefore, LabWise's primary value is not simply in automating testing, but in systematically error-proofing the human touchpoints that bracket the automated core. This principle dictates a focus on features that enforce data validation, leverage barcode scanning to eliminate ambiguity, and automate critical communications to ensure patient safety.
 
 The Three Phases of Laboratory Testing
 
 
 Pre-Analytical Phase
 
-This initial phase encompasses all processes from the moment a test is ordered until the sample is ready for analysis. It is the most vulnerable stage for errors that can compromise a specimen's integrity or link it to the wrong patient.4 LabFlow's role in this phase is to act as a vigilant gatekeeper.
+This initial phase encompasses all processes from the moment a test is ordered until the sample is ready for analysis. It is the most vulnerable stage for errors that can compromise a specimen's integrity or link it to the wrong patient.4 LabWise's role in this phase is to act as a vigilant gatekeeper.
 ●	Patient Registration & Order Entry: The workflow begins with the capture of patient demographic data, insurance information, and the specific tests ordered by a physician. This requires meticulous data entry, as a single mistake can cascade through the entire process.7
 ●	Sample Collection & Labeling: At the point of collection, the sample must be unequivocally linked to the patient and the corresponding order. This is typically achieved by generating unique, barcoded labels that are affixed to the sample containers.9
 ●	Sample Transportation & Accessioning: The labeled sample is transported to the laboratory. Upon arrival, it is "accessioned"—a formal process where the sample's arrival is logged, its condition is verified (e.g., checking for proper temperature, visible integrity), and it is officially entered into the laboratory's workflow, receiving a unique internal tracking number.6
 
 Analytical Phase
 
-This is the core testing phase where the actual measurement of analytes occurs. Efficiency and accuracy in this stage are driven by instrumentation and automation.1 LabFlow must seamlessly integrate with and orchestrate these automated processes.
+This is the core testing phase where the actual measurement of analytes occurs. Efficiency and accuracy in this stage are driven by instrumentation and automation.1 LabWise must seamlessly integrate with and orchestrate these automated processes.
 ●	Sample Processing: Depending on the test, samples may require preparatory steps. This can include centrifugation to separate plasma or serum, aliquoting (dividing a primary sample into smaller tubes for different tests), or dilution if a result is expected to be outside the instrument's measurement range.6
 ●	Testing & Analysis: The prepared sample is introduced to an analyzer or subjected to a manual testing procedure. The instrument performs the analysis and generates a raw data result.6
 ●	Quality Control (QC): Before, during, or after patient samples are tested, the laboratory runs quality control samples—materials with known values. This process validates that the instruments and reagents are performing correctly. Patient results cannot be considered valid unless the associated QC results are within acceptable limits.6
@@ -46,35 +46,35 @@ This final phase involves the transformation of raw data into a final, clinicall
 
 The Complete Lifecycle of a Patient Sample
 
-To conceptualize LabFlow's function, it is useful to follow the journey of a single sample. Consider a blood vial drawn for a Complete Blood Count (CBC).
-1.	A physician places an order for a CBC in their EHR, which is transmitted to LabFlow.
-2.	At the collection site, a receptionist registers the patient in LabFlow, which prints barcoded labels.
+To conceptualize LabWise's function, it is useful to follow the journey of a single sample. Consider a blood vial drawn for a Complete Blood Count (CBC).
+1.	A physician places an order for a CBC in their EHR, which is transmitted to LabWise.
+2.	At the collection site, a receptionist registers the patient in LabWise, which prints barcoded labels.
 3.	A phlebotomist collects the blood into a lavender-top tube, applies the label, and scans it to confirm collection time.
-4.	A courier transports the sample to the lab. A technician at the accessioning station scans the tube's barcode. LabFlow confirms the order, assigns a unique accession number, and adds the test to the hematology worklist.
+4.	A courier transports the sample to the lab. A technician at the accessioning station scans the tube's barcode. LabWise confirms the order, assigns a unique accession number, and adds the test to the hematology worklist.
 5.	The sample is placed on an automated track, which routes it to the hematology analyzer.12
-6.	The analyzer aspirates the sample, performs the CBC, and transmits the raw results back to LabFlow.
-7.	LabFlow receives the results, applies auto-verification rules (checking against reference ranges and delta checks), and flags them as ready for review.
+6.	The analyzer aspirates the sample, performs the CBC, and transmits the raw results back to LabWise.
+7.	LabWise receives the results, applies auto-verification rules (checking against reference ranges and delta checks), and flags them as ready for review.
 8.	A medical technologist reviews the results on their screen, confirms the associated QC was in-range, and electronically signs off, releasing the results.
-9.	LabFlow formats the final report and electronically transmits it to the ordering physician's EHR.
+9.	LabWise formats the final report and electronically transmits it to the ordering physician's EHR.
 10.	The system logs the sample's location as it is moved to a refrigerated storage rack for its 7-day retention period.
-11.	After 7 days, LabFlow flags the sample for disposal on a system-generated worksheet.
-Throughout this entire journey, from collection to disposal, LabFlow maintains a complete, unbroken digital chain of custody and data integrity.9
+11.	After 7 days, LabWise flags the sample for disposal on a system-generated worksheet.
+Throughout this entire journey, from collection to disposal, LabWise maintains a complete, unbroken digital chain of custody and data integrity.9
 
 The Flow of Information
 
-The physical journey of the sample is mirrored by a critical, parallel journey of digital information. The integrity of this data flow is the bedrock of the laboratory's credibility and is a primary focus of regulatory frameworks like HIPAA.3 A failure in the information lifecycle—such as a mismatched patient ID or a report sent to the wrong physician—is as catastrophic as a lost or contaminated sample. This reality underscores the necessity of designing LabFlow with a "data-first" principle, where every feature is assessed based on its contribution to the accuracy, security, and traceability of the information it manages. The audit trail is not merely a compliance feature; it is the system's core ledger of its own trustworthiness.
-●	Data Inputs: LabFlow must ingest data from multiple sources. This includes patient demographic data from a hospital's central registration system (HIS), test orders from external physician EHRs, and raw numerical or qualitative data from dozens of different analytical instruments.8
-●	Data Processing: Internally, LabFlow is the central processing unit. It links patient identifiers to sample accession numbers, applies complex QC rules, performs calculations, flags results based on defined criteria (e.g., critical values), and formats data for final reporting.
+The physical journey of the sample is mirrored by a critical, parallel journey of digital information. The integrity of this data flow is the bedrock of the laboratory's credibility and is a primary focus of regulatory frameworks like HIPAA.3 A failure in the information lifecycle—such as a mismatched patient ID or a report sent to the wrong physician—is as catastrophic as a lost or contaminated sample. This reality underscores the necessity of designing LabWise with a "data-first" principle, where every feature is assessed based on its contribution to the accuracy, security, and traceability of the information it manages. The audit trail is not merely a compliance feature; it is the system's core ledger of its own trustworthiness.
+●	Data Inputs: LabWise must ingest data from multiple sources. This includes patient demographic data from a hospital's central registration system (HIS), test orders from external physician EHRs, and raw numerical or qualitative data from dozens of different analytical instruments.8
+●	Data Processing: Internally, LabWise is the central processing unit. It links patient identifiers to sample accession numbers, applies complex QC rules, performs calculations, flags results based on defined criteria (e.g., critical values), and formats data for final reporting.
 ●	Data Outputs: The system must securely push data to various endpoints. Finalized reports are sent to EHR systems, billing codes and diagnostic information are transmitted to revenue cycle management (RCM) platforms, and anonymized, aggregated data is made available to internal analytics modules for operational oversight and quality improvement initiatives.8
 
 User Personas and Role-Based Functional Requirements
 
-A successful LIMS must be designed with a deep understanding of the diverse individuals who will interact with it daily. Each user has a unique set of responsibilities, goals, and frustrations. A persona-driven approach ensures that LabFlow's features are not developed in a vacuum but are tailored to solve specific, real-world problems for each user group. The needs of these personas are often interconnected, creating feedback loops that a well-designed system can either improve or exacerbate.
+A successful LIMS must be designed with a deep understanding of the diverse individuals who will interact with it daily. Each user has a unique set of responsibilities, goals, and frustrations. A persona-driven approach ensures that LabWise's features are not developed in a vacuum but are tailored to solve specific, real-world problems for each user group. The needs of these personas are often interconnected, creating feedback loops that a well-designed system can either improve or exacerbate.
 For example, a common negative cycle begins when a referring physician experiences slow turnaround times for routine tests.23 To compensate, the physician may begin ordering tests with a "STAT" (urgent) priority for convenience rather than true medical necessity.23 This creates a "STAT overload" in the laboratory, overwhelming technicians and creating a processing bottleneck.24 The resulting stress and high workload increase the risk of error and burnout for the lab staff.2 Ironically, this bottleneck delays both the routine tests
-and the truly urgent STAT requests, worsening the physician's original problem. LabFlow cannot be a passive observer in this dynamic. It must be an active mediator, incorporating rule-based logic to break such cycles. For instance, the system can be configured to require physicians to select a specific clinical justification for a STAT order. This data allows the Lab Manager to identify patterns of misuse and engage in data-driven conversations with clinics to improve test utilization, transforming LabFlow from a simple information system into a tool for process improvement.
-The following table provides a high-level overview of the key stakeholders, their objectives, and the primary pain points that LabFlow is designed to address.
+and the truly urgent STAT requests, worsening the physician's original problem. LabWise cannot be a passive observer in this dynamic. It must be an active mediator, incorporating rule-based logic to break such cycles. For instance, the system can be configured to require physicians to select a specific clinical justification for a STAT order. This data allows the Lab Manager to identify patterns of misuse and engage in data-driven conversations with clinics to improve test utilization, transforming LabWise from a simple information system into a tool for process improvement.
+The following table provides a high-level overview of the key stakeholders, their objectives, and the primary pain points that LabWise is designed to address.
 
-Persona	Primary Goal	Key Responsibilities	Current Pain Points	How LabFlow Solves This
+Persona	Primary Goal	Key Responsibilities	Current Pain Points	How LabWise Solves This
 Receptionist	Accurate and efficient patient intake and order entry.	Patient registration, data entry, insurance verification, appointment scheduling, payment collection.	Manual data entry errors, time-consuming insurance verification, managing patient wait times, incomplete physician orders.26	Validated data entry forms, OCR scanning of ID/insurance cards, real-time insurance eligibility checks, automated appointment reminders.
 Lab Technician	Accurate and timely execution of analytical tests.	Sample accessioning, instrument operation, quality control, result review, troubleshooting.	High-volume workload, tight deadlines, risk of sample mix-ups, instrument downtime, repetitive manual tasks, burnout.25	Barcode-driven workflows, prioritized digital worklists, automated QC analysis, integrated instrument maintenance logs, delta check alerts.
 Lab Manager	Ensure operational efficiency, quality, and regulatory compliance.	Staff supervision, inventory management, quality assurance programs, budget oversight, preparing for inspections.	Lack of real-time operational visibility, unexpected reagent stock-outs, managing staff competency, ensuring constant audit-readiness.2	Real-time KPI dashboards, automated inventory alerts, comprehensive digital audit trails, role-based access controls.
@@ -99,7 +99,7 @@ User Stories:
 ●	US-TEC-01: As a Lab Technician, I need to be able to scan a sample's barcode at any workstation, so that the system immediately displays the patient's identity, the tests ordered for that specific sample, and any special handling notes, thereby eliminating the risk of performing the wrong test on the wrong sample.
 ●	US-TEC-02: As a Lab Technician, I need my home screen to be a dynamic, real-time worklist that automatically prioritizes samples, clearly flagging STAT requests in red, overdue samples in yellow, and samples pending QC approval, so that I can effectively manage my workload and address the most critical tasks first.
 ●	US-TEC-03: As a Lab Technician, I need the system to automatically flag and hold any patient result that fails a delta check (e.g., a potassium result of 7.0 mmol/L for a patient whose result was 4.1 mmol/L yesterday), so that I am prompted to investigate a potential pre-analytical error or instrument issue before releasing a clinically improbable and potentially dangerous result.
-●	US-TEC-04: As a Lab Technician, I need to be able to log all instrument maintenance activities, calibrations, and QC results directly into an electronic logbook within LabFlow, so that a complete, auditable, and easily searchable record is maintained for CLIA compliance and troubleshooting purposes.
+●	US-TEC-04: As a Lab Technician, I need to be able to log all instrument maintenance activities, calibrations, and QC results directly into an electronic logbook within LabWise, so that a complete, auditable, and easily searchable record is maintained for CLIA compliance and troubleshooting purposes.
 ●	US-TEC-05: As a Lab Technician, when an instrument transmits a result, I need the system's auto-verification rules to automatically release all results that are within normal limits, have passed all QC checks, and have no delta flags, so that I can focus my attention exclusively on the abnormal and problematic results that require manual review.
 
 The Lab Manager Persona
@@ -133,7 +133,7 @@ User Stories:
 
 Core System Modules and Features
 
-LabFlow will be architected as a series of interconnected modules, each addressing a specific phase or function of the laboratory workflow. These modules are not independent silos; they are deeply integrated components of a cohesive system. An action performed in one module must intelligently trigger corresponding processes and data updates in others. For example, when a lab technician completes an analytical run, the system must simultaneously:
+LabWise will be architected as a series of interconnected modules, each addressing a specific phase or function of the laboratory workflow. These modules are not independent silos; they are deeply integrated components of a cohesive system. An action performed in one module must intelligently trigger corresponding processes and data updates in others. For example, when a lab technician completes an analytical run, the system must simultaneously:
 1.	Decrement the associated reagents from the Inventory Module.
 2.	Log the results and compare them against patient history in the Patient and Order Management Module.
 3.	Validate the run against data in the Quality Control Module.
@@ -173,11 +173,11 @@ Requirements:
 
 Inventory and Reagent Management
 
-Effective inventory management is crucial for uninterrupted laboratory operations. A stock-out of a single critical reagent can halt testing for a specific analyte, delaying patient care and causing significant operational disruption.28 LabFlow will automate this process to ensure continuity.
+Effective inventory management is crucial for uninterrupted laboratory operations. A stock-out of a single critical reagent can halt testing for a specific analyte, delaying patient care and causing significant operational disruption.28 LabWise will automate this process to ensure continuity.
 Requirements:
 ●	Item Catalog: The system will feature a comprehensive catalog for all laboratory consumables, including reagents, calibrators, controls, and disposable supplies. Each item entry will include details such as vendor, part number, storage requirements (e.g., refrigerated, frozen), and hazard classification.38
 ●	Lot Number and Expiration Tracking: All inventory items must be tracked by their specific lot number and expiration date upon receipt. The system must be configured to enforce a "First-In, First-Out" (FIFO) usage policy, prompting users to select the oldest stock first to minimize waste due to expiration.38
-●	Automated Consumption Decrementing: The system will allow managers to associate specific inventory items with specific tests. When a technician records the completion of a test or a batch of tests, LabFlow will automatically decrement the associated reagents from the on-hand inventory count.
+●	Automated Consumption Decrementing: The system will allow managers to associate specific inventory items with specific tests. When a technician records the completion of a test or a batch of tests, LabWise will automatically decrement the associated reagents from the on-hand inventory count.
 ●	Automated Reorder Alerts: For each inventory item, the Lab Manager must be able to define a "par level" or minimum stock quantity. When automated decrementing causes the on-hand quantity to fall below this threshold, the system must automatically generate a reorder notification, sent via email or dashboard alert to the Lab Manager and purchasing staff.38
 
 Reporting and Analytics
@@ -191,8 +191,8 @@ Requirements:
 
 Managing Exceptions, Emergencies, and Non-Standard Workflows
 
-A laboratory's workflow is rarely linear. The true test of a LIMS is not how it handles routine operations, but how it manages the inevitable exceptions, emergencies, and deviations from the standard process. These "edge cases" are where poorly designed systems fail, leading to errors, delays, and compliance risks. LabFlow will be designed with dedicated, robust workflows to handle these non-standard scenarios, transforming them from potential crises into controlled, documented processes.
-The data generated by these exception workflows is invaluable. It is not merely a record of a problem but a rich source of information for process improvement. For instance, every sample rejection is an operational event.41 By systematically logging the reason for every rejection (e.g., QNS, hemolyzed, mislabeled) and its source (e.g., Clinic A, Phlebotomist B), LabFlow creates a powerful dataset. The Lab Manager can then use the analytics module to identify trends, such as a disproportionately high rate of hemolyzed samples coming from a specific clinic. Armed with this objective data, the manager can initiate targeted re-training with that clinic's staff. This proactive intervention, driven by data captured during a "failed" workflow, prevents future errors, reduces the costs associated with sample recollection, and ultimately improves patient care. This ability to turn exceptions into actionable intelligence is a core design principle of LabFlow.
+A laboratory's workflow is rarely linear. The true test of a LIMS is not how it handles routine operations, but how it manages the inevitable exceptions, emergencies, and deviations from the standard process. These "edge cases" are where poorly designed systems fail, leading to errors, delays, and compliance risks. LabWise will be designed with dedicated, robust workflows to handle these non-standard scenarios, transforming them from potential crises into controlled, documented processes.
+The data generated by these exception workflows is invaluable. It is not merely a record of a problem but a rich source of information for process improvement. For instance, every sample rejection is an operational event.41 By systematically logging the reason for every rejection (e.g., QNS, hemolyzed, mislabeled) and its source (e.g., Clinic A, Phlebotomist B), LabWise creates a powerful dataset. The Lab Manager can then use the analytics module to identify trends, such as a disproportionately high rate of hemolyzed samples coming from a specific clinic. Armed with this objective data, the manager can initiate targeted re-training with that clinic's staff. This proactive intervention, driven by data captured during a "failed" workflow, prevents future errors, reduces the costs associated with sample recollection, and ultimately improves patient care. This ability to turn exceptions into actionable intelligence is a core design principle of LabWise.
 
 STAT (Urgent Request) Protocol
 
@@ -205,14 +205,14 @@ Workflow:
 
 Sample Rejection Protocol
 
-To ensure the analytical quality and clinical validity of results, the laboratory must have a strict, documented policy for rejecting specimens that are unsuitable for testing.41 LabFlow will digitize, enforce, and document this critical quality assurance process.
+To ensure the analytical quality and clinical validity of results, the laboratory must have a strict, documented policy for rejecting specimens that are unsuitable for testing.41 LabWise will digitize, enforce, and document this critical quality assurance process.
 Workflow:
 1.	Problem Identification: At the point of accessioning, a technician identifies a problem with a received sample (e.g., the specimen is hemolyzed, the volume is insufficient for the tests ordered, it was received in the wrong type of tube, or the label is illegible).
-2.	Rejection Action in LIS: The technician selects the sample in LabFlow and initiates a "Reject Sample" action.
+2.	Rejection Action in LIS: The technician selects the sample in LabWise and initiates a "Reject Sample" action.
 3.	Mandatory Documentation: This action will trigger a mandatory pop-up form. The technician must select a specific reason for rejection from a customizable, standardized list derived from best practices. The form will also require the technician to document who was notified of the rejection (e.g., 'Nurse Jane Doe, ED'), the method of notification (e.g., 'Phone Call'), and the date/time of the notification.
 4.	Automated Notification: Upon submission of the rejection form, the system will automatically send a secure electronic notification to the ordering physician's portal or EHR. This notification will clearly state that the sample was rejected, the reason for the rejection, and that a new sample is required.
 5.	Data Logging and Auditing: The rejection event, including the reason and all notification details, is permanently recorded in the sample's immutable audit trail. The rejection reason is also logged as a discrete data point for trend analysis in the analytics module.
-The following table outlines common rejection criteria and the corresponding system actions that will be configurable within LabFlow. This transforms a subjective decision into a standardized, auditable procedure.
+The following table outlines common rejection criteria and the corresponding system actions that will be configurable within LabWise. This transforms a subjective decision into a standardized, auditable procedure.
 
 Rejection Criterion	Definition	System Action	Allowable Exceptions
 Unlabeled/Mislabeled Specimen	Specimen has no label, or the label information does not match the requisition form with at least two unique patient identifiers.44	Reject sample. Log event. Notify provider and request recollect.	For "precious" or irreplaceable samples (e.g., CSF, tissue biopsy), the system will allow processing but will require documentation of who verified the sample's identity and will append a mandatory comment to the final report stating the initial condition.46
@@ -228,36 +228,36 @@ Workflow:
 ●	Quality Control (QC) Failure: As defined in Section 3.3, a QC rule failure will automatically place a hold on the entire analytical run. Patient results from this run will be locked and cannot be released. The system will guide the technician through documenting the corrective action. Once the issue is resolved and a new QC run passes, the system will unlock the ability to re-run the affected patient samples.37
 ●	Delta Check Failure: When the system flags a result as clinically improbable based on the patient's historical data, the result will be held in a "Pending Review" status. The technician's interface will highlight this result and require a secondary action. Based on their permissions and laboratory policy, they can either initiate a re-run of the sample, release the result with a mandatory comment acknowledging the delta check failure, or escalate it to a supervisor for review.
 ●	Manual Re-run Request: A user with the appropriate permissions (e.g., Technician, Supervisor) can manually order a re-run on any sample that is still in storage and viable. This action will require the user to select a reason for the re-run from a dropdown list (e.g., 'Confirm abnormal result', 'Physician request', 'Suspected instrument error'), which is then logged in the audit trail.
-●	Automated Reflex Testing: The rules for reflex testing will be configured by the Lab Manager within the Test Catalog module. When a patient's result meets the criteria for a pre-defined rule (e.g., "IF initial HIV screen is 'Reactive'"), LabFlow will automatically add the confirmatory test to the order, place it on the appropriate worklist, and utilize the original sample without any manual intervention.
+●	Automated Reflex Testing: The rules for reflex testing will be configured by the Lab Manager within the Test Catalog module. When a patient's result meets the criteria for a pre-defined rule (e.g., "IF initial HIV screen is 'Reactive'"), LabWise will automatically add the confirmatory test to the order, place it on the appropriate worklist, and utilize the original sample without any manual intervention.
 
 System-Wide, Non-Functional Requirements
 
-These requirements define the essential quality attributes, constraints, and standards that the LabFlow system must adhere to. They are not specific features but are overarching principles that govern the entire system's architecture, security, and performance. Failure to meet these non-functional requirements would represent a failure of the project, regardless of how well the functional features are implemented.
+These requirements define the essential quality attributes, constraints, and standards that the LabWise system must adhere to. They are not specific features but are overarching principles that govern the entire system's architecture, security, and performance. Failure to meet these non-functional requirements would represent a failure of the project, regardless of how well the functional features are implemented.
 
 Regulatory Compliance and Security
 
-LabFlow will be deployed within the United States healthcare environment and must be designed from its foundation to ensure strict compliance with all applicable federal and state regulations. This is a non-negotiable, foundational requirement.
+LabWise will be deployed within the United States healthcare environment and must be designed from its foundation to ensure strict compliance with all applicable federal and state regulations. This is a non-negotiable, foundational requirement.
 
 HIPAA (Health Insurance Portability and Accountability Act)
 
-The HIPAA Privacy and Security Rules mandate the protection of all individually identifiable health information, known as Protected Health Information (PHI). LabFlow must incorporate the following controls:
+The HIPAA Privacy and Security Rules mandate the protection of all individually identifiable health information, known as Protected Health Information (PHI). LabWise must incorporate the following controls:
 ●	Role-Based Access Control (RBAC): The system must enforce the "minimum necessary" standard. Each user's access to data and system functions will be strictly limited to what is required for their specific job role. For example, a phlebotomist should be able to view test orders but not modify or release final results.48
 ●	Comprehensive Audit Trails: The system must maintain a detailed, immutable log of all activities involving PHI. This log must capture every instance of a user accessing, creating, modifying, or deleting PHI, recording the user's ID, the patient data involved, the date, and the time of the action. These audit logs must be protected from modification and retained for a minimum of six years.49
-●	Data Encryption: All PHI managed by LabFlow must be encrypted at all times. This includes encryption "at rest" within the database (e.g., using AES-256) and encryption "in transit" whenever data is transmitted over a network (e.g., using TLS 1.2 or higher).48
+●	Data Encryption: All PHI managed by LabWise must be encrypted at all times. This includes encryption "at rest" within the database (e.g., using AES-256) and encryption "in transit" whenever data is transmitted over a network (e.g., using TLS 1.2 or higher).48
 ●	Patient Right of Access: The system must include functionality, such as the patient portal, that allows individuals to exercise their right to access and receive a copy of their own health information.19
 
 CLIA (Clinical Laboratory Improvement Amendments)
 
-CLIA regulations establish quality standards for all laboratory testing to ensure the accuracy, reliability, and timeliness of patient test results. LabFlow is a critical tool for maintaining and demonstrating CLIA compliance.
+CLIA regulations establish quality standards for all laboratory testing to ensure the accuracy, reliability, and timeliness of patient test results. LabWise is a critical tool for maintaining and demonstrating CLIA compliance.
 ●	Standard Operating Procedure (SOP) Management: The system must include a document management module where the laboratory can upload, store, and manage version control for all its SOPs. The system must ensure that the current, approved version of any procedure is readily available to all staff.4
-●	Record Retention: CLIA mandates specific retention periods for various records. LabFlow must be configured to retain all patient test records, quality control data, instrument maintenance logs, and personnel competency records for a minimum of two years.4
+●	Record Retention: CLIA mandates specific retention periods for various records. LabWise must be configured to retain all patient test records, quality control data, instrument maintenance logs, and personnel competency records for a minimum of two years.4
 ●	Quality Systems: The core functional modules for Quality Control (Section 3.3) and Inventory Management (Section 3.4) are direct implementations of CLIA's requirements for a comprehensive quality system.
 
 GDPR (General Data Protection Regulation)
 
-While LabFlow is primarily intended for the US market, it must be designed with an awareness of global data privacy standards. If the system is used to process data for any individual residing in the European Union, it must comply with GDPR. This includes adhering to principles of lawful basis for processing, explicit consent, data minimization, and honoring data subject rights such as the right to erasure.52
-The following checklist explicitly maps key regulatory requirements to their corresponding LabFlow features, serving as a tool to guide development and simplify future audits.
-Regulation	Requirement	LabFlow Feature	Verification Method
+While LabWise is primarily intended for the US market, it must be designed with an awareness of global data privacy standards. If the system is used to process data for any individual residing in the European Union, it must comply with GDPR. This includes adhering to principles of lawful basis for processing, explicit consent, data minimization, and honoring data subject rights such as the right to erasure.52
+The following checklist explicitly maps key regulatory requirements to their corresponding LabWise features, serving as a tool to guide development and simplify future audits.
+Regulation	Requirement	LabWise Feature	Verification Method
 HIPAA 45 CFR 164.312(b)	Audit Controls: Implement mechanisms to record and examine activity in information systems that contain or use ePHI.	Immutable Audit Trail: System-wide logging of all user actions involving PHI (view, create, modify, delete).	Generate an audit report for a selected patient, showing a complete history of all access events, including user, timestamp, and action taken.
 HIPAA 45 CFR 164.312(a)(1)	Access Control: Implement policies and procedures to allow access only to those persons or software programs that have been granted access rights.	Role-Based Access Control (RBAC) Module: Granular permissions assigned to user roles (e.g., Technician, Manager, Receptionist) to enforce the minimum necessary standard.	Log in as a 'Receptionist' user and verify that functions like 'Verify Results' are disabled. Log in as a 'Technician' and verify that administrative functions are inaccessible.
 CLIA 42 CFR 493.1256	Control Procedures: The laboratory must have control procedures to monitor the accuracy and precision of the complete analytical process.	Quality Control (QC) Module: Levey-Jennings charts, configurable Westgard rules engine, and mandatory corrective action documentation for QC failures.	Enter a QC result that violates a Westgard rule and verify that the system flags the run as 'out of control' and prevents the release of associated patient results.
@@ -268,15 +268,15 @@ Interoperability
 
 A modern LIMS cannot function as an isolated island. It must be a connected hub within the broader healthcare IT ecosystem, capable of seamless and secure data exchange with a variety of other systems.
 Requirements:
-●	Instrument Interfaces: LabFlow must support standard laboratory interfacing protocols, such as Health Level Seven (HL7) and ASTM, to enable bidirectional communication with a wide range of analytical instruments from different manufacturers. This allows the LIS to download orders to the instrument and upload results from the instrument automatically.
+●	Instrument Interfaces: LabWise must support standard laboratory interfacing protocols, such as Health Level Seven (HL7) and ASTM, to enable bidirectional communication with a wide range of analytical instruments from different manufacturers. This allows the LIS to download orders to the instrument and upload results from the instrument automatically.
 ●	EHR/HIS Integration: The system must support modern health data exchange standards, including HL7 v2.x and Fast Healthcare Interoperability Resources (FHIR). This is essential for receiving electronic orders from external physician EHR systems and for transmitting final, formatted reports back into the patient's legal medical record.
-●	API Access: LabFlow will provide a secure, well-documented, and robust RESTful Application Programming Interface (API). This will allow for custom integrations with other third-party systems, such as advanced billing platforms, clinical research databases, or business intelligence tools, providing flexibility and future-proofing the system.55
+●	API Access: LabWise will provide a secure, well-documented, and robust RESTful Application Programming Interface (API). This will allow for custom integrations with other third-party systems, such as advanced billing platforms, clinical research databases, or business intelligence tools, providing flexibility and future-proofing the system.55
 
 System Performance and Reliability
 
-The clinical laboratory is often a 24/7 operation, and LabFlow must be engineered to match this demand. System downtime is not a mere inconvenience; it directly halts patient testing, delays diagnoses, and can compromise patient care.
+The clinical laboratory is often a 24/7 operation, and LabWise must be engineered to match this demand. System downtime is not a mere inconvenience; it directly halts patient testing, delays diagnoses, and can compromise patient care.
 Requirements:
-●	System Uptime: The production environment for LabFlow must be architected for high availability, guaranteeing a minimum of 99.9% uptime, excluding pre-scheduled and communicated maintenance windows.
+●	System Uptime: The production environment for LabWise must be architected for high availability, guaranteeing a minimum of 99.9% uptime, excluding pre-scheduled and communicated maintenance windows.
 ●	Data Backup and Redundancy: The system must perform automated, full database backups on a regular schedule (e.g., nightly), with incremental backups occurring more frequently. All backups must be encrypted and stored in a secure, geographically separate location to protect against localized disasters.
 ●	Disaster Recovery Plan (DRP): A comprehensive DRP must be in place and documented. This plan will detail the procedures for restoring service in the event of a catastrophic failure. It must define a clear Recovery Time Objective (RTO)—the maximum acceptable time for the system to be offline—and a Recovery Point Objective (RPO)—the maximum acceptable amount of data loss.
 
@@ -302,7 +302,7 @@ A. Glossary of Terms
 
 B. Data Dictionary (Preliminary)
 
-This section provides a preliminary definition of key data elements that will be managed by the LabFlow system.
+This section provides a preliminary definition of key data elements that will be managed by the LabWise system.
 Data Element	Data Type	Length/Format	Validation Rules / Notes
 Patient Medical Record Number (MRN)	Alphanumeric	20	Must be unique across all patients. Indexed for fast searching.
 Patient Last Name	String	50	Required field.

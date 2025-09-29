@@ -1,18 +1,18 @@
 
-The LabFlow Visual Blueprint: High-Fidelity Mockups and Interactive Prototype Specification
+The LabWise Visual Blueprint: High-Fidelity Mockups and Interactive Prototype Specification
 
 
-I. The LabFlow Design System: A Foundation for Consistency and Scale
+I. The LabWise Design System: A Foundation for Consistency and Scale
 
-A robust design system is the foundation upon which a consistent, intuitive, and scalable application is built. For a complex, mission-critical system like LabFlow, this foundation is non-negotiable. It ensures that every user, regardless of their role, interacts with a cohesive and predictable interface, which limits confusion, builds trust, and reinforces the application's reliability.1 The LabFlow Design System translates the official style guide into a comprehensive library of reusable components, visual styles, and interaction patterns. This system will serve as the single source of truth for the development team, accelerating the implementation process and guaranteeing a high-quality user experience that directly supports the core business objectives of error reduction and operational efficiency.2
+A robust design system is the foundation upon which a consistent, intuitive, and scalable application is built. For a complex, mission-critical system like LabWise, this foundation is non-negotiable. It ensures that every user, regardless of their role, interacts with a cohesive and predictable interface, which limits confusion, builds trust, and reinforces the application's reliability.1 The LabWise Design System translates the official style guide into a comprehensive library of reusable components, visual styles, and interaction patterns. This system will serve as the single source of truth for the development team, accelerating the implementation process and guaranteeing a high-quality user experience that directly supports the core business objectives of error reduction and operational efficiency.2
 
 1.1. Visual Language: The Psychology of Calm and Clarity
 
-The visual tone of a healthcare application is not merely an aesthetic choice; it is a functional component that directly impacts the user's psychological state and performance.3 The laboratory environment is characterized by high pressure, tight deadlines, and the constant risk of burnout, making a calm, clear, and uncluttered interface essential for maintaining focus and precision.2 The LabFlow color palette is deliberately chosen to foster an atmosphere of control and reduce anxiety, transforming the UI into a supportive tool for the user.
+The visual tone of a healthcare application is not merely an aesthetic choice; it is a functional component that directly impacts the user's psychological state and performance.3 The laboratory environment is characterized by high pressure, tight deadlines, and the constant risk of burnout, making a calm, clear, and uncluttered interface essential for maintaining focus and precision.2 The LabWise color palette is deliberately chosen to foster an atmosphere of control and reduce anxiety, transforming the UI into a supportive tool for the user.
 
 Primary Palette (Soft Teal)
 
-The core of the visual identity is a soft teal palette. Teal combines the calming properties of blue with the renewal qualities of green, making it a revitalizing color that represents open communication and clarity of thought—attributes that are central to LabFlow's mission.4
+The core of the visual identity is a soft teal palette. Teal combines the calming properties of blue with the renewal qualities of green, making it a revitalizing color that represents open communication and clarity of thought—attributes that are central to LabWise's mission.4
 ●	Primary Action Color (#008080): This deep, professional teal will be used for all primary interactive elements, such as main call-to-action buttons, active navigation links, and key icons. Its strong but not overwhelming presence guides the user's attention to the most important actions on any given screen.4
 ●	Supporting Tints (#66B2B2, #B2D8D8): Lighter shades of teal will be used for secondary elements, such as container backgrounds, table row highlights on hover, and less critical interactive controls. This creates a layered, monochromatic look that is serene and visually cohesive, avoiding the harshness of pure white while maintaining a clean, professional aesthetic.6
 
@@ -50,7 +50,7 @@ The use of the specific PT Sans Caption variant for the smallest text sizes is a
 
 1.3. Iconography Library: Universal Language for Actions
 
-Icons serve as a universal visual language, allowing users to understand actions and concepts quickly without relying on text alone. The LabFlow system will use a consistent library of line-style icons, which are chosen for their modern, clean aesthetic that reduces visual clutter and complements the open feel of the PT Sans typeface.12
+Icons serve as a universal visual language, allowing users to understand actions and concepts quickly without relying on text alone. The LabWise system will use a consistent library of line-style icons, which are chosen for their modern, clean aesthetic that reduces visual clutter and complements the open feel of the PT Sans typeface.12
 Every icon in the library will be designed or curated to maintain a consistent stroke weight (e.g., 2px), corner radius, and level of detail. This visual consistency is a core tenet of good UI design, making the interface feel more professional and easier to learn.1 The library will include a comprehensive set of icons for all system actions, objects, and statuses, such as:
 ●	Actions: Add Patient, Print Label, Verify Result, Run QC, Edit, Delete, Search, Filter.
 ●	Objects: Patient, Sample, Instrument, Reagent, Report, User.
@@ -58,7 +58,7 @@ Every icon in the library will be designed or curated to maintain a consistent s
 ●	Navigation: Home, Dashboard, Settings, Logout, Menu, Back, Forward.
 Icons will typically be sized at 24x24 pixels for primary actions and 16x16 pixels when used inline with text or in dense tables. They will inherit the color of their parent text element by default, ensuring they integrate seamlessly into the UI's color and typographic system.15
 
-1.4. Component Library: The Building Blocks of LabFlow
+1.4. Component Library: The Building Blocks of LabWise
 
 The component library is the practical implementation of the design system, providing a definitive specification for every reusable UI element. This approach ensures that a button, a text field, or a data table looks and behaves identically everywhere it appears. This consistency is vital in a complex system, as it makes the user interface predictable and reduces the cognitive load on the user, allowing them to focus on their critical tasks rather than on deciphering the UI.1 The following table details the specifications for a selection of core components, serving as a contract between the design and development teams to eliminate ambiguity and ensure a high-quality, robust implementation.
 Component Name	Visual Mockup / States	Color Tokens	Typography Style	Usage Notes	Accessibility Notes
@@ -70,16 +70,16 @@ Modal Window	Visual example of the modal layout including header, body, and foot
 
 II. Information Architecture and Global Navigation
 
-The information architecture (IA) defines the underlying structure and organization of the LabFlow application. A well-designed IA ensures that users can navigate the system intuitively, find the information they need, and complete their tasks with minimal effort and confusion.1 For LabFlow, the IA is fundamentally role-based, acknowledging that each of the five user personas has a unique set of goals, responsibilities, and workflows as defined in the Business Requirements Document.2
+The information architecture (IA) defines the underlying structure and organization of the LabWise application. A well-designed IA ensures that users can navigate the system intuitively, find the information they need, and complete their tasks with minimal effort and confusion.1 For LabWise, the IA is fundamentally role-based, acknowledging that each of the five user personas has a unique set of goals, responsibilities, and workflows as defined in the Business Requirements Document.2
 
 2.1. Application Sitemap
 
-The application sitemap provides a high-level visual blueprint of the entire LabFlow system. It maps out every screen, illustrates the hierarchical relationships between them, and defines the primary pathways users will take to navigate through their respective workflows. This map serves as the master plan for both the UI design and the front-end development, ensuring that all parts of the application are logically connected and that no screens are designed in isolation.
+The application sitemap provides a high-level visual blueprint of the entire LabWise system. It maps out every screen, illustrates the hierarchical relationships between them, and defines the primary pathways users will take to navigate through their respective workflows. This map serves as the master plan for both the UI design and the front-end development, ensuring that all parts of the application are logically connected and that no screens are designed in isolation.
 
 2.2. Role-Based Navigation Models
 
-A one-size-fits-all navigation model would be profoundly inefficient in a multi-persona system like LabFlow. The daily tasks of a Lab Manager are entirely different from those of a Receptionist, and their primary navigation should reflect this reality.2 Best practices in modern healthcare UI design strongly advocate for tailoring the user experience to specific roles, as this reduces clutter and streamlines workflows.3
-To achieve this, LabFlow will implement a dynamic primary navigation system. The main navigation element will be a persistent vertical sidebar on the left side of the interface (or the right side in the RTL version). The content of this sidebar—the links to the core system modules—will be dynamically populated based on the logged-in user's assigned role. This approach ensures that users are presented only with the tools and information relevant to their job, directly applying the "workflow-first" design principle and minimizing cognitive friction.16
+A one-size-fits-all navigation model would be profoundly inefficient in a multi-persona system like LabWise. The daily tasks of a Lab Manager are entirely different from those of a Receptionist, and their primary navigation should reflect this reality.2 Best practices in modern healthcare UI design strongly advocate for tailoring the user experience to specific roles, as this reduces clutter and streamlines workflows.3
+To achieve this, LabWise will implement a dynamic primary navigation system. The main navigation element will be a persistent vertical sidebar on the left side of the interface (or the right side in the RTL version). The content of this sidebar—the links to the core system modules—will be dynamically populated based on the logged-in user's assigned role. This approach ensures that users are presented only with the tools and information relevant to their job, directly applying the "workflow-first" design principle and minimizing cognitive friction.16
 The navigation structure for each primary internal role is defined as follows:
 ●	Receptionist View:
 ○	Dashboard: The default landing page, featuring the appointment calendar.
@@ -103,7 +103,7 @@ The navigation structure for each primary internal role is defined as follows:
 2.3. Universal Elements
 
 While the primary navigation is role-specific, certain elements must remain consistent across the entire application to ensure a predictable user experience.1 These universal elements will be present for all authenticated users.
-●	Global Header: A slim header will persist at the top of every screen. It will contain the LabFlow logo on the left, providing consistent branding and a link back to the user's default dashboard. On the right, it will feature three key elements:
+●	Global Header: A slim header will persist at the top of every screen. It will contain the LabWise logo on the left, providing consistent branding and a link back to the user's default dashboard. On the right, it will feature three key elements:
 1.	Global Search Bar: A powerful search input that allows users to quickly find a patient, sample, or order from anywhere in the application. The search will be context-aware, accepting Patient Name, Medical Record Number (MRN), or Sample Accession Number, and presenting results that are clearly differentiated by type.17
 2.	Notification Center: An icon-based button that opens a dropdown panel displaying recent system notifications, such as new STAT order alerts or low inventory warnings.
 3.	User Profile Menu: A dropdown menu containing the user's name and role, along with links to 'Account Settings' and the 'Logout' function.
@@ -131,7 +131,7 @@ Upon completion of these steps, the system generates the barcoded labels and req
 
 IV. The Analytical Engine: The Lab Technician's Digital Workbench
 
-The analytical phase is the core of the laboratory's function, and the Lab Technician's interface is the digital workbench where this work is managed. This environment is defined by high volume, high stress, and an absolute requirement for precision.2 The LabFlow design for the technician persona is therefore centered on three principles: proactive prioritization, barcode-driven error prevention, and intelligent automation of repetitive tasks. The goal is to create an interface that acts as a cognitive aid, helping the technician manage their workload effectively and focus their expertise on the results that truly require human review.18
+The analytical phase is the core of the laboratory's function, and the Lab Technician's interface is the digital workbench where this work is managed. This environment is defined by high volume, high stress, and an absolute requirement for precision.2 The LabWise design for the technician persona is therefore centered on three principles: proactive prioritization, barcode-driven error prevention, and intelligent automation of repetitive tasks. The goal is to create an interface that acts as a cognitive aid, helping the technician manage their workload effectively and focus their expertise on the results that truly require human review.18
 
 4.1. The Dynamic Worklist (Home Screen)
 
@@ -160,7 +160,7 @@ The result verification workflow is designed to augment, not replace, the techni
 
 4.4. Quality Control and Maintenance
 
-Maintaining rigorous quality control and comprehensive instrument documentation is a cornerstone of CLIA compliance.2 The LabFlow interface digitizes and streamlines these critical processes as required by
+Maintaining rigorous quality control and comprehensive instrument documentation is a cornerstone of CLIA compliance.2 The LabWise interface digitizes and streamlines these critical processes as required by
 US-TEC-04.
 ●	Digital QC Logs: Technicians will enter QC results into a simple form. The system will then automatically plot these data points on interactive Levey-Jennings charts. This provides an immediate visual representation of instrument performance over time.
 ●	Westgard Rules Engine: The system will automatically apply Westgard multirule QC procedures to the data. If a rule is violated (e.g., a 1-3s or 2-2s failure), the chart will visually flag the failing point(s), and the system will place an immediate hold on the release of any patient results from that analytical run. A modal window will then guide the technician to a structured "Corrective Action Log" form, ensuring that all troubleshooting steps are documented in a complete, auditable record required for inspections.2
@@ -168,7 +168,7 @@ US-TEC-04.
 
 V. The Command Center: The Lab Manager's Operational Cockpit
 
-The Lab Manager persona requires a high-level, strategic view of the entire laboratory operation. Their interface is designed as a command center, transforming the vast amounts of transactional data generated by LabFlow into clear, actionable, and real-time insights. The design focuses on data visualization, automated alerting, and streamlined administrative tools to support the manager in their core goals of ensuring operational efficiency, quality, and constant regulatory compliance.2
+The Lab Manager persona requires a high-level, strategic view of the entire laboratory operation. Their interface is designed as a command center, transforming the vast amounts of transactional data generated by LabWise into clear, actionable, and real-time insights. The design focuses on data visualization, automated alerting, and streamlined administrative tools to support the manager in their core goals of ensuring operational efficiency, quality, and constant regulatory compliance.2
 
 5.1. Real-Time KPI Dashboard
 
@@ -199,7 +199,7 @@ The Lab Manager is ultimately responsible for ensuring the laboratory is "inspec
 
 5.4. User Administration (Role-Based Access Control)
 
-To comply with HIPAA's "minimum necessary" standard, LabFlow must enforce strict controls over who can access and modify data.2 The User Administration module provides the Lab Manager with an intuitive interface to manage these controls, as required by
+To comply with HIPAA's "minimum necessary" standard, LabWise must enforce strict controls over who can access and modify data.2 The User Administration module provides the Lab Manager with an intuitive interface to manage these controls, as required by
 US-MGR-04.
 When creating or editing a user account, the manager will assign a specific role from a predefined list (e.g., 'Receptionist', 'Technician - Chemistry', 'Phlebotomist', 'Manager'). The interface will then clearly display a checklist of the permissions associated with that role—the specific modules they can access and the actions they can perform. This design ensures that the principle of least privilege is enforced system-wide, preventing unauthorized access to sensitive patient information or critical system functions. For example, it makes it impossible for a receptionist to verify lab results or for a technician to modify billing information.2
 
@@ -228,12 +228,12 @@ This multi-faceted approach transforms the report from a source of confusion and
 
 VII. Bidirectional Design: Right-to-Left (RTL) Transformation
 
-To serve a global user base, including Arabic-speaking regions, LabFlow must be designed for full bidirectional support from the ground up. A Right-to-Left (RTL) layout is not an afterthought but a core requirement that influences the design of every component and screen. This section provides a comprehensive guide for the development team to ensure a high-quality, seamless RTL user experience.
+To serve a global user base, including Arabic-speaking regions, LabWise must be designed for full bidirectional support from the ground up. A Right-to-Left (RTL) layout is not an afterthought but a core requirement that influences the design of every component and screen. This section provides a comprehensive guide for the development team to ensure a high-quality, seamless RTL user experience.
 
 7.1. Layout Mirroring Principles
 
 The fundamental principle of RTL design is the horizontal mirroring of the user interface. All elements that have a directional significance on the horizontal axis must be flipped.
-●	Overall Layout: The entire page structure will be mirrored. The vertical navigation sidebar will move from the left to the right side of the screen. The LabFlow logo will appear in the top-right of the header, while the user profile menu and notification icon will move to the top-left.
+●	Overall Layout: The entire page structure will be mirrored. The vertical navigation sidebar will move from the left to the right side of the screen. The LabWise logo will appear in the top-right of the header, while the user profile menu and notification icon will move to the top-left.
 ●	Component Placement: Within any given container, the flow of elements will be reversed. For example, a button with an icon to its left in the LTR view will have the icon to its right in the RTL view. Labels for input fields will be right-aligned.
 
 7.2. Component-Specific RTL States
@@ -260,11 +260,11 @@ transform: translateX(50px);	transform: translateX(-50px);	transform: translateX
 
 VIII. The Interactive Prototype: A Simulated Journey
 
-The final deliverable, and the ultimate source of truth for the front-end development team, is not a static set of documents but a high-fidelity, clickable prototype. This prototype will be constructed in a tool such as Figma or Adobe XD, linking all the final, approved mockups into a cohesive and interactive simulation of the LabFlow application. This allows stakeholders to experience the user flow, provides an unambiguous guide for developers regarding interactions and animations, and enables early-stage usability testing before a single line of code is written.
+The final deliverable, and the ultimate source of truth for the front-end development team, is not a static set of documents but a high-fidelity, clickable prototype. This prototype will be constructed in a tool such as Figma or Adobe XD, linking all the final, approved mockups into a cohesive and interactive simulation of the LabWise application. This allows stakeholders to experience the user flow, provides an unambiguous guide for developers regarding interactions and animations, and enables early-stage usability testing before a single line of code is written.
 
 8.1. Scope of the Prototype
 
-The prototype will be comprehensive, encompassing all screens designed in the preceding sections for both LTR and RTL layouts. It will simulate the entire user journey for all five key personas, demonstrating how the interconnected modules of LabFlow work together to manage the complete lifecycle of a patient sample, from the initial order to the final archival of the report.2
+The prototype will be comprehensive, encompassing all screens designed in the preceding sections for both LTR and RTL layouts. It will simulate the entire user journey for all five key personas, demonstrating how the interconnected modules of LabWise work together to manage the complete lifecycle of a patient sample, from the initial order to the final archival of the report.2
 
 8.2. Key User Journeys to be Prototyped
 
@@ -281,10 +281,10 @@ The prototype will focus on demonstrating the successful completion of the core 
 ○	STAT Protocol: A physician places a STAT order, triggering an immediate alert on the technician's worklist.
 ○	Sample Rejection: A technician at accessioning rejects a hemolyzed sample, logs the reason and notification details in a mandatory form, and the system automatically notifies the ordering physician.
 ○	QC Failure: A technician enters a QC result that violates a Westgard rule, demonstrating how the system locks patient results and guides the user through the corrective action documentation process.
-By simulating these critical workflows, the interactive prototype will provide the development team with a clear, unambiguous, and exhaustive blueprint for building the LabFlow application.
+By simulating these critical workflows, the interactive prototype will provide the development team with a clear, unambiguous, and exhaustive blueprint for building the LabWise application.
 Works cited
 1.	Best Practices for Rocking UX Design - Lucid Software, accessed September 23, 2025, https://lucid.co/blog/ux-design-best-practices
-2.	LabFlow: Business Requirements Foundation
+2.	LabWise: Business Requirements Foundation
 3.	User Interface Design for Healthcare Applications: Best Practices and Examples for 2025, accessed September 23, 2025, https://www.eleken.co/blog-posts/user-interface-design-for-healthcare-applications
 4.	Everything about the color Teal - Canva, accessed September 23, 2025, https://www.canva.com/colors/color-meanings/teal/
 5.	Teal Logos: Meaning and Modern Color Combinations - Mojomox, accessed September 23, 2025, https://mojomox.com/color-teal

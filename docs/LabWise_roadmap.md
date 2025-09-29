@@ -1,10 +1,10 @@
 
-LabFlow Development Roadmap: A Sprint-by-Sprint Implementation Plan
+LabWise Development Roadmap: A Sprint-by-Sprint Implementation Plan
 
 
 Executive Summary: The Master Sprint Plan
 
-This document presents the master code writing plan for the development of the LabFlow Laboratory Information Management System. It synthesizes the Business Requirements Document, the UI/UX Design Blueprint, and the Backend Technical Specification into a single, authoritative roadmap. The project is broken down into a sequence of agile sprints, each designed to deliver a valuable, complete, and testable increment of the final product. The plan is strategically sequenced to address foundational and high-risk elements first, ensuring the application is built on a solid, secure, and compliant architecture from the outset.
+This document presents the master code writing plan for the development of the LabWise Laboratory Information Management System. It synthesizes the Business Requirements Document, the UI/UX Design Blueprint, and the Backend Technical Specification into a single, authoritative roadmap. The project is broken down into a sequence of agile sprints, each designed to deliver a valuable, complete, and testable increment of the final product. The plan is strategically sequenced to address foundational and high-risk elements first, ensuring the application is built on a solid, secure, and compliant architecture from the outset.
 The following table provides a high-level overview of the entire development roadmap. Each sprint represents a one-to-two-week work period, delivering a vertical slice of functionality that integrates frontend, backend, and database development.
 Sprint	Sprint Goal	Key Persona(s)	Core Functionality Delivered
 0	Project Foundation & Core Security	Dev Team	Environment setup, CI/CD, Authentication, Role-Based Access Control (RBAC).
@@ -39,7 +39,7 @@ Frontend Development
 
 ●	Initialize the frontend application framework (e.g., React, Vue, Angular).
 ●	Implement the core application layout shell, including placeholders for the Global Header and the role-based Navigation Sidebar as defined in the UI/UX Design Blueprint.1
-●	Build the Login page UI, utilizing the components, color tokens, and typography specified in the LabFlow Design System.1
+●	Build the Login page UI, utilizing the components, color tokens, and typography specified in the LabWise Design System.1
 ●	Implement client-side authentication logic, including secure storage and handling of JSON Web Tokens (JWT).
 ●	Create a protected routing system that programmatically redirects unauthenticated users to the login page, preventing unauthorized access to application views.
 
@@ -169,7 +169,7 @@ Database Tasks
 Rationale and Strategic Sequencing
 
 The Business Requirements Document explicitly identifies the prevention of duplicate patient records as a mission-critical objective to avert potentially catastrophic clinical errors.3 A single patient having multiple records can lead to a fragmented medical history, resulting in misdiagnosis or incorrect treatment. The UI/UX Design Blueprint directly addresses this risk by architecting a "search-first" workflow.1 On the patient registration screen, the most prominent, visually emphasized action is to search for an existing patient. The "Create New Patient" button is presented as a secondary, alternative path.
-This design choice creates what is known as a "pit of success" for the user. The path of least resistance—the most obvious and easiest workflow—is the correct one: to search before creating. Creating a new patient requires a more deliberate, conscious action from the user, reducing the likelihood of accidental duplicates. The backend architecture fully supports this preventative strategy by providing a powerful search API (GET /patients) and, as a final failsafe, enforcing absolute uniqueness on the mrn at the database level via the POST /patients endpoint logic.2 By building this complete vertical slice, the team is not merely delivering a feature; it is implementing a comprehensive, end-to-end error prevention strategy for the single most critical data entity in the entire LabFlow system.
+This design choice creates what is known as a "pit of success" for the user. The path of least resistance—the most obvious and easiest workflow—is the correct one: to search before creating. Creating a new patient requires a more deliberate, conscious action from the user, reducing the likelihood of accidental duplicates. The backend architecture fully supports this preventative strategy by providing a powerful search API (GET /patients) and, as a final failsafe, enforcing absolute uniqueness on the mrn at the database level via the POST /patients endpoint logic.2 By building this complete vertical slice, the team is not merely delivering a feature; it is implementing a comprehensive, end-to-end error prevention strategy for the single most critical data entity in the entire LabWise system.
 
 Acceptance Criteria
 
@@ -259,7 +259,7 @@ Database Tasks
 
 Rationale and Strategic Sequencing
 
-This sprint introduces a key architectural pattern: asynchronous processing for long-running or external-dependent tasks.2 The insurance eligibility check is a perfect use case. A synchronous API call to an external provider could be slow, creating a poor user experience and making the LabFlow system vulnerable to the provider's downtime. By decoupling this process using a message queue, the UI remains fast and responsive for the Receptionist, and the system becomes more resilient.2 This architectural decision, implemented early for a non-critical feature, establishes a robust pattern that can be reused for other intensive tasks later in the project, such as large report generation or sending batch notifications.
+This sprint introduces a key architectural pattern: asynchronous processing for long-running or external-dependent tasks.2 The insurance eligibility check is a perfect use case. A synchronous API call to an external provider could be slow, creating a poor user experience and making the LabWise system vulnerable to the provider's downtime. By decoupling this process using a message queue, the UI remains fast and responsive for the Receptionist, and the system becomes more resilient.2 This architectural decision, implemented early for a non-critical feature, establishes a robust pattern that can be reused for other intensive tasks later in the project, such as large report generation or sending batch notifications.
 
 Acceptance Criteria
 
@@ -342,7 +342,7 @@ Backend Development
 
 Rationale and Strategic Sequencing
 
-This sprint directly addresses the core pain points of the Lab Technician: high workload, stress, and the risk of burnout.3 A static, chronological list of tasks is inefficient and dangerous in a high-volume lab. By creating a worklist that is proactively prioritized by the system, LabFlow transforms from a passive data repository into an active cognitive aid.1 It reduces the mental load on the technician, allowing them to focus their expertise on the analytical work itself, rather than on managing a complex to-do list. This feature is a direct investment in both operational efficiency and patient safety.
+This sprint directly addresses the core pain points of the Lab Technician: high workload, stress, and the risk of burnout.3 A static, chronological list of tasks is inefficient and dangerous in a high-volume lab. By creating a worklist that is proactively prioritized by the system, LabWise transforms from a passive data repository into an active cognitive aid.1 It reduces the mental load on the technician, allowing them to focus their expertise on the analytical work itself, rather than on managing a complex to-do list. This feature is a direct investment in both operational efficiency and patient safety.
 
 Acceptance Criteria
 
@@ -385,7 +385,7 @@ Backend Development
 
 Rationale and Strategic Sequencing
 
-This sprint delivers a massive leap in efficiency and safety. The 80/20 rule often applies in the lab, where a large percentage of results are normal and routine. By automating the verification of these results, the system frees up an enormous amount of technician time, allowing them to focus their expertise where it is most needed: on investigating abnormal, critical, or clinically improbable results.3 The delta check is a powerful safety net, catching potential errors like sample mix-ups or instrument interference before a dangerous result can be released.3 This dual strategy of automation and intelligent assistance is central to LabFlow's value proposition.
+This sprint delivers a massive leap in efficiency and safety. The 80/20 rule often applies in the lab, where a large percentage of results are normal and routine. By automating the verification of these results, the system frees up an enormous amount of technician time, allowing them to focus their expertise where it is most needed: on investigating abnormal, critical, or clinically improbable results.3 The delta check is a powerful safety net, catching potential errors like sample mix-ups or instrument interference before a dangerous result can be released.3 This dual strategy of automation and intelligent assistance is central to LabWise's value proposition.
 
 Acceptance Criteria
 
@@ -404,7 +404,7 @@ To build the digital tools necessary for maintaining and documenting CLIA compli
 
 User Stories Implemented
 
-●	US-TEC-04: As a Lab Technician, I need to be able to log all instrument maintenance activities, calibrations, and QC results directly into an electronic logbook within LabFlow, so that a complete, auditable... record is maintained for CLIA compliance.3
+●	US-TEC-04: As a Lab Technician, I need to be able to log all instrument maintenance activities, calibrations, and QC results directly into an electronic logbook within LabWise, so that a complete, auditable... record is maintained for CLIA compliance.3
 
 Development Tasks
 
@@ -429,7 +429,7 @@ Database Tasks
 
 Rationale and Strategic Sequencing
 
-This sprint delivers the core compliance functionality of LabFlow. Meticulous QC and maintenance documentation is not optional; it is a legal requirement for any clinical laboratory.3 By digitizing these paper-based logs, LabFlow makes the lab "inspection-ready" at all times. The automated Westgard Rules engine is a critical safety feature, preventing the release of patient results from an analytical run that may be inaccurate.1 This sprint provides the tools that allow the Lab Manager to confidently demonstrate quality and compliance to auditors.
+This sprint delivers the core compliance functionality of LabWise. Meticulous QC and maintenance documentation is not optional; it is a legal requirement for any clinical laboratory.3 By digitizing these paper-based logs, LabWise makes the lab "inspection-ready" at all times. The automated Westgard Rules engine is a critical safety feature, preventing the release of patient results from an analytical run that may be inaccurate.1 This sprint provides the tools that allow the Lab Manager to confidently demonstrate quality and compliance to auditors.
 
 Acceptance Criteria
 
@@ -510,7 +510,7 @@ Backend Development
 
 Rationale and Strategic Sequencing
 
-A stock-out of a critical reagent can bring a whole section of the laboratory to a standstill, delaying patient diagnoses and costing the lab revenue.3 This sprint tackles that high-impact operational risk. By automating consumption tracking and reorder alerts, LabFlow removes the potential for human error in a tedious manual process. This ensures operational continuity and allows the manager to focus on strategic tasks rather than constantly checking supply closets. It's a direct investment in the lab's operational resilience.
+A stock-out of a critical reagent can bring a whole section of the laboratory to a standstill, delaying patient diagnoses and costing the lab revenue.3 This sprint tackles that high-impact operational risk. By automating consumption tracking and reorder alerts, LabWise removes the potential for human error in a tedious manual process. This ensures operational continuity and allows the manager to focus on strategic tasks rather than constantly checking supply closets. It's a direct investment in the lab's operational resilience.
 
 Acceptance Criteria
 
@@ -550,7 +550,7 @@ Backend Development
 
 Rationale and Strategic Sequencing
 
-This sprint delivers the final pieces of the "always inspection-ready" promise. The on-demand audit trail is a direct response to HIPAA's stringent logging requirements.3 The ability to produce a complete history of a patient record in seconds is a powerful tool during an audit. Similarly, managing personnel files is a critical but tedious part of CLIA compliance.3 By digitizing these records and adding automated reminders, LabFlow reduces administrative overhead and ensures that the lab can always prove its staff are qualified and up-to-date on their training.
+This sprint delivers the final pieces of the "always inspection-ready" promise. The on-demand audit trail is a direct response to HIPAA's stringent logging requirements.3 The ability to produce a complete history of a patient record in seconds is a powerful tool during an audit. Similarly, managing personnel files is a critical but tedious part of CLIA compliance.3 By digitizing these records and adding automated reminders, LabWise reduces administrative overhead and ensures that the lab can always prove its staff are qualified and up-to-date on their training.
 
 Acceptance Criteria
 
@@ -586,7 +586,7 @@ Backend Development
 
 Rationale and Strategic Sequencing
 
-This sprint opens up LabFlow to its primary external clients. Providing physicians with direct, real-time access to order status and results solves one of their biggest pain points: uncertainty and communication delays.3 By offering a self-service portal, the lab can reduce the volume of inbound phone calls asking "Where is my patient's result?", freeing up lab staff time. This feature transforms the lab's relationship with its clients, making it a more transparent and efficient partner in patient care.
+This sprint opens up LabWise to its primary external clients. Providing physicians with direct, real-time access to order status and results solves one of their biggest pain points: uncertainty and communication delays.3 By offering a self-service portal, the lab can reduce the volume of inbound phone calls asking "Where is my patient's result?", freeing up lab staff time. This feature transforms the lab's relationship with its clients, making it a more transparent and efficient partner in patient care.
 
 Acceptance Criteria
 
@@ -660,7 +660,7 @@ Backend Development
 
 Rationale and Strategic Sequencing
 
-This sprint fulfills a key regulatory requirement (HIPAA's Patient Right of Access) and addresses a major source of patient anxiety and confusion.3 Presenting raw clinical data to patients is often unhelpful.3 By designing a report view specifically for a non-clinical audience, LabFlow empowers patients to better understand their health. This feature transforms the lab report from a confusing document into an educational tool, fostering better patient engagement and a stronger relationship between the patient and the healthcare provider.
+This sprint fulfills a key regulatory requirement (HIPAA's Patient Right of Access) and addresses a major source of patient anxiety and confusion.3 Presenting raw clinical data to patients is often unhelpful.3 By designing a report view specifically for a non-clinical audience, LabWise empowers patients to better understand their health. This feature transforms the lab report from a confusing document into an educational tool, fostering better patient engagement and a stronger relationship between the patient and the healthcare provider.
 
 Acceptance Criteria
 
@@ -674,7 +674,7 @@ Sprint 15: Global Polish - Internationalization
 
 Sprint Goal
 
-To refactor the entire application to support internationalization (i18n) and implement a full Right-to-Left (RTL) transformation to prepare LabFlow for global markets.
+To refactor the entire application to support internationalization (i18n) and implement a full Right-to-Left (RTL) transformation to prepare LabWise for global markets.
 
 Development Tasks
 
@@ -694,7 +694,7 @@ Backend Development
 
 Rationale and Strategic Sequencing
 
-This sprint is scheduled late in the process after all core features have been built and stabilized. Retrofitting an application for i18n and RTL is significantly more difficult and error-prone than building it in from the start, but addressing it after the UI is complete allows the team to tackle the transformation holistically. This work is critical for expanding LabFlow's addressable market beyond English-speaking, LTR regions. It is a strategic investment in the product's future scalability and global reach.
+This sprint is scheduled late in the process after all core features have been built and stabilized. Retrofitting an application for i18n and RTL is significantly more difficult and error-prone than building it in from the start, but addressing it after the UI is complete allows the team to tackle the transformation holistically. This work is critical for expanding LabWise's addressable market beyond English-speaking, LTR regions. It is a strategic investment in the product's future scalability and global reach.
 
 Acceptance Criteria
 
@@ -732,6 +732,6 @@ Acceptance Criteria
 ●	The application passes a security audit with no high-severity vulnerabilities remaining.
 ●	The final bug backlog is cleared of all critical and high-priority issues.
 Works cited
-1.	LabFlow UI/UX Design Blueprint
-2.	LabFlow Backend Design Specification
-3.	LabFlow: Business Requirements Foundation
+1.	LabWise UI/UX Design Blueprint
+2.	LabWise Backend Design Specification
+3.	LabWise: Business Requirements Foundation
