@@ -119,7 +119,12 @@ export default function TestCatalogPage() {
   const fetchTests = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/v1/test-catalog');
+      const token = localStorage.getItem('labwise-token');
+      const response = await fetch('/api/v1/test-catalog', {
+          headers: {
+              'Authorization': `Bearer ${token}`
+          }
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch tests');
       }
@@ -137,10 +142,10 @@ export default function TestCatalogPage() {
   };
 
   useEffect(() => {
-    if (user?.role === 'manager') {
+    if (!userLoading && user?.role === 'manager') {
       fetchTests();
     }
-  }, [user]);
+  }, [user, userLoading]);
 
   if (userLoading) {
     return (
@@ -207,11 +212,15 @@ export default function TestCatalogPage() {
   const onSubmit = async (data: TestFormValues) => {
     const apiEndpoint = data.id ? `/api/v1/test-catalog` : '/api/v1/test-catalog';
     const method = data.id ? 'PUT' : 'POST';
+    const token = localStorage.getItem('labwise-token');
 
     try {
         const response = await fetch(apiEndpoint, {
             method,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
             body: JSON.stringify(data),
         });
 
@@ -386,3 +395,5 @@ export default function TestCatalogPage() {
     </div>
   );
 }
+
+    

@@ -114,7 +114,12 @@ export default function UserManagementPage() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/v1/users');
+      const token = localStorage.getItem('labwise-token');
+      const response = await fetch('/api/v1/users', {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+      });
       if (!response.ok) {
         if (response.status === 403) {
            throw new Error('You do not have permission to view users.');
@@ -206,6 +211,7 @@ export default function UserManagementPage() {
   const onSubmit = async (data: UserFormValues) => {
     const apiEndpoint = data.id ? `/api/v1/users` : '/api/v1/users';
     const method = data.id ? 'PUT' : 'POST';
+    const token = localStorage.getItem('labwise-token');
 
     // Don't send an empty password field on updates
     if (data.id && !data.password) {
@@ -215,7 +221,10 @@ export default function UserManagementPage() {
     try {
         const response = await fetch(apiEndpoint, {
             method,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` 
+            },
             body: JSON.stringify(data),
         });
 
@@ -436,3 +445,5 @@ export default function UserManagementPage() {
     </div>
   );
 }
+
+    
