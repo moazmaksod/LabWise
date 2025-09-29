@@ -14,7 +14,8 @@ import {
   Boxes, 
   FileCheck, 
   Users, 
-  ClipboardCopy 
+  ClipboardCopy,
+  FlaskConical,
 } from 'lucide-react';
 import type { Role, ClientUser, Sample } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -97,10 +98,11 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
   ],
   manager: [
     { href: '/dashboard', label: 'KPI Dashboard', icon: AreaChart },
+    { href: '/user-management', label: 'User Management', icon: Users },
+    { href: '/test-catalog', label: 'Test Catalog', icon: FlaskConical },
     { href: '/dashboard', label: 'Reports & Analytics', icon: BarChart },
     { href: '/dashboard', label: 'Inventory Mgmt', icon: Boxes },
     { href: '/dashboard', label: 'Quality Assurance', icon: FileCheck },
-    { href: '/user-management', label: 'User Management', icon: Users },
     { href: '/dashboard', label: 'Audit Trail', icon: ClipboardCopy },
   ],
   physician: [],
