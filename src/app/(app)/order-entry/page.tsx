@@ -49,6 +49,7 @@ export default function OrderEntryPage() {
   const [isPatientSearching, setIsPatientSearching] = useState(false);
 
   // Order Form State
+  const [isTestPopoverOpen, setIsTestPopoverOpen] = useState(false);
   const [physicians, setPhysicians] = useState<ClientUser[]>([]);
   const [testSearchInput, setTestSearchInput] = useState('');
   const [testSearchResults, setTestSearchResults] = useState<ClientTestCatalogItem[]>([]);
@@ -66,13 +67,11 @@ export default function OrderEntryPage() {
   });
 
   useEffect(() => {
-    // DEBUG: Check if token is retrieved from localStorage
     const storedToken = localStorage.getItem('labwise-token');
-    console.log('[DEBUG] Component Mount: Retrieved token from localStorage:', storedToken ? 'found' : 'not found');
     if (storedToken) {
       setToken(storedToken);
     } else {
-      console.error('[DEBUG] Authentication Error: Could not find user session token.');
+      console.error('Authentication Error: Could not find user session token.');
       toast({ variant: 'destructive', title: 'Authentication Error', description: 'Could not find user session.' });
     }
   }, [toast]);
@@ -94,7 +93,7 @@ export default function OrderEntryPage() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Search failed');
-      const data: ClientPatient[] = await response.json();
+      const data = await response.json();
       setPatientSearchResults(data);
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'Could not perform patient search.' });
@@ -106,77 +105,80 @@ export default function OrderEntryPage() {
 
   // --- Order Form Data Fetching ---
   const fetchPhysicians = useCallback(async () => {
-    if (!token) {
-        console.log('[DEBUG] fetchPhysicians: Aborted, no token available.');
-        return;
-    }
-    console.log('[DEBUG] fetchPhysicians: Starting fetch with token.');
+    if (!token) return;
     try {
       const response = await fetch('/api/v1/users?role=physician', {
           headers: { 'Authorization': `Bearer ${token}` }
       });
-      console.log('[DEBUG] fetchPhysicians: API response status:', response.status);
-
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[DEBUG] fetchPhysicians: API request failed. Status:', response.status, 'Body:', errorText);
         throw new Error('Failed to fetch physicians');
       }
-
       const data = await response.json();
-      console.log('[DEBUG] fetchPhysicians: Received data:', data);
       setPhysicians(data);
-
     } catch (error) {
-       console.error('[DEBUG] fetchPhysicians: Caught an error.', error);
        toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch physician list.' });
     }
   }, [token, toast]);
 
   useEffect(() => {
-    console.log('[DEBUG] useEffect for fetchPhysicians triggered. selectedPatient:', !!selectedPatient, 'token:', !!token);
     if(selectedPatient && token) {
         fetchPhysicians();
     }
   }, [selectedPatient, token, fetchPhysicians]);
 
-  // --- Test Search ---
+  // --- Test Search (Debounced on input change) ---
   useEffect(() => {
-    console.log('[DEBUG] Test search useEffect triggered. Input:', testSearchInput, 'Token:', !!token);
-    if (!testSearchInput.trim() || !token) {
-        setTestSearchResults([]);
-        return;
+    // This effect handles searching as the user types
+    if (!testSearchInput.trim() || !token || !isTestPopoverOpen) {
+      return;
     }
     
     const search = setTimeout(async () => {
-      console.log(`[DEBUG] Test Search: Performing search for "${testSearchInput}"`);
       setIsTestSearching(true);
       try {
         const response = await fetch(`/api/v1/test-catalog?q=${testSearchInput}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        console.log('[DEBUG] Test Search: API response status:', response.status);
-
         if (!response.ok) {
-           const errorText = await response.text();
-           console.error('[DEBUG] Test Search: API request failed. Status:', response.status, 'Body:', errorText);
            throw new Error('Test search failed');
         }
-
         const data = await response.json();
-        console.log('[DEBUG] Test Search: Received data:', data);
         setTestSearchResults(data);
-
       } catch (error) {
-        console.error('[DEBUG] Test Search: Caught an error.', error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not search tests.' });
       } finally {
         setIsTestSearching(false);
       }
-    }, 300); // Debounce search
+    }, 300);
 
     return () => clearTimeout(search);
+  }, [testSearchInput, token, toast, isTestPopoverOpen]);
+
+  // --- Test Search (On popover open) ---
+  const handleTestPopoverOpenChange = useCallback(async (open: boolean) => {
+    setIsTestPopoverOpen(open);
+    if (open && !testSearchInput.trim() && token) {
+        // If opening and input is empty, fetch all tests
+        setIsTestSearching(true);
+        try {
+            const response = await fetch(`/api/v1/test-catalog`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) {
+               throw new Error('Test fetch failed');
+            }
+            const data = await response.json();
+            setTestSearchResults(data);
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch test list.' });
+        } finally {
+            setIsTestSearching(false);
+        }
+    } else if (!open) {
+        setTestSearchResults([]); // Clear results when closing
+    }
   }, [testSearchInput, token, toast]);
+
 
   const handleSelectTest = (test: ClientTestCatalogItem) => {
     if (!selectedTests.find(t => t.id === test.id)) {
@@ -186,6 +188,7 @@ export default function OrderEntryPage() {
     }
     setTestSearchInput('');
     setTestSearchResults([]);
+    setIsTestPopoverOpen(false);
   };
 
   const handleRemoveTest = (testId: string) => {
@@ -373,7 +376,7 @@ export default function OrderEntryPage() {
                     </div>
                     <div className="space-y-2">
                         <FormLabel>Add Tests</FormLabel>
-                        <Popover>
+                        <Popover open={isTestPopoverOpen} onOpenChange={handleTestPopoverOpenChange}>
                             <PopoverTrigger asChild>
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -389,7 +392,7 @@ export default function OrderEntryPage() {
                                  <Command>
                                     <CommandList>
                                         {isTestSearching && <CommandEmpty>Searching...</CommandEmpty>}
-                                        {!isTestSearching && testSearchResults.length === 0 && testSearchInput.length > 1 && <CommandEmpty>No tests found.</CommandEmpty>}
+                                        {!isTestSearching && testSearchResults.length === 0 && <CommandEmpty>No tests found.</CommandEmpty>}
                                         <CommandGroup>
                                             {testSearchResults.map((test) => (
                                                 <CommandItem
