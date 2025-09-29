@@ -6,20 +6,36 @@ import type { Role } from '@/lib/types';
 
 // 1. Define the RBAC Matrix from the backend specification
 const rbacMatrix: Record<string, { methods: string[], roles: Role[] }[]> = {
+    '/api/v1/auth/login': [
+        { methods: ['POST'], roles: ['receptionist', 'technician', 'manager', 'physician', 'patient'] }
+    ],
     '/api/v1/auth/me': [
         { methods: ['GET'], roles: ['receptionist', 'technician', 'manager', 'physician', 'patient'] }
     ],
     '/api/v1/users': [
-        { methods: ['POST', 'GET', 'PUT'], roles: ['manager'] }
+        { methods: ['POST', 'GET'], roles: ['manager'] }
+    ],
+    '/api/v1/users/.*': [
+        { methods: ['GET', 'PUT'], roles: ['manager'] }
     ],
     '/api/v1/patients': [
         { methods: ['POST'], roles: ['receptionist', 'manager'] },
-        { methods: ['GET'], roles: ['receptionist', 'manager', 'technician'] },
+        // Note: Technician access is limited at the app layer per spec
+        { methods: ['GET'], roles: ['receptionist', 'technician', 'manager'] }
+    ],
+     '/api/v1/patients/.*': [
+        // Note: Technician access is limited at the app layer per spec
+        { methods: ['GET'], roles: ['receptionist', 'technician', 'manager'] },
         { methods: ['PUT'], roles: ['receptionist', 'manager'] }
     ],
     '/api/v1/orders': [
         { methods: ['POST'], roles: ['receptionist', 'manager', 'physician'] },
-        { methods: ['GET'], roles: ['receptionist', 'manager', 'technician', 'physician', 'patient'] }
+        // Note: Technician, Physician, Patient access is limited to own/worklist at the app layer
+        { methods: ['GET'], roles: ['receptionist', 'technician', 'manager', 'physician', 'patient'] }
+    ],
+    '/api/v1/orders/.*': [
+        // Note: Physician and Patient access is limited to their own orders at the app layer
+        { methods: ['GET'], roles: ['receptionist', 'technician', 'manager', 'physician', 'patient'] }
     ],
     '/api/v1/samples/accession': [
         { methods: ['POST'], roles: ['technician', 'manager'] }
@@ -31,17 +47,18 @@ const rbacMatrix: Record<string, { methods: string[], roles: Role[] }[]> = {
         { methods: ['POST'], roles: ['technician', 'manager'] }
     ],
     '/api/v1/inventory': [
-        { methods: ['POST', 'PUT'], roles: ['manager'] },
+        { methods: ['POST'], roles: ['manager'] },
+        // Note: Technician is read-only at the app layer
         { methods: ['GET'], roles: ['manager', 'technician'] }
+    ],
+     '/api/v1/inventory/.*': [
+        { methods: ['PUT'], roles: ['manager'] }
     ],
     '/api/v1/reports/kpi': [
         { methods: ['GET'], roles: ['manager'] }
     ],
     '/api/v1/audit-logs': [
         { methods: ['GET'], roles: ['manager'] }
-    ],
-    '/api/v1/portal/orders/.*': [
-        { methods: ['GET'], roles: ['physician', 'patient'] }
     ]
 };
 
