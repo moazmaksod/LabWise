@@ -19,17 +19,16 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // The payload userId might contain slashes which would fail a direct lookup.
-    // However, since our mock USERS object keys are the same as the user IDs,
-    // we can look it up directly.
+    // The payload contains the user ID. We use this to look up the user
+    // in our mock USERS object. The key of the USERS object is the user ID.
     const userById = USERS[decryptedPayload.userId as keyof typeof USERS];
 
     if (!userById) {
       return NextResponse.json({ message: 'User not found.' }, { status: 404 });
     }
     
-    // We create a client-safe user object without the password hash.
-    // In our mock, there is no hash, but this is good practice.
+    // We create a client-safe user object. In our mock, there is no password hash,
+    // but this is good practice for a real backend.
     const clientUser: ClientUser = {
       id: userById.id,
       firstName: userById.firstName,
