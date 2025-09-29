@@ -13,13 +13,13 @@ const rbacMatrix: Record<string, { methods: string[], roles: Role[] }[]> = {
         { methods: ['GET'], roles: ['receptionist', 'technician', 'manager', 'physician', 'patient'] }
     ],
     '/api/v1/users': [
-        { methods: ['POST', 'GET', 'PUT'], roles: ['manager'] }
+        { methods: ['GET', 'POST', 'PUT'], roles: ['manager'] }
     ],
     '/api/v1/users/.*': [
         { methods: ['GET', 'PUT'], roles: ['manager'] }
     ],
     '/api/v1/patients': [
-        { methods: ['POST'], roles: ['receptionist', 'manager'] },
+        { methods: ['POST', 'PUT'], roles: ['receptionist', 'manager'] },
         // Note: Technician access is limited at the app layer per spec
         { methods: ['GET'], roles: ['receptionist', 'technician', 'manager'] }
     ],
@@ -47,7 +47,7 @@ const rbacMatrix: Record<string, { methods: string[], roles: Role[] }[]> = {
         { methods: ['POST'], roles: ['technician', 'manager'] }
     ],
     '/api/v1/inventory': [
-        { methods: ['POST'], roles: ['manager'] },
+        { methods: ['POST', 'PUT'], roles: ['manager'] },
         // Note: Technician is read-only at the app layer
         { methods: ['GET'], roles: ['manager', 'technician'] }
     ],

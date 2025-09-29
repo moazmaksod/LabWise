@@ -51,6 +51,7 @@ export default function PatientRegistrationPage() {
   const { user, loading: userLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
+  const [token, setToken] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<ClientPatient[]>([]);
@@ -71,11 +72,18 @@ export default function PatientRegistrationPage() {
     },
   });
 
+  useEffect(() => {
+    const storedToken = localStorage.getItem('labwise-token');
+    setToken(storedToken);
+  }, []);
+
   const handleSearch = async () => {
-    if (!searchTerm) return;
+    if (!searchTerm || !token) return;
     setIsSearching(true);
     try {
-      const response = await fetch(`/api/v1/patients?q=${searchTerm}`);
+      const response = await fetch(`/api/v1/patients?q=${searchTerm}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (!response.ok) throw new Error('Search failed');
       const data = await response.json();
       setSearchResults(data);
@@ -105,7 +113,7 @@ export default function PatientRegistrationPage() {
         form.setValue('firstName', result.patientName?.split(' ')[0] || '');
         form.setValue('lastName', result.patientName?.split(' ').slice(1).join(' ') || '');
         form.setValue('contactInfo.address.street', result.address || '');
-        form.setValue('dateOfBirth', result.dateOfBirth || '');
+        form.setValue('dateOfBirth', result.dateOfBirth ? format(new Date(result.dateOfBirth), 'yyyy-MM-dd') : '');
         form.setValue('insuranceInfo.policyNumber', result.insurancePolicyNumber || '');
         toast({ title: 'Extraction Successful', description: 'Patient data has been populated.' });
       }
@@ -114,12 +122,20 @@ export default function PatientRegistrationPage() {
   };
 
   const onSubmit = async (data: PatientFormValues) => {
+    if (!token) {
+        toast({ variant: 'destructive', title: 'Authentication Error', description: 'You are not logged in.' });
+        return;
+    }
     try {
         const response = await fetch('/api/v1/patients', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({...data, dateOfBirth: new Date(data.dateOfBirth)})
         });
+
+        if (response.status === 409) {
+             throw new Error('A patient with this MRN already exists. Please search for them instead.');
+        }
 
         if (!response.ok) {
             const errorData = await response.json();
@@ -129,7 +145,7 @@ export default function PatientRegistrationPage() {
         toast({ title: `Patient created successfully` });
         setIsFormOpen(false);
         form.reset();
-        handleSearch(); // Refresh search
+        await handleSearch(); // Refresh search
     } catch (error: any) {
         toast({ variant: 'destructive', title: 'Error saving patient', description: error.message });
     }
@@ -170,7 +186,7 @@ export default function PatientRegistrationPage() {
               className="flex-grow"
             />
             <Button onClick={handleSearch} disabled={isSearching}>
-              <Search className="mr-2 h-4 w-4" />
+              {isSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
               {isSearching ? 'Searching...' : 'Search'}
             </Button>
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
@@ -188,7 +204,7 @@ export default function PatientRegistrationPage() {
                  <Form {...form}>
                  <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 max-h-[75vh] overflow-y-auto pr-6">
                     <div className="md:col-span-2 space-y-4">
-                        <div className="relative flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border text-center hover:border-primary">
+                        <div className="relative flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-card text-center hover:border-primary">
                           <UploadCloud className="h-8 w-8 text-muted-foreground" />
                           <p className="mt-2 text-sm text-muted-foreground">
                             {isOcrLoading ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Processing...</span> : ocrFileName ? <span className="font-medium text-foreground">{ocrFileName}</span> : 'Scan ID / Insurance Card (Simulated)'}
@@ -210,7 +226,10 @@ export default function PatientRegistrationPage() {
 
                     <DialogFooter className="md:col-span-2">
                         <Button type="button" variant="ghost" onClick={() => setIsFormOpen(false)}>Cancel</Button>
-                        <Button type="submit">Save Patient</Button>
+                        <Button type="submit" disabled={form.formState.isSubmitting}>
+                            {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Save Patient
+                        </Button>
                     </DialogFooter>
                  </form>
                  </Form>
