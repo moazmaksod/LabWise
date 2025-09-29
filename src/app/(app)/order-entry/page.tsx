@@ -1,11 +1,11 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useState, useEffect, useCallback } from 'react';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Search, PlusCircle, X, Loader2, User, ShieldAlert, FilePlus } from 'lucide-react';
+import { Search, PlusCircle, X, Loader2, User, ShieldAlert, FilePlus, TestTube } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/hooks/use-user';
 import { useRouter } from 'next/navigation';
@@ -17,11 +17,19 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { ClientPatient } from '@/lib/types';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from '@/components/ui/badge';
+import type { ClientPatient, ClientTestCatalogItem, ClientUser } from '@/lib/types';
 import { format } from 'date-fns';
 
 const orderFormSchema = z.object({
   patientId: z.string().min(1, 'A patient must be selected.'),
+  physicianId: z.string().min(1, 'An ordering physician must be selected.'),
+  icd10Code: z.string().min(3, 'A valid ICD-10 code is required.'),
+  testIds: z.array(z.string()).min(1, 'At least one test must be added to the order.'),
+  sampleType: z.string().default('Whole Blood'), // Default value, can be enhanced later
 });
 
 type OrderFormValues = z.infer<typeof orderFormSchema>;
@@ -32,18 +40,28 @@ export default function OrderEntryPage() {
   const { toast } = useToast();
   const [token, setToken] = useState<string | null>(null);
 
-  // State to manage the two-step workflow
+  // Workflow State
   const [selectedPatient, setSelectedPatient] = useState<ClientPatient | null>(null);
 
   // Patient Search State
   const [patientSearchTerm, setPatientSearchTerm] = useState('');
   const [patientSearchResults, setPatientSearchResults] = useState<ClientPatient[]>([]);
   const [isPatientSearching, setIsPatientSearching] = useState(false);
+
+  // Order Form State
+  const [physicians, setPhysicians] = useState<ClientUser[]>([]);
+  const [testSearchInput, setTestSearchInput] = useState('');
+  const [testSearchResults, setTestSearchResults] = useState<ClientTestCatalogItem[]>([]);
+  const [isTestSearching, setIsTestSearching] = useState(false);
+  const [selectedTests, setSelectedTests] = useState<ClientTestCatalogItem[]>([]);
   
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderFormSchema),
     defaultValues: {
       patientId: '',
+      physicianId: '',
+      icd10Code: '',
+      testIds: [],
     },
   });
 
@@ -53,12 +71,19 @@ export default function OrderEntryPage() {
       setToken(storedToken);
     }
   }, []);
+  
+  const handleSelectPatient = (patient: ClientPatient) => {
+    setSelectedPatient(patient);
+    form.setValue('patientId', patient.id);
+  };
 
+  // --- Patient Search ---
   const handlePatientSearch = async () => {
-    if (!patientSearchTerm || !token) return;
+    if (!patientSearchTerm.trim() || !token) {
+        setPatientSearchResults([]);
+        return;
+    };
     setIsPatientSearching(true);
-    setSelectedPatient(null);
-    form.reset();
     try {
       const response = await fetch(`/api/v1/patients?q=${patientSearchTerm}`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -68,15 +93,121 @@ export default function OrderEntryPage() {
       setPatientSearchResults(data);
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'Could not perform patient search.' });
+      setPatientSearchResults([]);
     } finally {
       setIsPatientSearching(false);
     }
   };
 
+  // --- Order Form Data Fetching ---
+  const fetchPhysicians = useCallback(async () => {
+    if (!token) return;
+    try {
+      const response = await fetch('/api/v1/users?role=physician', {
+          headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to fetch physicians');
+      const data = await response.json();
+      setPhysicians(data);
+    } catch (error) {
+       toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch physician list.' });
+    }
+  }, [token, toast]);
+
+  useEffect(() => {
+    if(selectedPatient) {
+        fetchPhysicians();
+    }
+  }, [selectedPatient, fetchPhysicians]);
+
+  // --- Test Search ---
+  useEffect(() => {
+    const search = setTimeout(async () => {
+      if (testSearchInput.length < 2 || !token) {
+        setTestSearchResults([]);
+        return;
+      }
+      setIsTestSearching(true);
+      try {
+        const response = await fetch(`/api/v1/test-catalog?q=${testSearchInput}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Test search failed');
+        const data = await response.json();
+        setTestSearchResults(data);
+      } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not search tests.' });
+      } finally {
+        setIsTestSearching(false);
+      }
+    }, 300); // Debounce search
+
+    return () => clearTimeout(search);
+  }, [testSearchInput, token, toast]);
+
+  const handleSelectTest = (test: ClientTestCatalogItem) => {
+    if (!selectedTests.find(t => t.id === test.id)) {
+      const newSelectedTests = [...selectedTests, test];
+      setSelectedTests(newSelectedTests);
+      form.setValue('testIds', newSelectedTests.map(t => t.testCode));
+    }
+    setTestSearchInput('');
+    setTestSearchResults([]);
+  };
+
+  const handleRemoveTest = (testId: string) => {
+    const newSelectedTests = selectedTests.filter(t => t.id !== testId);
+    setSelectedTests(newSelectedTests);
+    form.setValue('testIds', newSelectedTests.map(t => t.testCode));
+  };
+  
+  // --- Form Submission ---
   const onSubmit = async (data: OrderFormValues) => {
-    // This function will be fully implemented in a later step.
-    console.log("Submitting order...", data);
-    toast({ title: "Order Submitted (Placeholder)"});
+    if (!token) return;
+    try {
+        const payload = {
+            patientId: data.patientId,
+            physicianId: data.physicianId,
+            icd10Code: data.icd10Code,
+            priority: 'Routine', // Defaulting for now
+            samples: [ // Grouping all tests into one sample for now
+                {
+                    sampleType: data.sampleType,
+                    testCodes: data.testIds
+                }
+            ]
+        };
+        
+        const response = await fetch('/api/v1/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to create order.');
+        }
+        
+        const newOrder = await response.json();
+        toast({ title: "Order Created Successfully", description: `Order ID: ${newOrder.orderId}` });
+
+        // Reset state for next order
+        setSelectedPatient(null);
+        setPatientSearchTerm('');
+        setPatientSearchResults([]);
+        setSelectedTests([]);
+        form.reset();
+
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Order Creation Failed', description: error.message });
+    }
+  };
+
+  const resetToPatientSearch = () => {
+    setSelectedPatient(null);
+    setSelectedTests([]);
+    form.reset();
   };
 
   if (userLoading) return <Skeleton className="h-96 w-full" />;
@@ -101,13 +232,13 @@ export default function OrderEntryPage() {
         <Card>
           <CardHeader>
             <CardTitle>Step 1: Find Patient</CardTitle>
-            <CardDescription>Search for the patient to create an order for.</CardDescription>
+            <CardDescription>Search for the patient by Name, MRN, or Phone Number to create an order.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex gap-2">
               <Input
                 type="search"
-                placeholder="Search by Name, MRN, Phone..."
+                placeholder="Search..."
                 value={patientSearchTerm}
                 onChange={(e) => setPatientSearchTerm(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handlePatientSearch()}
@@ -125,7 +256,7 @@ export default function OrderEntryPage() {
                     <TableHead>Patient</TableHead>
                     <TableHead>MRN</TableHead>
                     <TableHead>DOB</TableHead>
-                    <TableHead>Action</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -137,8 +268,8 @@ export default function OrderEntryPage() {
                         <TableCell className="font-medium">{patient.firstName} {patient.lastName}</TableCell>
                         <TableCell>{patient.mrn}</TableCell>
                         <TableCell>{format(new Date(patient.dateOfBirth), 'MM/dd/yyyy')}</TableCell>
-                        <TableCell>
-                          <Button size="sm" onClick={() => setSelectedPatient(patient)}>
+                        <TableCell className="text-right">
+                          <Button size="sm" onClick={() => handleSelectPatient(patient)}>
                             <FilePlus className="mr-2 h-4 w-4" />
                             Create Order
                           </Button>
@@ -161,19 +292,111 @@ export default function OrderEntryPage() {
                 <CardHeader>
                     <div className='flex justify-between items-start'>
                         <div>
-                            <CardTitle>New Order for {selectedPatient.firstName} {selectedPatient.lastName}</CardTitle>
+                            <CardTitle>Step 2: Create Order for {selectedPatient.firstName} {selectedPatient.lastName}</CardTitle>
                             <CardDescription>MRN: {selectedPatient.mrn} | DOB: {format(new Date(selectedPatient.dateOfBirth), 'MM/dd/yyyy')}</CardDescription>
                         </div>
-                        <Button variant="outline" size="sm" onClick={() => setSelectedPatient(null)}>Change Patient</Button>
+                        <Button variant="outline" size="sm" onClick={resetToPatientSearch}>Change Patient</Button>
                     </div>
                 </CardHeader>
-                <CardContent>
-                    <p>Order form components will be added here in the next steps.</p>
+                <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField
+                            control={form.control}
+                            name="physicianId"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Ordering Physician</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a physician" />
+                                    </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                    {physicians.map(p => (
+                                        <SelectItem key={p.id} value={p.id}>
+                                            {p.firstName} {p.lastName}
+                                        </SelectItem>
+                                    ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="icd10Code"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>ICD-10 Diagnosis Code</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="e.g., R53.83" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <FormLabel>Add Tests</FormLabel>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input 
+                                        placeholder="Search for tests to add..." 
+                                        className="pl-10"
+                                        value={testSearchInput}
+                                        onChange={(e) => setTestSearchInput(e.target.value)}
+                                    />
+                                </div>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                                 <Command>
+                                    <CommandList>
+                                        {isTestSearching && <CommandEmpty>Searching...</CommandEmpty>}
+                                        {!isTestSearching && testSearchResults.length === 0 && testSearchInput.length > 1 && <CommandEmpty>No tests found.</CommandEmpty>}
+                                        <CommandGroup>
+                                            {testSearchResults.map((test) => (
+                                                <CommandItem
+                                                key={test.id}
+                                                value={test.name}
+                                                onSelect={() => handleSelectTest(test)}
+                                                >
+                                                <TestTube className="mr-2 h-4 w-4" />
+                                                <span>{test.name} ({test.testCode})</span>
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                    <div className="space-y-2">
+                        <FormLabel>Selected Tests</FormLabel>
+                        {selectedTests.length > 0 ? (
+                             <div className="flex flex-wrap gap-2">
+                                {selectedTests.map(test => (
+                                     <Badge key={test.id} variant="secondary" className="text-base py-1 pl-3 pr-1">
+                                        {test.name}
+                                        <button onClick={() => handleRemoveTest(test.id)} className="ml-2 rounded-full p-0.5 hover:bg-destructive/20 text-destructive">
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </Badge>
+                                ))}
+                             </div>
+                        ) : (
+                            <div className="text-sm text-muted-foreground">No tests added yet.</div>
+                        )}
+                        <FormField control={form.control} name="testIds" render={({ field }) => ( <FormItem><FormMessage /></FormItem>)} />
+                    </div>
                 </CardContent>
             </Card>
 
             <div className="flex justify-end gap-4">
-                <Button variant="ghost" onClick={() => { setSelectedPatient(null); }}>Cancel</Button>
+                <Button type="button" variant="ghost" onClick={resetToPatientSearch}>Cancel</Button>
                 <Button type="submit" disabled={form.formState.isSubmitting}>
                     {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Create Order
@@ -185,3 +408,5 @@ export default function OrderEntryPage() {
     </div>
   );
 }
+
+    

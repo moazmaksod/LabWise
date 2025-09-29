@@ -20,7 +20,7 @@ Rationale and Strategic Sequencing
 
 Acceptance Criteria
 
-For each point, confirm that you have add it to project and applied the requirement then (ask me to converm is this job done or not and wait for my response).
+For each point, confirm that you have write the code for it to project and applied the requirement then (ask me to conveirm is this job done or not and wait for my response).
 and ask me to test it and how i test it then waiting for feedback
 
 don't make all point then give me a group of confirmation but only one point by one when i confirm go to the next.
