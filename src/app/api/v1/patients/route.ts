@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import type { Patient } from '@/lib/types';
+import { getNextSequence } from '@/lib/counters';
 
 // GET patients (search)
 export async function GET(req: NextRequest) {
@@ -45,18 +46,17 @@ export async function POST(req: NextRequest) {
         const body = await req.json();
 
         // Basic validation
-        if (!body.mrn || !body.firstName || !body.lastName) {
-            return NextResponse.json({ message: 'Missing required fields: mrn, firstName, lastName' }, { status: 400 });
+        if (!body.firstName || !body.lastName) {
+            return NextResponse.json({ message: 'Missing required fields: firstName, lastName' }, { status: 400 });
         }
 
         const { db } = await connectToDatabase();
         
-        const existingPatient = await db.collection('patients').findOne({ mrn: body.mrn });
-        if (existingPatient) {
-            return NextResponse.json({ message: 'A patient with this MRN already exists' }, { status: 409 });
-        }
+        // Generate the new MRN
+        const newMrn = await getNextSequence('patientMrn');
         
         const newPatientDocument: Omit<Patient, '_id'> = {
+            mrn: newMrn,
             ...body,
             dateOfBirth: new Date(body.dateOfBirth),
             createdAt: new Date(),
@@ -84,6 +84,9 @@ export async function PUT(req: NextRequest) {
 
         const { db } = await connectToDatabase();
         
+        // Prevent MRN from being updated
+        delete updateData.mrn;
+
         const updatePayload = {
             ...updateData,
             updatedAt: new Date(),

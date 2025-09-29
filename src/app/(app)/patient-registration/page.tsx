@@ -24,7 +24,7 @@ import { format } from 'date-fns';
 
 const patientSchema = z.object({
   id: z.string().optional(),
-  mrn: z.string().min(1, 'MRN is required'),
+  // MRN is no longer part of the form validation
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   dateOfBirth: z.string().min(1, 'Date of birth is required'),
@@ -63,7 +63,6 @@ export default function PatientRegistrationPage() {
   const form = useForm<PatientFormValues>({
     resolver: zodResolver(patientSchema),
     defaultValues: {
-      mrn: '',
       firstName: '',
       lastName: '',
       dateOfBirth: '',
@@ -142,7 +141,8 @@ export default function PatientRegistrationPage() {
             throw new Error(errorData.message || 'Failed to save patient.');
         }
 
-        toast({ title: `Patient created successfully` });
+        const newPatient = await response.json();
+        toast({ title: `Patient created successfully`, description: `MRN: ${newPatient.mrn}` });
         setIsFormOpen(false);
         form.reset();
         await handleSearch(); // Refresh search
@@ -199,7 +199,7 @@ export default function PatientRegistrationPage() {
               <DialogContent className="max-w-4xl">
                  <DialogHeader>
                     <DialogTitle>Create New Patient</DialogTitle>
-                    <DialogDescription>Fill out the form below to register a new patient record.</DialogDescription>
+                    <DialogDescription>Fill out the form below to register a new patient record. The MRN will be generated automatically.</DialogDescription>
                  </DialogHeader>
                  <Form {...form}>
                  <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 max-h-[75vh] overflow-y-auto pr-6">
@@ -212,12 +212,11 @@ export default function PatientRegistrationPage() {
                           <Input id="file-upload" type="file" className="absolute h-full w-full opacity-0" onChange={handleFileChange} disabled={isOcrLoading} accept="image/*,.pdf"/>
                         </div>
                     </div>
-                    <FormField control={form.control} name="mrn" render={({ field }) => ( <FormItem><FormLabel>Medical Record Number (MRN)</FormLabel><FormControl><Input placeholder="MRN12345" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="dateOfBirth" render={({ field }) => ( <FormItem><FormLabel>Date of Birth</FormLabel><FormControl><Input type="date" placeholder="YYYY-MM-DD" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="firstName" render={({ field }) => ( <FormItem><FormLabel>First Name</FormLabel><FormControl><Input placeholder="John" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="lastName" render={({ field }) => ( <FormItem><FormLabel>Last Name</FormLabel><FormControl><Input placeholder="Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="dateOfBirth" render={({ field }) => ( <FormItem><FormLabel>Date of Birth</FormLabel><FormControl><Input type="date" placeholder="YYYY-MM-DD" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="contactInfo.phone" render={({ field }) => ( <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="(555) 123-4567" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="contactInfo.email" render={({ field }) => ( <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input placeholder="john.doe@email.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="contactInfo.email" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Email Address</FormLabel><FormControl><Input placeholder="john.doe@email.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="contactInfo.address.street" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Street Address</FormLabel><FormControl><Input placeholder="123 Main St" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="contactInfo.address.city" render={({ field }) => ( <FormItem><FormLabel>City</FormLabel><FormControl><Input placeholder="Anytown" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="contactInfo.address.state" render={({ field }) => ( <FormItem><FormLabel>State</FormLabel><FormControl><Input placeholder="CA" {...field} /></FormControl><FormMessage /></FormItem>)} />
