@@ -20,8 +20,10 @@ Rationale and Strategic Sequencing
 
 Acceptance Criteria
 
-For each point, confirm that you have understood and applied the requirement.
+For each point, confirm that you have add it to project and applied the requirement then (ask me to converm is this job done or not and wait for my response).
 and ask me to test it and how i test it then waiting for feedback
+
+don't make all point then give me a group of confirmation but only one point by one when i confirm go to the next.
 
 Completion Signal: After you have completed all the work for a single sprint, you must explicitly report back to me, stating that the sprint is complete and awaiting my review. For example: "Sprint [Number] is complete and ready for your review."
 

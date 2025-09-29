@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Search, PlusCircle, X, Loader2, User, ShieldAlert, FilePlus } from 'lucide-react';
@@ -22,7 +22,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import type { ClientPatient, ClientTestCatalogItem, ClientUser } from '@/lib/types';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
+import { Check } from 'lucide-react';
 
 const orderFormSchema = z.object({
   patientId: z.string().min(1, 'A patient must be selected.'),
@@ -180,7 +180,6 @@ export default function OrderEntryPage() {
   const onSubmit = async (data: OrderFormValues) => {
     if (!token) return;
     
-    // We need to use the full 'samples' structure from the form state now
     const submissionData = {
       patientId: data.patientId,
       physicianId: data.physicianId,
@@ -218,7 +217,6 @@ export default function OrderEntryPage() {
 
   if (userLoading) return <Skeleton className="h-96 w-full" />;
 
-  // Redirect non-authorized users
   if (!userLoading && user && !['receptionist', 'manager', 'physician'].includes(user.role)) {
     router.push('/dashboard');
     return (
@@ -307,7 +305,7 @@ export default function OrderEntryPage() {
                     <FormField control={form.control} name="physicianId" render={({ field }) => (
                          <FormItem>
                             <FormLabel>Ordering Physician</FormLabel>
-                            <Popover>
+                             <Popover>
                                 <PopoverTrigger asChild>
                                     <FormControl>
                                         <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
@@ -316,19 +314,20 @@ export default function OrderEntryPage() {
                                         </Button>
                                     </FormControl>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-[300px] p-0">
+                                <PopoverContent className="w-full p-0">
                                      <Command>
                                         <CommandInput placeholder="Search physicians..." />
                                         <CommandEmpty>No physician found.</CommandEmpty>
-                                        <CommandList>
-                                            <CommandGroup>
+                                        <CommandGroup>
+                                            <CommandList>
                                             {physicians.map((p) => (
                                                 <CommandItem value={`${p.firstName} ${p.lastName}`} key={p.id} onSelect={() => form.setValue("physicianId", p.id)}>
+                                                   <Check className={cn("mr-2 h-4 w-4", field.value === p.id ? "opacity-100" : "opacity-0")} />
                                                    Dr. {p.firstName} {p.lastName}
                                                 </CommandItem>
                                             ))}
-                                            </CommandGroup>
-                                        </CommandList>
+                                            </CommandList>
+                                        </CommandGroup>
                                      </Command>
                                 </PopoverContent>
                             </Popover>

@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
 
         const createdOrder = { ...newOrder, _id: result.insertedId };
         
-        return NextResponse.json({ ...createdOrder, id: result.insertedId }, { status: 201 });
+        return NextResponse.json({ ...createdOrder, id: result.insertedId.toHexString() }, { status: 201 });
 
     } catch (error) {
         console.error('Failed to create order:', error);
@@ -107,7 +107,12 @@ export async function GET(req: NextRequest) {
         const { db } = await connectToDatabase();
         const orders = await db.collection('orders').find({}).sort({ createdAt: -1 }).limit(50).toArray();
 
-        return NextResponse.json(orders);
+        const clientOrders = orders.map(order => {
+          const { _id, ...rest } = order;
+          return { ...rest, id: _id.toHexString() };
+        });
+
+        return NextResponse.json(clientOrders, { status: 200 });
     } catch (error) {
         console.error('Failed to fetch orders:', error);
         return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
