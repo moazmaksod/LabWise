@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Search, PlusCircle, UploadCloud, Loader2, User, ShieldAlert, FilePlus } from 'lucide-react';
+import { Search, PlusCircle, UploadCloud, Loader2, User, ShieldAlert, FilePlus, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/hooks/use-user';
 import { useRouter } from 'next/navigation';
@@ -23,6 +23,13 @@ import { handleSmartDataEntry } from '@/app/actions';
 import type { ClientPatient } from '@/lib/types';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { MoreHorizontal } from 'lucide-react';
 
 const patientSchema = z.object({
   id: z.string().optional(),
@@ -79,6 +86,7 @@ export default function PatientRegistrationPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const [ocrFileName, setOcrFileName] = useState('');
+  const [editingPatient, setEditingPatient] = useState<ClientPatient | null>(null);
   
   const form = useForm<PatientFormValues>({
     resolver: zodResolver(patientSchema),
@@ -153,19 +161,49 @@ export default function PatientRegistrationPage() {
     setIsOcrLoading(false);
   };
 
+  const handleAddNew = () => {
+    setEditingPatient(null);
+    form.reset({
+      firstName: '',
+      lastName: '',
+      dateOfBirth: '',
+      contactInfo: { phone: '', email: '', address: { street: '', city: '', state: '', zipCode: '', country: 'USA' } },
+      insuranceInfo: { providerName: 'Mock Insurance', policyNumber: '' },
+    });
+    setIsFormOpen(true);
+  };
+
+  const handleEdit = (patient: ClientPatient) => {
+    setEditingPatient(patient);
+    form.reset({
+      id: patient.id,
+      firstName: patient.firstName,
+      lastName: patient.lastName,
+      dateOfBirth: format(new Date(patient.dateOfBirth), 'yyyy-MM-dd'),
+      contactInfo: patient.contactInfo,
+      insuranceInfo: patient.insuranceInfo?.[0]
+    });
+    setIsFormOpen(true);
+  };
+
   const onSubmit = async (data: PatientFormValues) => {
     if (!token) {
         toast({ variant: 'destructive', title: 'Authentication Error', description: 'You are not logged in.' });
         return;
     }
+    
+    const isEditing = !!data.id;
+    const apiEndpoint = isEditing ? '/api/v1/patients' : '/api/v1/patients';
+    const method = isEditing ? 'PUT' : 'POST';
+
     try {
-        const response = await fetch('/api/v1/patients', {
-            method: 'POST',
+        const response = await fetch(apiEndpoint, {
+            method: method,
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({...data, dateOfBirth: new Date(data.dateOfBirth)})
         });
 
-        if (response.status === 409) {
+        if (response.status === 409 && !isEditing) {
              throw new Error('A patient with this MRN already exists. Please search for them instead.');
         }
 
@@ -174,13 +212,13 @@ export default function PatientRegistrationPage() {
             throw new Error(errorData.message || 'Failed to save patient.');
         }
 
-        const newPatient = await response.json();
-        toast({ title: `Patient created successfully`, description: `MRN: ${newPatient.mrn}` });
+        toast({ title: `Patient ${isEditing ? 'updated' : 'created'} successfully` });
         setIsFormOpen(false);
         form.reset();
-        // Trigger a new search to include the new patient
+        
+        // Trigger a new search to refresh the list
         setSearchTerm(prev => prev + ' ');
-        setSearchTerm(newPatient.lastName);
+        setSearchTerm(data.lastName);
 
     } catch (error: any) {
         toast({ variant: 'destructive', title: 'Error saving patient', description: error.message });
@@ -225,27 +263,29 @@ export default function PatientRegistrationPage() {
             </div>
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" onClick={() => { form.reset(); setIsFormOpen(true); }}>
+                <Button variant="outline" onClick={handleAddNew}>
                   <PlusCircle className="mr-2 h-4 w-4" />
                   New Patient
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-4xl">
                  <DialogHeader>
-                    <DialogTitle>Create New Patient</DialogTitle>
-                    <DialogDescription>Fill out the form below to register a new patient record. The MRN will be generated automatically.</DialogDescription>
+                    <DialogTitle>{editingPatient ? 'Edit Patient' : 'Create New Patient'}</DialogTitle>
+                    <DialogDescription>{editingPatient ? `Updating information for ${editingPatient.firstName} ${editingPatient.lastName}` : 'Fill out the form below to register a new patient. The MRN will be generated automatically.'}</DialogDescription>
                  </DialogHeader>
                  <Form {...form}>
                  <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 max-h-[75vh] overflow-y-auto pr-6">
-                    <div className="md:col-span-2 space-y-4">
-                        <div className="relative flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-card text-center hover:border-primary">
-                          <UploadCloud className="h-8 w-8 text-muted-foreground" />
-                          <p className="mt-2 text-sm text-muted-foreground">
-                            {isOcrLoading ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Processing...</span> : ocrFileName ? <span className="font-medium text-foreground">{ocrFileName}</span> : 'Scan ID / Insurance Card (Simulated)'}
-                          </p>
-                          <Input id="file-upload" type="file" className="absolute h-full w-full opacity-0" onChange={handleFileChange} disabled={isOcrLoading} accept="image/*,.pdf"/>
-                        </div>
-                    </div>
+                    {!editingPatient && (
+                      <div className="md:col-span-2 space-y-4">
+                          <div className="relative flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-card text-center hover:border-primary">
+                            <UploadCloud className="h-8 w-8 text-muted-foreground" />
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              {isOcrLoading ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Processing...</span> : ocrFileName ? <span className="font-medium text-foreground">{ocrFileName}</span> : 'Scan ID / Insurance Card (Simulated)'}
+                            </p>
+                            <Input id="file-upload" type="file" className="absolute h-full w-full opacity-0" onChange={handleFileChange} disabled={isOcrLoading} accept="image/*,.pdf"/>
+                          </div>
+                      </div>
+                    )}
                     <FormField control={form.control} name="firstName" render={({ field }) => ( <FormItem><FormLabel>First Name</FormLabel><FormControl><Input placeholder="John" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="lastName" render={({ field }) => ( <FormItem><FormLabel>Last Name</FormLabel><FormControl><Input placeholder="Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="dateOfBirth" render={({ field }) => ( <FormItem><FormLabel>Date of Birth</FormLabel><FormControl><Input type="date" placeholder="YYYY-MM-DD" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -261,7 +301,7 @@ export default function PatientRegistrationPage() {
                         <Button type="button" variant="ghost" onClick={() => setIsFormOpen(false)}>Cancel</Button>
                         <Button type="submit" disabled={form.formState.isSubmitting}>
                             {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Save Patient
+                            {editingPatient ? 'Save Changes' : 'Save Patient'}
                         </Button>
                     </DialogFooter>
                  </form>
@@ -285,7 +325,7 @@ export default function PatientRegistrationPage() {
                   <TableHead>MRN</TableHead>
                   <TableHead>DOB</TableHead>
                   <TableHead>Contact</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -308,12 +348,30 @@ export default function PatientRegistrationPage() {
                       <TableCell>{format(new Date(patient.dateOfBirth), 'MM/dd/yyyy')}</TableCell>
                       <TableCell>{patient.contactInfo.phone}</TableCell>
                       <TableCell className="text-right">
-                        <Button asChild size="sm">
-                          <Link href={`/order-entry?patientId=${patient.id}`}>
-                            <FilePlus className="mr-2 h-4 w-4" />
-                            Create Order
-                          </Link>
-                        </Button>
+                         <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              aria-haspopup="true"
+                              size="icon"
+                              variant="ghost"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Toggle menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={() => handleEdit(patient)}>
+                                <Edit className="mr-2 h-4 w-4"/>
+                                Edit Patient
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                                <Link href={`/order-entry?patientId=${patient.id}`}>
+                                    <FilePlus className="mr-2 h-4 w-4" />
+                                    Create Order
+                                </Link>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))
@@ -332,5 +390,3 @@ export default function PatientRegistrationPage() {
     </div>
   );
 }
-
-    

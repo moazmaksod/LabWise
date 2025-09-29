@@ -1,4 +1,5 @@
 
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
@@ -82,11 +83,16 @@ export async function PUT(req: NextRequest) {
         if (!id) {
             return NextResponse.json({ message: 'Patient ID is required for updates' }, { status: 400 });
         }
+        
+        if (!ObjectId.isValid(id)) {
+            return NextResponse.json({ message: 'Invalid Patient ID format' }, { status: 400 });
+        }
 
         const { db } = await connectToDatabase();
         
         // Prevent MRN from being updated
         delete updateData.mrn;
+        delete updateData.createdAt;
 
         const updatePayload = {
             ...updateData,
@@ -112,5 +118,3 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
     }
 }
-
-    
