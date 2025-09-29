@@ -344,8 +344,8 @@ export default function PatientRegistrationPage() {
                       <TableCell>{calculateAge(patient.dateOfBirth)}</TableCell>
                       <TableCell>{patient.contactInfo.phone}</TableCell>
                       <TableCell className="text-right">
-                         <Button asChild size="sm">
-                            <Link href={`/order-entry?patientId=${patient.id}`}>
+                         <Button asChild size="sm" onClick={() => router.push(`/orders?patientId=${patient.id}`)}>
+                            <Link href="#">
                                 <FilePlus className="mr-2 h-4 w-4" />
                                 Create Order
                             </Link>
