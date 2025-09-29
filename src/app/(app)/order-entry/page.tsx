@@ -1,6 +1,8 @@
 
 'use client';
 
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,14 +36,16 @@ const orderFormSchema = z.object({
 
 type OrderFormValues = z.infer<typeof orderFormSchema>;
 
-export default function OrderEntryPage() {
+function OrderEntryComponent() {
   const { user, loading: userLoading } = useUser();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [token, setToken] = useState<string | null>(null);
 
   // Workflow State
   const [selectedPatient, setSelectedPatient] = useState<ClientPatient | null>(null);
+  const [isLoadingPatient, setIsLoadingPatient] = useState(true);
 
   // Patient Search State
   const [patientSearchTerm, setPatientSearchTerm] = useState('');
@@ -76,6 +80,32 @@ export default function OrderEntryPage() {
     }
   }, [toast]);
   
+  // --- Patient Pre-selection from URL ---
+  useEffect(() => {
+    const patientIdFromUrl = searchParams.get('patientId');
+    if (patientIdFromUrl && token) {
+      setIsLoadingPatient(true);
+      const fetchPatient = async () => {
+        try {
+          const response = await fetch(`/api/v1/patients/${patientIdFromUrl}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (!response.ok) throw new Error('Patient not found');
+          const patientData = await response.json();
+          handleSelectPatient(patientData);
+        } catch (error) {
+          toast({ variant: 'destructive', title: 'Error', description: 'Could not load patient from URL.' });
+          router.replace('/order-entry'); // Clear URL params on error
+        } finally {
+          setIsLoadingPatient(false);
+        }
+      };
+      fetchPatient();
+    } else {
+      setIsLoadingPatient(false);
+    }
+  }, [searchParams, token, toast, router]);
+
   const handleSelectPatient = (patient: ClientPatient) => {
     setSelectedPatient(patient);
     form.setValue('patientId', patient.id);
@@ -104,7 +134,7 @@ export default function OrderEntryPage() {
       } finally {
         setIsPatientSearching(false);
       }
-    }, 500); // 500ms debounce delay
+    }, 300);
 
     return () => clearTimeout(searchDebounce);
   }, [patientSearchTerm, token, toast]);
@@ -137,7 +167,7 @@ export default function OrderEntryPage() {
 
   // --- Test Search (Debounced on input change) ---
   useEffect(() => {
-    if (!isTestPopoverOpen) return; // Only search when popover is open
+    if (!isTestPopoverOpen) return;
 
     const search = setTimeout(async () => {
       if (!token) return;
@@ -238,11 +268,7 @@ export default function OrderEntryPage() {
         toast({ title: "Order Created Successfully", description: `Order ID: ${newOrder.orderId}` });
 
         // Reset state for next order
-        setSelectedPatient(null);
-        setPatientSearchTerm('');
-        setPatientSearchResults([]);
-        setSelectedTests([]);
-        form.reset();
+        resetToPatientSearch();
 
     } catch (error: any) {
         toast({ variant: 'destructive', title: 'Order Creation Failed', description: error.message });
@@ -253,9 +279,10 @@ export default function OrderEntryPage() {
     setSelectedPatient(null);
     setSelectedTests([]);
     form.reset();
+    router.replace('/order-entry', undefined); // Use replace to remove query params
   };
 
-  if (userLoading) return <Skeleton className="h-96 w-full" />;
+  if (userLoading || isLoadingPatient) return <Skeleton className="h-96 w-full" />;
 
   if (!userLoading && user && !['receptionist', 'manager', 'physician'].includes(user.role)) {
     router.push('/dashboard');
@@ -422,7 +449,7 @@ export default function OrderEntryPage() {
                                 {selectedTests.map(test => (
                                      <Badge key={test.id} variant="secondary" className="text-base py-1 pl-3 pr-1">
                                         {test.name}
-                                        <button onClick={() => handleRemoveTest(test.id)} className="ml-2 rounded-full p-0.5 hover:bg-destructive/20 text-destructive">
+                                        <button type="button" onClick={() => handleRemoveTest(test.id)} className="ml-2 rounded-full p-0.5 hover:bg-destructive/20 text-destructive">
                                             <X className="h-3 w-3" />
                                         </button>
                                     </Badge>
@@ -447,6 +474,15 @@ export default function OrderEntryPage() {
         </Form>
       )}
     </div>
+  );
+}
+
+
+export default function OrderEntryPage() {
+  return (
+    <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+      <OrderEntryComponent />
+    </Suspense>
   );
 }
 

@@ -2,10 +2,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Search, PlusCircle, UploadCloud, Loader2, User, ShieldAlert } from 'lucide-react';
+import { Search, PlusCircle, UploadCloud, Loader2, User, ShieldAlert, FilePlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/hooks/use-user';
 import { useRouter } from 'next/navigation';
@@ -21,6 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { handleSmartDataEntry } from '@/app/actions';
 import type { ClientPatient } from '@/lib/types';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const patientSchema = z.object({
   id: z.string().optional(),
@@ -116,7 +118,7 @@ export default function PatientRegistrationPage() {
         } finally {
             setIsSearching(false);
         }
-    }, 500); // 500ms debounce delay
+    }, 300); // 300ms debounce delay
 
     return () => clearTimeout(searchDebounce);
   }, [searchTerm, token, toast]);
@@ -283,13 +285,14 @@ export default function PatientRegistrationPage() {
                   <TableHead>MRN</TableHead>
                   <TableHead>DOB</TableHead>
                   <TableHead>Contact</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isSearching ? (
                   Array.from({ length: 3 }).map((_, i) => (
                     <TableRow key={i}>
-                      <TableCell colSpan={4}><Skeleton className="h-8 w-full" /></TableCell>
+                      <TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell>
                     </TableRow>
                   ))
                 ) : searchResults.length > 0 ? (
@@ -304,11 +307,19 @@ export default function PatientRegistrationPage() {
                       <TableCell>{patient.mrn}</TableCell>
                       <TableCell>{format(new Date(patient.dateOfBirth), 'MM/dd/yyyy')}</TableCell>
                       <TableCell>{patient.contactInfo.phone}</TableCell>
+                      <TableCell className="text-right">
+                        <Button asChild size="sm">
+                          <Link href={`/order-entry?patientId=${patient.id}`}>
+                            <FilePlus className="mr-2 h-4 w-4" />
+                            Create Order
+                          </Link>
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
+                    <TableCell colSpan={5} className="h-24 text-center">
                      {searchTerm ? 'No patients found.' : 'Start typing to see results.'}
                     </TableCell>
                   </TableRow>
