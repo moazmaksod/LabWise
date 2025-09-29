@@ -1,4 +1,5 @@
 
+
 import type { ObjectId } from 'mongodb';
 
 export type Role = 'receptionist' | 'technician' | 'manager' | 'physician' | 'patient';
@@ -128,3 +129,49 @@ export type Patient = {
 export type ClientPatient = Omit<Patient, '_id'> & {
     id: string;
 };
+
+// --- Sprint 3 Additions ---
+export type OrderTest = {
+    testCode: string; // Snapshotted
+    name: string;     // Snapshotted
+    status: 'Pending' | 'In Progress' | 'AwaitingVerification' | 'Verified' | 'Cancelled';
+    resultValue?: any;
+    resultUnits?: string; // Snapshotted
+    referenceRange?: string; // Snapshotted
+    isAbnormal?: boolean;
+    isCritical?: boolean;
+    flags?: string[];
+    notes?: string;
+    verifiedBy?: ObjectId;
+    verifiedAt?: Date;
+}
+
+export type OrderSample = {
+    sampleId: ObjectId; // Internally generated ID for this sample instance
+    sampleType: string; // Snapshotted from test catalog specimen requirements
+    collectionTimestamp?: Date;
+    receivedTimestamp?: Date;
+    status: 'AwaitingCollection' | 'InLab' | 'Testing' | 'AwaitingVerification' | 'Verified' | 'Archived' | 'Rejected';
+    tests: OrderTest[];
+}
+
+export type Order = {
+    _id: ObjectId;
+    orderId: string; // Human-readable ID, e.g., ORD-2025-00001
+    patientId: ObjectId;
+    physicianId: ObjectId;
+    icd10Code: string;
+    orderStatus: 'Pending' | 'Partially Complete' | 'Complete' | 'Cancelled';
+    priority: 'Routine' | 'STAT';
+    samples: OrderSample[];
+    createdAt: Date;
+    createdBy: ObjectId;
+    updatedAt: Date;
+}
+
+export type ClientOrder = Omit<Order, '_id' | 'patientId' | 'physicianId' | 'createdBy'> & {
+    id: string;
+    patientId: string;
+    physicianId: string;
+    createdBy: string;
+}

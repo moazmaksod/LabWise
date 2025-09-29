@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import type { Patient } from '@/lib/types';
-import { getNextSequence } from '@/lib/counters';
+import { getNextMrn } from '@/lib/counters';
 
 // GET patients (search)
 export async function GET(req: NextRequest) {
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
         const { db } = await connectToDatabase();
         
         // Generate the new MRN
-        const newMrn = await getNextSequence('patientMrn');
+        const newMrn = await getNextMrn();
         
         const newPatientDocument: Omit<Patient, '_id'> = {
             mrn: newMrn,

@@ -7,8 +7,23 @@ import type { TestCatalogItem } from '@/lib/types';
 // GET all tests
 export async function GET(req: NextRequest) {
     try {
+        const { searchParams } = new URL(req.url);
+        const query = searchParams.get('q');
+        
         const { db } = await connectToDatabase();
-        const tests = await db.collection('testCatalog').find({}).sort({ name: 1 }).toArray();
+
+        let filter = {};
+        if (query) {
+            const searchRegex = new RegExp(query, 'i');
+            filter = {
+                $or: [
+                    { name: searchRegex },
+                    { testCode: searchRegex },
+                ]
+            }
+        }
+
+        const tests = await db.collection('testCatalog').find(filter).sort({ name: 1 }).limit(10).toArray();
         
         const clientTests = tests.map(test => {
             const { _id, ...clientTest } = test;

@@ -6,7 +6,7 @@ type Counter = {
   sequence_value: number;
 };
 
-export async function getNextSequence(sequenceName: string): Promise<string> {
+export async function getNextSequenceValue(sequenceName: string): Promise<number> {
   const { db } = await connectToDatabase();
   const sequenceDocument = await db.collection<Counter>('counters').findOneAndUpdate(
     { _id: sequenceName },
@@ -15,10 +15,17 @@ export async function getNextSequence(sequenceName: string): Promise<string> {
   );
 
   // If the sequence is new, it will be created with sequence_value 1, but findOneAndUpdate might return null on the first upsert.
-  // Let's ensure we have a value. If it's null, it means it was just created and the value is 1.
-  // A more robust check for production might be needed, but this works for initial setup.
   const nextValue = sequenceDocument?.sequence_value || 1;
-  
-  // Pad the number to make it a fixed length, e.g., 'P0000001'
-  return `P${String(nextValue).padStart(7, '0')}`;
+  return nextValue;
+}
+
+export async function getNextMrn(): Promise<string> {
+    const nextValue = await getNextSequenceValue('patientMrn');
+    return `P${String(nextValue).padStart(7, '0')}`;
+}
+
+export async function getNextOrderId(): Promise<string> {
+    const year = new Date().getFullYear();
+    const nextValue = await getNextSequenceValue(`orderId_${year}`);
+    return `ORD-${year}-${String(nextValue).padStart(7, '0')}`;
 }
