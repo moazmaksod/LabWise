@@ -180,10 +180,14 @@ export default function OrderEntryPage() {
   const onSubmit = async (data: OrderFormValues) => {
     if (!token) return;
     
+    // We need to use the full 'samples' structure from the form state now
     const submissionData = {
-      ...data,
-      tests: addedTests.map(t => t.testCode) // Send only the test codes
-    }
+      patientId: data.patientId,
+      physicianId: data.physicianId,
+      icd10Code: data.icd10Code,
+      priority: data.priority,
+      samples: data.samples
+    };
 
     try {
         const response = await fetch('/api/v1/orders', {

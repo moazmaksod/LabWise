@@ -4,7 +4,7 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { getNextOrderId } from '@/lib/counters';
 import { decrypt } from '@/lib/auth';
-import type { Order, TestCatalogItem, OrderSample, OrderTest } from '@/lib/types';
+import type { Order, TestCatalogItem, OrderSample, OrderTest, Role } from '@/lib/types';
 
 // POST a new order
 export async function POST(req: NextRequest) {
@@ -19,11 +19,11 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { patientId, physicianId, icd10Code, priority, tests } = body;
+        const { patientId, physicianId, icd10Code, priority, samples } = body;
 
         // Validation
-        if (!patientId || !physicianId || !icd10Code || !tests || tests.length === 0) {
-            return NextResponse.json({ message: 'Missing required fields.' }, { status: 400 });
+        if (!patientId || !physicianId || !icd10Code || !samples || !Array.isArray(samples) || samples.length === 0) {
+            return NextResponse.json({ message: 'Missing or invalid required fields.' }, { status: 400 });
         }
 
         const { db } = await connectToDatabase();
@@ -35,40 +35,41 @@ export async function POST(req: NextRequest) {
         const physician = await db.collection('users').findOne({ _id: new ObjectId(physicianId) });
         if (!physician || physician.role !== 'physician') return NextResponse.json({ message: 'Physician not found.' }, { status: 404 });
 
+        const allTestCodes = samples.flatMap(s => s.testCodes);
+        if(allTestCodes.length === 0) {
+             return NextResponse.json({ message: 'At least one test must be selected.' }, { status: 400 });
+        }
+        
         // Fetch all test definitions from the catalog
-        const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: tests } }).toArray();
+        const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: allTestCodes } }).toArray();
 
-        if (testDefs.length !== tests.length) {
+        if (testDefs.length !== allTestCodes.length) {
             return NextResponse.json({ message: 'One or more invalid test codes provided.' }, { status: 400 });
         }
-        
-        // Group tests by required sample type to create samples
-        const samplesMap = new Map<string, OrderTest[]>();
 
-        for (const testDef of testDefs) {
-            const sampleType = testDef.specimenRequirements.tubeType;
-            if (!samplesMap.has(sampleType)) {
-                samplesMap.set(sampleType, []);
-            }
-            
-            // --- This is the "Snapshotting" logic ---
-            const orderTest: OrderTest = {
-                testCode: testDef.testCode,
-                name: testDef.name,
-                status: 'Pending',
-                // For simplicity, we are taking the first reference range. A real system would have more complex logic.
-                referenceRange: testDef.referenceRanges.length > 0 ? `${testDef.referenceRanges[0].rangeLow} - ${testDef.referenceRanges[0].rangeHigh}` : 'N/A',
-                resultUnits: testDef.referenceRanges.length > 0 ? testDef.referenceRanges[0].units : '',
-            };
-            samplesMap.get(sampleType)!.push(orderTest);
-        }
+        const testDefMap = new Map(testDefs.map(t => [t.testCode, t]));
         
-        const orderSamples: OrderSample[] = Array.from(samplesMap.entries()).map(([sampleType, tests]) => ({
-            sampleId: new ObjectId(),
-            sampleType: sampleType,
-            status: 'AwaitingCollection',
-            tests: tests,
-        }));
+        const orderSamples: OrderSample[] = samples.map((sample: any) => {
+            const testsForSample: OrderTest[] = sample.testCodes.map((tc: string) => {
+                const testDef = testDefMap.get(tc);
+                // --- This is the "Snapshotting" logic ---
+                return {
+                    testCode: testDef!.testCode,
+                    name: testDef!.name,
+                    status: 'Pending',
+                    // For simplicity, we are taking the first reference range. A real system would have more complex logic.
+                    referenceRange: testDef!.referenceRanges?.length > 0 ? `${testDef!.referenceRanges[0].rangeLow} - ${testDef!.referenceRanges[0].rangeHigh}` : 'N/A',
+                    resultUnits: testDef!.referenceRanges?.length > 0 ? testDef!.referenceRanges[0].units : '',
+                };
+            });
+
+            return {
+                sampleId: new ObjectId(),
+                sampleType: sample.sampleType,
+                status: 'AwaitingCollection',
+                tests: testsForSample,
+            };
+        });
         
         const newOrderId = await getNextOrderId();
 
@@ -87,7 +88,9 @@ export async function POST(req: NextRequest) {
 
         const result = await db.collection('orders').insertOne(newOrder);
 
-        return NextResponse.json({ ...newOrder, id: result.insertedId }, { status: 201 });
+        const createdOrder = { ...newOrder, _id: result.insertedId };
+        
+        return NextResponse.json({ ...createdOrder, id: result.insertedId }, { status: 201 });
 
     } catch (error) {
         console.error('Failed to create order:', error);
