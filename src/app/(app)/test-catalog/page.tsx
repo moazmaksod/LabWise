@@ -51,11 +51,11 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -73,7 +73,7 @@ const testCatalogSchema = z.object({
   specimenRequirements: z.object({
       tubeType: z.string().min(1, 'Tube type is required'),
       minVolume: z.coerce.number().min(0, 'Volume must be positive'),
-      units: z.string().min(1, 'Volume units required'),
+      units: z.string().default('mL'),
       specialHandling: z.string().optional(),
   }),
   turnaroundTime: z.object({
@@ -137,10 +137,10 @@ export default function TestCatalogPage() {
   };
 
   useEffect(() => {
-    if (!userLoading && user?.role === 'manager') {
+    if (user?.role === 'manager') {
       fetchTests();
     }
-  }, [user, userLoading]);
+  }, [user]);
 
   if (userLoading) {
     return (
@@ -163,13 +163,12 @@ export default function TestCatalogPage() {
   }
 
   if (user?.role !== 'manager') {
-    setTimeout(() => router.push('/dashboard'), 3000);
     return (
         <Alert variant="destructive">
             <ShieldAlert className="h-4 w-4" />
             <AlertTitle>Access Denied</AlertTitle>
             <AlertDescription>
-                You do not have permission to access this page. You will be redirected.
+                You do not have permission to access this page.
             </AlertDescription>
         </Alert>
     );
@@ -197,7 +196,7 @@ export default function TestCatalogPage() {
       testCode: '',
       name: '',
       description: '',
-      specimenRequirements: { tubeType: '', minVolume: 0, units: 'mL', specialHandling: '' },
+      specimenRequirements: { tubeType: 'Lavender Top', minVolume: 3, units: 'mL', specialHandling: '' },
       turnaroundTime: { value: 24, units: 'hours' },
       price: 0,
       isActive: true,
@@ -206,7 +205,7 @@ export default function TestCatalogPage() {
   };
 
   const onSubmit = async (data: TestFormValues) => {
-    const apiEndpoint = '/api/v1/test-catalog';
+    const apiEndpoint = data.id ? `/api/v1/test-catalog` : '/api/v1/test-catalog';
     const method = data.id ? 'PUT' : 'POST';
 
     try {
@@ -245,7 +244,7 @@ export default function TestCatalogPage() {
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Test
                     </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-xl">
+                <DialogContent className="max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>{editingTest ? 'Edit Test' : 'Add New Test'}</DialogTitle>
                         <DialogDescription>
@@ -264,16 +263,16 @@ export default function TestCatalogPage() {
                                 <CardHeader className="pb-4">
                                     <CardTitle className="text-base">Specimen Requirements</CardTitle>
                                 </CardHeader>
-                                <CardContent className="grid grid-cols-2 gap-4">
+                                <CardContent className="grid grid-cols-3 gap-4">
                                     <FormField control={form.control} name="specimenRequirements.tubeType" render={({ field }) => ( <FormItem><FormLabel>Tube Type</FormLabel><FormControl><Input placeholder="Green Top" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                    <FormField control={form.control} name="specimenRequirements.minVolume" render={({ field }) => ( <FormItem><FormLabel>Min. Volume (mL)</FormLabel><FormControl><Input type="number" placeholder="3" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                    <FormField control={form.control} name="specimenRequirements.specialHandling" render={({ field }) => ( <FormItem><FormLabel>Special Handling</FormLabel><FormControl><Input placeholder="Protect from light" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                    <FormField control={form.control} name="specimenRequirements.minVolume" render={({ field }) => ( <FormItem><FormLabel>Min. Volume</FormLabel><FormControl><Input type="number" placeholder="3" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                    <FormField control={form.control} name="specimenRequirements.units" render={({ field }) => ( <FormItem><FormLabel>Units</FormLabel><FormControl><Input placeholder="mL" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 </CardContent>
                              </Card>
                             
                              <div className="grid grid-cols-2 gap-4">
                                 <FormField control={form.control} name="turnaroundTime.value" render={({ field }) => ( <FormItem><FormLabel>Turnaround Time</FormLabel><FormControl><Input type="number" placeholder="24" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name="price" render={({ field }) => ( <FormItem><FormLabel>Price ($)</FormLabel><FormControl><Input type="number" placeholder="50.00" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                <FormField control={form.control} name="price" render={({ field }) => ( <FormItem><FormLabel>Price ($)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="50.00" {...field} /></FormControl><FormMessage /></FormItem>)} />
                              </div>
                             <FormField
                                 control={form.control}
@@ -329,7 +328,7 @@ export default function TestCatalogPage() {
                       <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                     </TableRow>
                   ))
-                ) : (
+                ) : tests.length > 0 ? (
                   tests.map((test) => (
                     <TableRow key={test.id}>
                       <TableCell>
@@ -372,6 +371,12 @@ export default function TestCatalogPage() {
                       </TableCell>
                     </TableRow>
                   ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center">
+                      No tests found. Add a new test to get started.
+                    </TableCell>
+                  </TableRow>
                 )}
               </TableBody>
             </Table>

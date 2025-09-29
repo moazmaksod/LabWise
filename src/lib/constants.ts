@@ -1,3 +1,4 @@
+
 import type { LucideIcon } from 'lucide-react';
 import { 
   UserPlus, 
@@ -86,24 +87,24 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
   receptionist: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/patient-registration', label: 'Patient Registration', icon: UserPlus },
-    { href: '/dashboard', label: 'Order Entry', icon: FilePlus },
-    { href: '/dashboard', label: 'Scheduling', icon: CalendarDays },
+    { href: '/order-entry', label: 'Order Entry', icon: FilePlus },
+    { href: '/scheduling', label: 'Scheduling', icon: CalendarDays },
   ],
   technician: [
-    { href: '/dashboard', label: 'Worklist', icon: LayoutDashboard },
-    { href: '/dashboard', label: 'Accessioning', icon: Beaker },
-    { href: '/dashboard', label: 'Quality Control', icon: ShieldCheck },
-    { href: '/dashboard', label: 'Instruments', icon: Wrench },
-    { href: '/dashboard', label: 'Inventory Search', icon: Search },
+    { href: '/dashboard', label: 'Worklist', icon: ClipboardList },
+    { href: '/accessioning', label: 'Accessioning', icon: Beaker },
+    { href: '/quality-control', label: 'Quality Control', icon: ShieldCheck },
+    { href: '/instruments', label: 'Instruments', icon: Wrench },
+    { href: '/inventory-search', label: 'Inventory Search', icon: Search },
   ],
   manager: [
     { href: '/dashboard', label: 'KPI Dashboard', icon: AreaChart },
     { href: '/user-management', label: 'User Management', icon: Users },
     { href: '/test-catalog', label: 'Test Catalog', icon: FlaskConical },
-    { href: '/dashboard', label: 'Reports & Analytics', icon: BarChart },
-    { href: '/dashboard', label: 'Inventory Mgmt', icon: Boxes },
-    { href: '/dashboard', label: 'Quality Assurance', icon: FileCheck },
-    { href: '/dashboard', label: 'Audit Trail', icon: ClipboardCopy },
+    { href: '/reports', label: 'Reports & Analytics', icon: BarChart },
+    { href: '/inventory', label: 'Inventory Mgmt', icon: Boxes },
+    { href: '/quality-assurance', label: 'Quality Assurance', icon: FileCheck },
+    { href: '/audit-trail', label: 'Audit Trail', icon: ClipboardCopy },
   ],
   physician: [],
   patient: [],

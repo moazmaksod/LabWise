@@ -1,3 +1,4 @@
+
 import type { ObjectId } from 'mongodb';
 
 export type Role = 'receptionist' | 'technician' | 'manager' | 'physician' | 'patient';
@@ -96,7 +97,6 @@ export type ClientTestCatalogItem = Omit<TestCatalogItem, '_id'> & {
   id: string;
 };
 
-// --- Sprint 2 Additions ---
 export type Patient = {
     _id: ObjectId;
     mrn: string;
