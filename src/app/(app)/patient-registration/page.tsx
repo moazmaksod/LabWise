@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Search, PlusCircle, UploadCloud, Loader2, User, ShieldAlert, FilePlus, Edit } from 'lucide-react';
+import { Search, PlusCircle, UploadCloud, Loader2, User, ShieldAlert, FilePlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/hooks/use-user';
 import { useRouter } from 'next/navigation';
@@ -23,13 +23,6 @@ import { handleSmartDataEntry } from '@/app/actions';
 import type { ClientPatient } from '@/lib/types';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { MoreHorizontal } from 'lucide-react';
 
 const patientSchema = z.object({
   id: z.string().optional(),
@@ -339,39 +332,24 @@ export default function PatientRegistrationPage() {
                   searchResults.map((patient) => (
                     <TableRow key={patient.id}>
                       <TableCell>
-                        <div className="flex items-center gap-3">
+                        <div
+                          className="group flex cursor-pointer items-center gap-3"
+                          onClick={() => handleEdit(patient)}
+                        >
                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted"><User className="h-5 w-5 text-muted-foreground" /></div>
-                           <div className="font-medium">{patient.firstName} {patient.lastName}</div>
+                           <div className="font-medium group-hover:underline">{patient.firstName} {patient.lastName}</div>
                         </div>
                       </TableCell>
                       <TableCell>{patient.mrn}</TableCell>
                       <TableCell>{format(new Date(patient.dateOfBirth), 'MM/dd/yyyy')}</TableCell>
                       <TableCell>{patient.contactInfo.phone}</TableCell>
                       <TableCell className="text-right">
-                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              aria-haspopup="true"
-                              size="icon"
-                              variant="ghost"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Toggle menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => handleEdit(patient)}>
-                                <Edit className="mr-2 h-4 w-4"/>
-                                Edit Patient
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                                <Link href={`/order-entry?patientId=${patient.id}`}>
-                                    <FilePlus className="mr-2 h-4 w-4" />
-                                    Create Order
-                                </Link>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                         <Button asChild size="sm">
+                            <Link href={`/order-entry?patientId=${patient.id}`}>
+                                <FilePlus className="mr-2 h-4 w-4" />
+                                Create Order
+                            </Link>
+                         </Button>
                       </TableCell>
                     </TableRow>
                   ))
