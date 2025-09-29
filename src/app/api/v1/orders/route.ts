@@ -111,38 +111,45 @@ export async function GET(req: NextRequest) {
 
         let aggregationPipeline: any[] = [];
         
-        // If there's a search query, build the aggregation pipeline
+        // If there's a search query, add a match stage first
         if (query) {
              const searchRegex = new RegExp(query, 'i');
-
-            // Stage 1: Initial match on orders collection
             aggregationPipeline.push({
                 $match: {
                     $or: [
                         { orderId: searchRegex },
                         { 'samples.accessionNumber': searchRegex }
+                        // We will search patient fields after the lookup
                     ]
                 }
             });
+        }
+        
+        // Always join with patients collection
+        aggregationPipeline.push({
+            $lookup: {
+                from: 'patients',
+                localField: 'patientId',
+                foreignField: '_id',
+                as: 'patientInfo'
+            }
+        });
+        
+        // Unwind the patientInfo array. Use preserveNullAndEmptyArrays to not drop orders for deleted patients.
+        aggregationPipeline.push({ 
+            $unwind: {
+                path: "$patientInfo",
+                preserveNullAndEmptyArrays: true
+            }
+        });
 
-            // Stage 2: Join with patients collection
+        // If searching, add another match stage to filter by patient info
+        if (query) {
+            const searchRegex = new RegExp(query, 'i');
             aggregationPipeline.push({
-                $lookup: {
-                    from: 'patients',
-                    localField: 'patientId',
-                    foreignField: '_id',
-                    as: 'patientInfo'
-                }
-            });
-            
-            // Stage 3: Unwind the patientInfo array
-            aggregationPipeline.push({ $unwind: '$patientInfo' });
-            
-            // Stage 4: Add a match stage for patient fields
-             aggregationPipeline.push({
                 $match: {
                      $or: [
-                        // This allows orders matched in stage 1 to pass through
+                        // This allows orders matched in the first stage to pass through
                         { orderId: searchRegex },
                         { 'samples.accessionNumber': searchRegex },
                         // Now search on patient fields
@@ -153,8 +160,8 @@ export async function GET(req: NextRequest) {
                     ]
                 }
             });
-
         }
+
 
         // Add sorting and limiting to the pipeline
         aggregationPipeline.push({ $sort: { createdAt: -1 } });
