@@ -342,8 +342,8 @@ function OrderDialogContent({ onOrderSaved, editingOrder, setEditingOrder }: { o
         <DialogDescription>{dialogDescription}</DialogDescription>
       </DialogHeader>
       
-      {isEditing && selectedPatient && (
-         <Card className="bg-secondary">
+      {selectedPatient && (
+         <Card className="bg-secondary my-4">
             <CardHeader>
                 <CardTitle className="text-lg">Patient Information</CardTitle>
             </CardHeader>
