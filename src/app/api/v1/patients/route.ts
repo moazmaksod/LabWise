@@ -66,8 +66,13 @@ export async function POST(req: NextRequest) {
         };
         
         const result = await db.collection('patients').insertOne(newPatientDocument);
+        const createdPatient = { ...newPatientDocument, _id: result.insertedId };
+        
+        const clientPatient = { ...createdPatient, id: createdPatient._id.toHexString() };
+        // Don't need the full object with ObjectId here for the client
+        delete (clientPatient as any)._id;
 
-        return NextResponse.json({ id: result.insertedId.toHexString(), ...newPatientDocument }, { status: 201 });
+        return NextResponse.json(clientPatient, { status: 201 });
 
     } catch (error) {
         console.error('Failed to create patient:', error);

@@ -80,6 +80,7 @@ export default function PatientRegistrationPage() {
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const [ocrFileName, setOcrFileName] = useState('');
   const [editingPatient, setEditingPatient] = useState<ClientPatient | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const form = useForm<PatientFormValues>({
     resolver: zodResolver(patientSchema),
@@ -179,44 +180,60 @@ export default function PatientRegistrationPage() {
     setIsFormOpen(true);
   };
 
-  const onSubmit = async (data: PatientFormValues) => {
+  const savePatient = async (data: PatientFormValues): Promise<ClientPatient | null> => {
     if (!token) {
-        toast({ variant: 'destructive', title: 'Authentication Error', description: 'You are not logged in.' });
-        return;
+      toast({ variant: 'destructive', title: 'Authentication Error', description: 'You are not logged in.' });
+      return null;
     }
-    
+  
     const isEditing = !!data.id;
     const apiEndpoint = isEditing ? '/api/v1/patients' : '/api/v1/patients';
     const method = isEditing ? 'PUT' : 'POST';
-
+  
     try {
-        const response = await fetch(apiEndpoint, {
-            method: method,
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({...data, dateOfBirth: new Date(data.dateOfBirth)})
-        });
+      const response = await fetch(apiEndpoint, {
+        method: method,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ ...data, dateOfBirth: new Date(data.dateOfBirth) })
+      });
+  
+      if (response.status === 409 && !isEditing) {
+        throw new Error('A patient with this MRN already exists. Please search for them instead.');
+      }
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save patient.');
+      }
+  
+      toast({ title: `Patient ${isEditing ? 'updated' : 'created'} successfully` });
+      
+      const savedPatientData = await response.json();
 
-        if (response.status === 409 && !isEditing) {
-             throw new Error('A patient with this MRN already exists. Please search for them instead.');
-        }
+      setIsFormOpen(false);
+      form.reset();
+  
+      // Trigger a new search to refresh the list
+      setSearchTerm(prev => prev + ' ');
+      setSearchTerm(data.lastName);
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to save patient.');
-        }
-
-        toast({ title: `Patient ${isEditing ? 'updated' : 'created'} successfully` });
-        setIsFormOpen(false);
-        form.reset();
-        
-        // Trigger a new search to refresh the list
-        setSearchTerm(prev => prev + ' ');
-        setSearchTerm(data.lastName);
-
+      return isEditing ? data as ClientPatient : savedPatientData;
+  
     } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Error saving patient', description: error.message });
+      toast({ variant: 'destructive', title: 'Error saving patient', description: error.message });
+      return null;
     }
-  };
+  }
+
+  const handleFormSubmit = async (data: PatientFormValues, createOrder?: boolean) => {
+    setIsSubmitting(true);
+    const savedPatient = await savePatient(data);
+    
+    if (savedPatient && createOrder) {
+      router.push(`/orders?patientId=${savedPatient.id}`);
+    }
+    setIsSubmitting(false);
+  }
 
   if (userLoading) {
     return <Skeleton className="h-96 w-full" />;
@@ -267,7 +284,7 @@ export default function PatientRegistrationPage() {
                     <DialogDescription>{editingPatient ? `Updating information for ${editingPatient.firstName} ${editingPatient.lastName}` : 'Fill out the form below to register a new patient. The MRN will be generated automatically.'}</DialogDescription>
                  </DialogHeader>
                  <Form {...form}>
-                 <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 max-h-[75vh] overflow-y-auto pr-6">
+                 <form onSubmit={form.handleSubmit((data) => handleFormSubmit(data))} className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 max-h-[75vh] overflow-y-auto pr-6">
                     {!editingPatient && (
                       <div className="md:col-span-2 space-y-4">
                           <div className="relative flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-card text-center hover:border-primary">
@@ -292,10 +309,16 @@ export default function PatientRegistrationPage() {
 
                     <DialogFooter className="md:col-span-2">
                         <Button type="button" variant="ghost" onClick={() => setIsFormOpen(false)}>Cancel</Button>
-                        <Button type="submit" disabled={form.formState.isSubmitting}>
-                            {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {editingPatient ? 'Save Changes' : 'Save Patient'}
                         </Button>
+                         {!editingPatient && (
+                            <Button type="button" onClick={form.handleSubmit((data) => handleFormSubmit(data, true))} disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Save and Create Order
+                            </Button>
+                        )}
                     </DialogFooter>
                  </form>
                  </Form>
