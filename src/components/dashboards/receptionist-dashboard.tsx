@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { PlusCircle, Loader2, UploadCloud, FilePlus, User, FileSearch, Search, X, TestTube } from 'lucide-react';
+import { PlusCircle, Loader2, UploadCloud, FilePlus, User, FileSearch, Search, X, TestTube, ClipboardPlus } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -622,7 +622,7 @@ export default function ReceptionistDashboard() {
   }, [toast]);
   
   const handlePatientCreated = (patient: ClientPatient) => {
-     router.push(`/patient-registration`);
+     router.push(`/patient`);
   }
 
   const handleOrderSaved = () => {
@@ -694,7 +694,7 @@ export default function ReceptionistDashboard() {
                 <Dialog open={isOrderFormOpen} onOpenChange={setIsOrderFormOpen}>
                     <DialogTrigger asChild>
                         <Button className="w-full h-24 text-lg" variant="outline">
-                             <FileSearch className="mr-4 h-8 w-8"/> New Order
+                             <ClipboardPlus className="mr-4 h-8 w-8"/> New Order
                         </Button>
                     </DialogTrigger>
                      <DialogContent className="max-w-4xl">
