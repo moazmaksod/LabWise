@@ -3,14 +3,13 @@
 'use client';
 
 import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Search, PlusCircle, X, Loader2, User, ShieldAlert, FilePlus, TestTube, FileSearch, Edit } from 'lucide-react';
+import { Search, PlusCircle, X, Loader2, FilePlus, TestTube, FileSearch, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -248,7 +247,7 @@ function OrderForm({
   );
 }
 
-function OrderDialogContent({ onOrderSaved, editingOrder, setEditingOrder }: { onOrderSaved: () => void, editingOrder?: ClientOrder | null, setEditingOrder: (order: ClientOrder | null) => void }) {
+function OrderDialogContent({ onOrderSaved, editingOrder }: { onOrderSaved: () => void, editingOrder?: ClientOrder | null }) {
   const [patientSearchTerm, setPatientSearchTerm] = useState('');
   const [patientSearchResults, setPatientSearchResults] = useState<ClientPatient[]>([]);
   const [isPatientSearching, setIsPatientSearching] = useState(false);
@@ -295,15 +294,16 @@ function OrderDialogContent({ onOrderSaved, editingOrder, setEditingOrder }: { o
   }, []);
 
   useEffect(() => {
-      if (isEditing && editingOrder?.patientId) {
-          fetchPatientById(editingOrder.patientId);
-      } else if (!isEditing) {
-          const patientIdFromUrl = searchParams.get('patientId');
-          if (patientIdFromUrl && token && !selectedPatient) {
-              fetchPatientById(patientIdFromUrl);
-              router.replace('/orders', { scroll: false });
-          }
-      }
+    const patientIdFromUrl = searchParams.get('patientId');
+    if (isEditing && editingOrder?.patientId) {
+        fetchPatientById(editingOrder.patientId);
+    } else if (!isEditing && patientIdFromUrl && token && !selectedPatient) {
+        fetchPatientById(patientIdFromUrl);
+        // Clean up URL
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('patientId');
+        router.replace(newUrl.pathname + newUrl.search, { scroll: false });
+    }
   }, [searchParams, token, isEditing, editingOrder, selectedPatient, router, fetchPatientById]);
 
   useEffect(() => {
@@ -344,10 +344,10 @@ function OrderDialogContent({ onOrderSaved, editingOrder, setEditingOrder }: { o
       
       {selectedPatient && (
          <Card className="bg-secondary my-4">
-            <CardHeader>
+            <CardHeader className='py-4'>
                 <CardTitle className="text-lg">Patient Information</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pb-4">
                 <div className="flex justify-between items-center">
                     <div>
                         <p className="font-semibold text-xl">{selectedPatient.firstName} {selectedPatient.lastName}</p>
@@ -431,25 +431,18 @@ function OrdersPageComponent() {
   }, []);
 
   useEffect(() => {
-    if(token && !searchTerm) {
-        fetchOrders();
+    if(token) {
+        fetchOrders(searchTerm);
     }
   }, [token, searchTerm, fetchOrders]);
-
+  
   useEffect(() => {
-    if (searchParams.get('patientId')) {
+    if (searchParams.get('patientId') && !isOrderDialogOpen) {
       handleOpenDialog();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  useEffect(() => {
-    const searchDebounce = setTimeout(() => {
-        if(searchTerm) fetchOrders(searchTerm);
-    }, 500);
-
-    return () => clearTimeout(searchDebounce);
-  }, [searchTerm, fetchOrders]);
-  
   const getStatusVariant = (status: string) => {
     switch (status) {
         case 'Complete': return 'default';
@@ -466,27 +459,29 @@ function OrdersPageComponent() {
 
   const handleOrderSaved = () => {
     setIsOrderDialogOpen(false);
-    setSearchTerm('');
-    fetchOrders(); 
+    setEditingOrder(null);
+    setSearchTerm(''); // Clear search to show the latest list including the new/edited one
+    fetchOrders(); // We could just pass empty string to fetchOrders, but this is clearer
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
-         <Button onClick={() => handleOpenDialog()}><PlusCircle className="mr-2 h-4 w-4" />New Order</Button>
-      </div>
-
-       <Dialog open={isOrderDialogOpen} onOpenChange={(isOpen) => {
-        setIsOrderDialogOpen(isOpen);
-        if (!isOpen) setEditingOrder(null);
-       }}>
+        <Dialog open={isOrderDialogOpen} onOpenChange={(isOpen) => {
+          setIsOrderDialogOpen(isOpen);
+          if (!isOpen) setEditingOrder(null);
+        }}>
+            <DialogTrigger asChild>
+                <Button onClick={() => handleOpenDialog()}><PlusCircle className="mr-2 h-4 w-4" />New Order</Button>
+            </DialogTrigger>
             <DialogContent className="max-w-4xl">
               <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-                <OrderDialogContent onOrderSaved={handleOrderSaved} editingOrder={editingOrder} setEditingOrder={setEditingOrder} />
+                <OrderDialogContent onOrderSaved={handleOrderSaved} editingOrder={editingOrder} />
               </Suspense>
             </DialogContent>
         </Dialog>
+      </div>
 
       <Card>
         <CardHeader>

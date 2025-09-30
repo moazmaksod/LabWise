@@ -217,7 +217,7 @@ export default function PatientRegistrationPage() {
       setSearchTerm(prev => prev + ' ');
       setSearchTerm(data.lastName);
 
-      return isEditing ? data as ClientPatient : savedPatientData;
+      return isEditing ? { ...data, id: data.id! } as ClientPatient : savedPatientData;
   
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Error saving patient', description: error.message });
