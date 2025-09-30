@@ -26,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from '@/components/ui/badge';
 import type { ClientPatient, ClientTestCatalogItem, ClientUser, ClientOrder } from '@/lib/types';
 import { format } from 'date-fns';
+import { calculateAge } from '@/lib/utils';
 
 const orderFormSchema = z.object({
   id: z.string().optional(),
@@ -275,11 +276,9 @@ function OrderDialogContent({ onOrderSaved, editingOrder, setEditingOrder }: { o
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) {
-        // --- START DEBUGGING BLOCK ---
         const errorBody = await response.text();
         console.error("DEBUG: Failed to fetch patient. Status:", response.status, "Body:", errorBody);
         throw new Error(`Patient not found. Status: ${response.status}`);
-        // --- END DEBUGGING BLOCK ---
       }
       const patientData = await response.json();
       setSelectedPatient(patientData);
@@ -343,6 +342,26 @@ function OrderDialogContent({ onOrderSaved, editingOrder, setEditingOrder }: { o
         <DialogDescription>{dialogDescription}</DialogDescription>
       </DialogHeader>
       
+      {isEditing && selectedPatient && (
+         <Card className="bg-secondary">
+            <CardHeader>
+                <CardTitle className="text-lg">Patient Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <p className="font-semibold text-xl">{selectedPatient.firstName} {selectedPatient.lastName}</p>
+                        <p className="text-muted-foreground">MRN: {selectedPatient.mrn}</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="font-semibold text-xl">{calculateAge(selectedPatient.dateOfBirth)} years</p>
+                        <p className="text-muted-foreground">DOB: {format(new Date(selectedPatient.dateOfBirth), 'MM/dd/yyyy')}</p>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+      )}
+
       {showPatientSearch ? (
         <div className="space-y-4 py-4">
             <div className="relative">
