@@ -369,18 +369,19 @@ function OrderDialogContent({ onOrderSaved, editingOrder }: { onOrderSaved: () =
               <Input type="search" placeholder="Start typing to search for a patient..." value={patientSearchTerm} onChange={(e) => setPatientSearchTerm(e.target.value)} className="pl-10" />
             </div>
             <div className="mt-4 overflow-hidden rounded-md border max-h-60 overflow-y-auto">
-              <Table><TableHeader><TableRow className="bg-secondary hover:bg-secondary"><TableHead>Patient</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+              <Table><TableHeader><TableRow className="bg-secondary hover:bg-secondary"><TableHead>Patient</TableHead><TableHead>Age</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  {isPatientSearching ? <TableRow><TableCell colSpan={2}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                  {isPatientSearching ? <TableRow><TableCell colSpan={3}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                   : patientSearchResults.length > 0 ? patientSearchResults.map((patient) => (
                       <TableRow key={patient.id}>
                         <TableCell>
                           <div className="font-medium">{patient.firstName} {patient.lastName}</div>
                           <div className="text-sm text-muted-foreground">MRN: {patient.mrn}</div>
                         </TableCell>
+                        <TableCell>{calculateAge(patient.dateOfBirth)}</TableCell>
                         <TableCell className="text-right"><Button size="sm" onClick={() => setSelectedPatient(patient)}><FilePlus className="mr-2 h-4 w-4" />Select</Button></TableCell>
                       </TableRow>))
-                  : <TableRow><TableCell colSpan={2} className="h-24 text-center">{patientSearchTerm ? 'No patients found.' : 'Start typing to see results.'}</TableCell></TableRow>}
+                  : <TableRow><TableCell colSpan={3} className="h-24 text-center">{patientSearchTerm ? 'No patients found.' : 'Start typing to see results.'}</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </div>
