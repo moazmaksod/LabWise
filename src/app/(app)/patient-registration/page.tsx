@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -93,39 +93,37 @@ export default function PatientRegistrationPage() {
     },
   });
 
+  const fetchPatients = useCallback(async (query: string) => {
+    if (!token) return;
+    setIsSearching(true);
+    try {
+        const url = query ? `/api/v1/patients?q=${query}` : '/api/v1/patients';
+        const response = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Search failed');
+        const data = await response.json();
+        setSearchResults(data);
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not perform patient search.' });
+        setSearchResults([]);
+    } finally {
+        setIsSearching(false);
+    }
+  }, [token, toast]);
+
   useEffect(() => {
     const storedToken = localStorage.getItem('labwise-token');
-    setToken(storedToken);
+    if (storedToken) setToken(storedToken);
   }, []);
-  
+
   useEffect(() => {
-    if (!searchTerm.trim() || !token) {
-        setSearchResults([]);
-        if(isSearching) setIsSearching(false);
-        return;
+    if (token) {
+        // Initial fetch for recent patients
+        fetchPatients(searchTerm);
     }
-    
-    setIsSearching(true);
-    const searchDebounce = setTimeout(async () => {
-        try {
-            const response = await fetch(`/api/v1/patients?q=${searchTerm}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!response.ok) throw new Error('Search failed');
-            const data = await response.json();
-            setSearchResults(data);
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not perform patient search.' });
-            setSearchResults([]);
-        } finally {
-            setIsSearching(false);
-        }
-    }, 300); // 300ms debounce delay
-
-    return () => clearTimeout(searchDebounce);
-  }, [searchTerm, token, toast]);
-
-
+  }, [token, fetchPatients, searchTerm]);
+  
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -214,8 +212,7 @@ export default function PatientRegistrationPage() {
       form.reset();
   
       // Trigger a new search to refresh the list
-      setSearchTerm(prev => prev + ' ');
-      setSearchTerm(data.lastName);
+      fetchPatients(data.lastName);
 
       return isEditing ? { ...data, id: data.id! } as ClientPatient : savedPatientData;
   
@@ -256,7 +253,7 @@ export default function PatientRegistrationPage() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Patient Registration & Search</CardTitle>
+          <CardTitle>Patients</CardTitle>
           <CardDescription>Search for an existing patient or create a new record.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -330,7 +327,9 @@ export default function PatientRegistrationPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Search Results</CardTitle>
+          <CardTitle>
+            {searchTerm ? 'Search Results' : 'Recent Patients'}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-hidden rounded-md border">
@@ -346,7 +345,7 @@ export default function PatientRegistrationPage() {
               </TableHeader>
               <TableBody>
                 {isSearching ? (
-                  Array.from({ length: 3 }).map((_, i) => (
+                  Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell>
                     </TableRow>
@@ -379,7 +378,7 @@ export default function PatientRegistrationPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={5} className="h-24 text-center">
-                     {searchTerm ? 'No patients found.' : 'Start typing to see results.'}
+                     {searchTerm ? 'No patients found.' : 'No recent patients found.'}
                     </TableCell>
                   </TableRow>
                 )}
@@ -391,3 +390,5 @@ export default function PatientRegistrationPage() {
     </div>
   );
 }
+
+    
