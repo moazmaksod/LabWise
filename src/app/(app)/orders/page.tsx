@@ -496,7 +496,7 @@ function OrdersPageComponent() {
         <CardContent>
           <div className="relative">
             <FileSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input type="search" placeholder="Start typing to search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 text-lg" />
+            <Input type="search" placeholder="Search by Order ID, Patient Name, MRN..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 text-lg" />
           </div>
         </CardContent>
       </Card>
@@ -554,7 +554,3 @@ export default function OrdersPage() {
         </Suspense>
     )
 }
-
-    
-
-    

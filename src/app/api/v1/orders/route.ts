@@ -111,21 +111,7 @@ export async function GET(req: NextRequest) {
 
         let aggregationPipeline: any[] = [];
         
-        // If there's a search query, add a match stage first
-        if (query) {
-             const searchRegex = new RegExp(query, 'i');
-            aggregationPipeline.push({
-                $match: {
-                    $or: [
-                        { orderId: searchRegex },
-                        { 'samples.accessionNumber': searchRegex }
-                        // We will search patient fields after the lookup
-                    ]
-                }
-            });
-        }
-        
-        // Always join with patients collection
+        // Always join with patients collection first to enable searching on patient fields
         aggregationPipeline.push({
             $lookup: {
                 from: 'patients',
@@ -143,16 +129,15 @@ export async function GET(req: NextRequest) {
             }
         });
 
-        // If searching, add another match stage to filter by patient info
+        // If there's a search query, add a match stage to filter results
         if (query) {
-            const searchRegex = new RegExp(query, 'i');
+             const searchRegex = new RegExp(query, 'i');
             aggregationPipeline.push({
                 $match: {
-                     $or: [
-                        // This allows orders matched in the first stage to pass through
+                    $or: [
                         { orderId: searchRegex },
                         { 'samples.accessionNumber': searchRegex },
-                        // Now search on patient fields
+                        // Search on joined patient fields
                         { 'patientInfo.mrn': searchRegex },
                         { 'patientInfo.firstName': searchRegex },
                         { 'patientInfo.lastName': searchRegex },
@@ -161,7 +146,6 @@ export async function GET(req: NextRequest) {
                 }
             });
         }
-
 
         // Add sorting and limiting to the pipeline
         aggregationPipeline.push({ $sort: { createdAt: -1 } });
