@@ -375,8 +375,8 @@ function OrderDialogContent({ onOrderSaved, editingOrder }: { onOrderSaved: () =
                   : patientSearchResults.length > 0 ? patientSearchResults.map((patient) => (
                       <TableRow key={patient.id}>
                         <TableCell>
-                          <div>{patient.firstName} {patient.lastName}</div>
-                          <div className="text-sm text-muted-foreground">{patient.mrn}</div>
+                          <div className="font-medium">{patient.firstName} {patient.lastName}</div>
+                          <div className="text-sm text-muted-foreground">MRN: {patient.mrn}</div>
                         </TableCell>
                         <TableCell className="text-right"><Button size="sm" onClick={() => setSelectedPatient(patient)}><FilePlus className="mr-2 h-4 w-4" />Select</Button></TableCell>
                       </TableRow>))
@@ -549,3 +549,5 @@ export default function OrdersPage() {
         </Suspense>
     )
 }
+
+    
