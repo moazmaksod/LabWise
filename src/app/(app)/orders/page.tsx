@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { Suspense } from 'react';
@@ -267,16 +268,23 @@ function OrderDialogContent({ onOrderSaved, editingOrder, setEditingOrder }: { o
 
 
   const fetchPatientById = useCallback(async (patientId: string) => {
+    if (!token) return;
     setIsPatientSearching(true);
     try {
       const response = await fetch(`/api/v1/patients/${patientId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (!response.ok) throw new Error('Patient not found');
+      if (!response.ok) {
+        // --- START DEBUGGING BLOCK ---
+        const errorBody = await response.text();
+        console.error("DEBUG: Failed to fetch patient. Status:", response.status, "Body:", errorBody);
+        throw new Error(`Patient not found. Status: ${response.status}`);
+        // --- END DEBUGGING BLOCK ---
+      }
       const patientData = await response.json();
       setSelectedPatient(patientData);
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not load patient.' });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Error', description: `Could not load patient: ${error.message}` });
     } finally {
       setIsPatientSearching(false);
     }
@@ -450,7 +458,10 @@ function OrdersPageComponent() {
          <Button onClick={() => handleOpenDialog()}><PlusCircle className="mr-2 h-4 w-4" />New Order</Button>
       </div>
 
-       <Dialog open={isOrderDialogOpen} onOpenChange={setIsOrderDialogOpen}>
+       <Dialog open={isOrderDialogOpen} onOpenChange={(isOpen) => {
+        setIsOrderDialogOpen(isOpen);
+        if (!isOpen) setEditingOrder(null);
+       }}>
             <DialogContent className="max-w-4xl">
               <Suspense fallback={<Skeleton className="h-96 w-full" />}>
                 <OrderDialogContent onOrderSaved={handleOrderSaved} editingOrder={editingOrder} setEditingOrder={setEditingOrder} />
@@ -524,5 +535,7 @@ export default function OrdersPage() {
         </Suspense>
     )
 }
+
+    
 
     
