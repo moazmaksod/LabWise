@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { PlusCircle, Loader2, UploadCloud, FilePlus, User } from 'lucide-react';
+import { PlusCircle, Loader2, UploadCloud, FilePlus, User, FileSearch } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -311,9 +311,14 @@ export default function ReceptionistDashboard() {
                 Use quick actions for common tasks.
                 </CardDescription>
             </CardHeader>
-            <CardContent className="flex-grow flex flex-col justify-center">
+            <CardContent className="flex-grow flex flex-col justify-center gap-4">
                  <Button className="w-full h-24 text-lg" onClick={() => setIsPatientFormOpen(true)}>
                     <User className="mr-4 h-8 w-8"/> New Patient
+                </Button>
+                <Button asChild className="w-full h-24 text-lg" variant="outline">
+                    <Link href="/orders">
+                        <FileSearch className="mr-4 h-8 w-8"/> New Order
+                    </Link>
                 </Button>
             </CardContent>
         </Card>
