@@ -174,4 +174,19 @@ export type ClientOrder = Omit<Order, '_id' | 'patientId' | 'physicianId' | 'cre
     patientId: string;
     physicianId: string;
     createdBy: string;
+    patientInfo?: ClientPatient; // Added for aggregation results
 }
+export type Appointment = {
+    _id: ObjectId;
+    patientId: ObjectId;
+    scheduledTime: Date;
+    durationMinutes: number;
+    status: 'Scheduled' | 'CheckedIn' | 'Completed' | 'NoShow';
+    notes?: string;
+};
+
+export type ClientAppointment = Omit<Appointment, '_id' | 'patientId'> & {
+    id: string;
+    patientId: string;
+    patientInfo?: Partial<ClientPatient>;
+};

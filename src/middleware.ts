@@ -70,6 +70,9 @@ const rbacMatrix: Record<string, { methods: string[], roles: Role[] }[]> = {
         { methods: ['GET'], roles: ['manager', 'receptionist', 'technician', 'physician'] },
         { methods: ['PUT'], roles: ['manager'] }
     ],
+    '/api/v1/appointments': [
+        { methods: ['GET'], roles: ['receptionist', 'manager'] }
+    ],
 };
 
 

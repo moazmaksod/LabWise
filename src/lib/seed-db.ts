@@ -4,8 +4,35 @@
 import { connectToDatabase } from '@/lib/mongodb';
 import { hash } from 'bcryptjs';
 import { USERS } from '@/lib/constants';
-import type { User } from '@/lib/types';
-import { MongoClient } from 'mongodb';
+import type { User, Appointment, Patient } from '@/lib/types';
+import { MongoClient, ObjectId } from 'mongodb';
+
+async function seedAppointments(db: any) {
+    const appointmentsCollection = db.collection('appointments');
+    const count = await appointmentsCollection.countDocuments();
+    if (count > 0) {
+        return; // Already seeded
+    }
+
+    console.log('Seeding appointments...');
+
+    const patients = await db.collection('patients').find({}).limit(5).toArray();
+    if (patients.length < 5) {
+        console.log('Not enough patients to seed appointments. Please seed patients first.');
+        return;
+    }
+    
+    const now = new Date();
+    const appointmentsToInsert: Omit<Appointment, '_id'>[] = [
+        { patientId: patients[0]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0), durationMinutes: 15, status: 'Completed' },
+        { patientId: patients[1]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 15), durationMinutes: 15, status: 'Completed' },
+        { patientId: patients[2]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 30), durationMinutes: 15, status: 'CheckedIn' },
+        { patientId: patients[3]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 45), durationMinutes: 15, status: 'Scheduled' },
+        { patientId: patients[4]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0), durationMinutes: 15, status: 'Scheduled' },
+    ];
+    await appointmentsCollection.insertMany(appointmentsToInsert);
+    console.log('Appointments seeded successfully.');
+}
 
 // A wrapper to ensure the seeding logic is self-contained and handles its own DB connection.
 export async function seedDatabase() {
@@ -49,10 +76,13 @@ export async function seedDatabase() {
                 });
             }
             await usersCollection.insertMany(usersToInsert);
-            console.log('Database seeded successfully!');
+            console.log('Users seeded successfully!');
         } else {
-            console.log('Database already seeded. Skipping.');
+            console.log('Users collection already seeded. Skipping.');
         }
+
+        await seedAppointments(db);
+
     } catch (error) {
         console.error('Error during database seed check:', error);
     } finally {
