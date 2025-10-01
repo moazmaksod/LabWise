@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PlusCircle, MoreHorizontal, ShieldAlert } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, ShieldAlert, Users, Filter, Search, Download, Mail } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -57,7 +57,6 @@ import {
 
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -70,6 +69,7 @@ import {
 } from '@/components/ui/form';
 
 import type { ClientUser, Role } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 
 const userFormSchema = z.object({
@@ -247,116 +247,87 @@ export default function UserManagementPage() {
     }
   };
 
+  const roleBadgeStyles: Record<Role, string> = {
+    manager: 'bg-red-200/20 text-red-400 border-red-400/50',
+    technician: 'bg-green-200/20 text-green-400 border-green-400/50',
+    receptionist: 'bg-yellow-200/20 text-yellow-400 border-yellow-400/50',
+    physician: 'bg-blue-200/20 text-blue-400 border-blue-400/50',
+    patient: 'bg-gray-200/20 text-gray-400 border-gray-400/50',
+  }
+
   return (
-    <div className="space-y-4">
-        <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">User Management</h1>
-             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                <DialogTrigger asChild>
-                    <Button onClick={handleAddNew}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add User
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                        <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
-                        <DialogDescription>
-                           {editingUser ? 'Update the details for this user.' : 'Fill in the details for the new user.'}
-                        </DialogDescription>
-                    </DialogHeader>
-                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-                            <FormField
-                                control={form.control}
-                                name="firstName"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>First Name</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="John" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                             <FormField
-                                control={form.control}
-                                name="lastName"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Last Name</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Doe" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="email"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Email</FormLabel>
-                                        <FormControl>
-                                            <Input type="email" placeholder="john.doe@email.com" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                             <FormField
-                                control={form.control}
-                                name="role"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Role</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select a role" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="receptionist">Receptionist</SelectItem>
-                                                <SelectItem value="technician">Technician</SelectItem>
-                                                <SelectItem value="manager">Manager</SelectItem>
-                                                 <SelectItem value="physician">Physician</SelectItem>
-                                                <SelectItem value="patient">Patient</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            {!editingUser && (
-                                 <FormField
-                                    control={form.control}
-                                    name="password"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Password</FormLabel>
-                                            <FormControl>
-                                                <Input type="password" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            )}
-                             <DialogFooter>
-                                <Button type="button" variant="ghost" onClick={() => setIsFormOpen(false)}>Cancel</Button>
-                                <Button type="submit">Save</Button>
-                            </DialogFooter>
-                        </form>
-                    </Form>
-                </DialogContent>
-            </Dialog>
-        </div>
+    <div className="space-y-6">
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Filter className="h-5 w-5" />
+                    Filters & Search
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center gap-4">
+                <div className="relative flex-grow">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Search users by name or email..." className="pl-10" />
+                </div>
+                <Select>
+                    <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="All Roles" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Roles</SelectItem>
+                        <SelectItem value="manager">Manager</SelectItem>
+                        <SelectItem value="technician">Technician</SelectItem>
+                        <SelectItem value="receptionist">Receptionist</SelectItem>
+                        <SelectItem value="physician">Physician</SelectItem>
+                        <SelectItem value="patient">Patient</SelectItem>
+                    </SelectContent>
+                </Select>
+                <Button>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export
+                </Button>
+            </CardContent>
+        </Card>
+      
       <Card>
         <CardHeader>
-          <CardTitle>System Users</CardTitle>
-          <CardDescription>A list of all users in the LabWise system.</CardDescription>
+            <div className="flex items-center justify-between">
+                <div>
+                    <CardTitle className="flex items-center gap-2">
+                        <Users className="h-5 w-5" />
+                        System Users ({users.length})
+                    </CardTitle>
+                    <CardDescription>Manage user accounts and permissions</CardDescription>
+                </div>
+                <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                    <DialogTrigger asChild>
+                        <Button onClick={handleAddNew}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add User
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                            <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
+                            <DialogDescription>
+                               {editingUser ? 'Update the details for this user.' : 'Fill in the details for the new user.'}
+                            </DialogDescription>
+                        </DialogHeader>
+                         <Form {...form}>
+                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                                <FormField control={form.control} name="firstName" render={({ field }) => ( <FormItem><FormLabel>First Name</FormLabel><FormControl><Input placeholder="John" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                 <FormField control={form.control} name="lastName" render={({ field }) => ( <FormItem><FormLabel>Last Name</FormLabel><FormControl><Input placeholder="Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="john.doe@email.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                 <FormField control={form.control} name="role" render={({ field }) => ( <FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl><SelectContent><SelectItem value="receptionist">Receptionist</SelectItem><SelectItem value="technician">Technician</SelectItem><SelectItem value="manager">Manager</SelectItem><SelectItem value="physician">Physician</SelectItem><SelectItem value="patient">Patient</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
+                                {!editingUser && ( <FormField control={form.control} name="password" render={({ field }) => ( <FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>)} /> )}
+                                 <DialogFooter>
+                                    <Button type="button" variant="ghost" onClick={() => setIsFormOpen(false)}>Cancel</Button>
+                                    <Button type="submit">Save</Button>
+                                </DialogFooter>
+                            </form>
+                        </Form>
+                    </DialogContent>
+                </Dialog>
+            </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-hidden rounded-md border">
@@ -364,58 +335,59 @@ export default function UserManagementPage() {
               <TableHeader>
                 <TableRow className="bg-secondary hover:bg-secondary">
                   <TableHead>User</TableHead>
+                  <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead className="hidden md:table-cell">Status</TableHead>
-                  <TableHead className="hidden md:table-cell">Created At</TableHead>
-                  <TableHead>
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Last Login</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      <TableCell>
-                        <div className="flex items-center gap-4">
-                          <Skeleton className="h-10 w-10 rounded-full" />
-                          <div className="space-y-1">
-                            <Skeleton className="h-4 w-24" />
-                            <Skeleton className="h-3 w-32" />
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell><Skeleton className="h-6 w-20" /></TableCell>
-                      <TableCell className="hidden md:table-cell"><Skeleton className="h-6 w-20" /></TableCell>
-                      <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-28" /></TableCell>
-                      <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                      <TableCell colSpan={7}><Skeleton className="h-10 w-full" /></TableCell>
                     </TableRow>
                   ))
                 ) : (
                   users.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
                           <Avatar>
                             <AvatarImage src={user.avatar} alt={user.firstName} />
                             <AvatarFallback>{user.firstName[0]}{user.lastName[0]}</AvatarFallback>
                           </Avatar>
                           <div>
                             <div className="font-medium">{user.firstName} {user.lastName}</div>
-                            <div className="text-sm text-muted-foreground">{user.email}</div>
+                            <div className="text-sm text-muted-foreground">ID: {user.id.substring(user.id.length-4)}</div>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="capitalize">{user.role}</TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <Badge variant={user.isActive ? 'secondary' : 'destructive'}>
+                      <TableCell>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                            <Mail className="h-4 w-4" />
+                            <span>{user.email}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={cn("capitalize", roleBadgeStyles[user.role])}>
+                          {user.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={cn(user.isActive ? 'text-green-400 bg-green-900/40 border-green-400/50' : 'text-red-400 bg-red-900/40 border-red-400/50')}>
                           {user.isActive ? 'Active' : 'Inactive'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell">
+                      <TableCell className="text-muted-foreground">
+                        {new Date(user.updatedAt).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
                         {new Date(user.createdAt).toLocaleDateString()}
                       </TableCell>
-                       <TableCell>
+                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -445,5 +417,3 @@ export default function UserManagementPage() {
     </div>
   );
 }
-
-    
