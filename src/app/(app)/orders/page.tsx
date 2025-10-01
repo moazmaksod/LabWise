@@ -62,9 +62,9 @@ function OrderForm({
     defaultValues: {
       id: editingOrder?.id,
       patientId: patient.id,
-      physicianId: editingOrder?.physicianId,
-      icd10Code: editingOrder?.icd10Code,
-      testIds: editingOrder?.samples[0].tests.map(t => t.testCode),
+      physicianId: editingOrder?.physicianId || '',
+      icd10Code: editingOrder?.icd10Code || '',
+      testIds: editingOrder?.samples[0]?.tests.map(t => t.testCode) || [],
     },
   });
 
