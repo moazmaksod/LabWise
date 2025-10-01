@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PlusCircle, MoreHorizontal, ShieldAlert, FlaskConical, Beaker, Thermometer, Clock } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, ShieldAlert, FlaskConical, Beaker, Clock, Filter, Search, Download } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -244,73 +244,99 @@ export default function TestCatalogPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
         <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">Test Catalog Management</h1>
-             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                <DialogTrigger asChild>
-                    <Button onClick={handleAddNew}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Test
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle>{editingTest ? 'Edit Test' : 'Add New Test'}</DialogTitle>
-                        <DialogDescription>
-                           {editingTest ? 'Update the details for this test.' : 'Define a new test for the laboratory catalog.'}
-                        </DialogDescription>
-                    </DialogHeader>
-                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-6">
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField control={form.control} name="testCode" render={({ field }) => ( <FormItem><FormLabel>Test Code</FormLabel><FormControl><Input placeholder="BMP" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Test Name</FormLabel><FormControl><Input placeholder="Basic Metabolic Panel" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                            </div>
-                            <FormField control={form.control} name="description" render={({ field }) => ( <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="A group of 8 tests that measures..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Test Catalog Management</h1>
+            <p className="text-muted-foreground">Manage laboratory test catalog and reference ranges</p>
+          </div>
+          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+              <DialogTrigger asChild>
+                  <Button onClick={handleAddNew}>
+                      <PlusCircle className="mr-2 h-4 w-4" /> Add Test
+                  </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                      <DialogTitle>{editingTest ? 'Edit Test' : 'Add New Test'}</DialogTitle>
+                      <DialogDescription>
+                          {editingTest ? 'Update the details for this test.' : 'Define a new test for the laboratory catalog.'}
+                      </DialogDescription>
+                  </DialogHeader>
+                    <Form {...form}>
+                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-6">
+                          <div className="grid grid-cols-2 gap-4">
+                              <FormField control={form.control} name="testCode" render={({ field }) => ( <FormItem><FormLabel>Test Code</FormLabel><FormControl><Input placeholder="BMP" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                              <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Test Name</FormLabel><FormControl><Input placeholder="Basic Metabolic Panel" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                          </div>
+                          <FormField control={form.control} name="description" render={({ field }) => ( <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="A group of 8 tests that measures..." {...field} /></FormControl><FormMessage /></FormItem>)} />
 
-                             <Card>
-                                <CardHeader className="pb-4">
-                                    <CardTitle className="text-base">Specimen Requirements</CardTitle>
-                                </CardHeader>
-                                <CardContent className="grid grid-cols-3 gap-4">
-                                    <FormField control={form.control} name="specimenRequirements.tubeType" render={({ field }) => ( <FormItem><FormLabel>Tube Type</FormLabel><FormControl><Input placeholder="Green Top" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                    <FormField control={form.control} name="specimenRequirements.minVolume" render={({ field }) => ( <FormItem><FormLabel>Min. Volume</FormLabel><FormControl><Input type="number" placeholder="3" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                    <FormField control={form.control} name="specimenRequirements.units" render={({ field }) => ( <FormItem><FormLabel>Units</FormLabel><FormControl><Input placeholder="mL" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                </CardContent>
-                             </Card>
-                            
-                             <div className="grid grid-cols-2 gap-4">
-                                <FormField control={form.control} name="turnaroundTime.value" render={({ field }) => ( <FormItem><FormLabel>Turnaround Time</FormLabel><FormControl><Input type="number" placeholder="24" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name="price" render={({ field }) => ( <FormItem><FormLabel>Price ($)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="50.00" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                             </div>
-                            <FormField
-                                control={form.control}
-                                name="isActive"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                                        <div className="space-y-0.5">
-                                            <FormLabel>Active Test</FormLabel>
-                                            <FormDescription>Can this test be ordered?</FormDescription>
-                                        </div>
-                                        <FormControl>
-                                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                        </FormControl>
-                                    </FormItem>
-                                )}
-                            />
-                             <DialogFooter>
-                                <Button type="button" variant="ghost" onClick={() => setIsFormOpen(false)}>Cancel</Button>
-                                <Button type="submit">Save Test</Button>
-                            </DialogFooter>
-                        </form>
-                    </Form>
-                </DialogContent>
-            </Dialog>
+                            <Card>
+                              <CardHeader className="pb-4">
+                                  <CardTitle className="text-base">Specimen Requirements</CardTitle>
+                              </CardHeader>
+                              <CardContent className="grid grid-cols-3 gap-4">
+                                  <FormField control={form.control} name="specimenRequirements.tubeType" render={({ field }) => ( <FormItem><FormLabel>Tube Type</FormLabel><FormControl><Input placeholder="Green Top" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                  <FormField control={form.control} name="specimenRequirements.minVolume" render={({ field }) => ( <FormItem><FormLabel>Min. Volume</FormLabel><FormControl><Input type="number" placeholder="3" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                  <FormField control={form.control} name="specimenRequirements.units" render={({ field }) => ( <FormItem><FormLabel>Units</FormLabel><FormControl><Input placeholder="mL" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                              </CardContent>
+                            </Card>
+                          
+                            <div className="grid grid-cols-2 gap-4">
+                              <FormField control={form.control} name="turnaroundTime.value" render={({ field }) => ( <FormItem><FormLabel>Turnaround Time</FormLabel><FormControl><Input type="number" placeholder="24" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                              <FormField control={form.control} name="price" render={({ field }) => ( <FormItem><FormLabel>Price ($)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="50.00" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            </div>
+                          <FormField
+                              control={form.control}
+                              name="isActive"
+                              render={({ field }) => (
+                                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                      <div className="space-y-0.5">
+                                          <FormLabel>Active Test</FormLabel>
+                                          <FormDescription>Can this test be ordered?</FormDescription>
+                                      </div>
+                                      <FormControl>
+                                          <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                      </FormControl>
+                                  </FormItem>
+                              )}
+                          />
+                            <DialogFooter>
+                              <Button type="button" variant="ghost" onClick={() => setIsFormOpen(false)}>Cancel</Button>
+                              <Button type="submit">Save Test</Button>
+                          </DialogFooter>
+                      </form>
+                  </Form>
+              </DialogContent>
+          </Dialog>
         </div>
+
+      <Card>
+          <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                  <Filter className="h-5 w-5" />
+                  Filters & Search
+              </CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center gap-4">
+              <div className="relative flex-grow">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="Search tests by name, code, or category..." className="pl-10" />
+              </div>
+              <Button variant="outline">
+                  <Download className="mr-2 h-4 w-4" />
+                  Export
+              </Button>
+          </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
-          <CardTitle>Test Catalog</CardTitle>
-          <CardDescription>The master dictionary of all tests performed by the laboratory.</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <FlaskConical className="h-5 w-5" />
+            Test Catalog ({tests.length})
+          </CardTitle>
+          <CardDescription>Laboratory test catalog with pricing and specifications.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-hidden rounded-md border">
@@ -320,50 +346,50 @@ export default function TestCatalogPage() {
                   <TableHead>Test</TableHead>
                   <TableHead>Specimen</TableHead>
                   <TableHead className="hidden md:table-cell">TAT</TableHead>
+                  <TableHead>Price</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>
-                    <span className="sr-only">Actions</span>
+                  <TableHead className="text-right">
+                    Actions
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
+                  Array.from({ length: 3 }).map((_, i) => (
                     <TableRow key={i}>
-                      <TableCell><div className="flex items-center gap-4"><Skeleton className="h-10 w-10 rounded-lg" /><div className="space-y-1"><Skeleton className="h-4 w-32" /><Skeleton className="h-3 w-20" /></div></div></TableCell>
-                      <TableCell><div className="space-y-1"><Skeleton className="h-4 w-24" /><Skeleton className="h-3 w-16" /></div></TableCell>
-                      <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-12" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-20" /></TableCell>
-                      <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                      <TableCell colSpan={6}><Skeleton className="h-12 w-full" /></TableCell>
                     </TableRow>
                   ))
                 ) : tests.length > 0 ? (
                   tests.map((test) => (
                     <TableRow key={test.id}>
                       <TableCell>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
                                 <FlaskConical className="h-5 w-5 text-muted-foreground" />
                            </div>
                            <div>
                                 <div className="font-medium">{test.name}</div>
-                                <div className="text-sm text-muted-foreground">{test.testCode}</div>
+                                <div className="text-sm text-muted-foreground">Code: {test.testCode}</div>
                            </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="font-medium flex items-center gap-1"><Beaker className="h-4 w-4 text-muted-foreground"/>{test.specimenRequirements.tubeType}</div>
-                        <div className="text-sm text-muted-foreground ml-5">{test.specimenRequirements.minVolume}{test.specimenRequirements.units}</div>
+                        <div className="font-medium">{test.specimenRequirements.tubeType}</div>
+                        <div className="text-sm text-muted-foreground">{test.specimenRequirements.minVolume}{test.specimenRequirements.units}</div>
                       </TableCell>
                        <TableCell className="hidden md:table-cell">
-                         <div className="flex items-center gap-1"><Clock className="h-4 w-4 text-muted-foreground"/> {test.turnaroundTime.value} {test.turnaroundTime.units}</div>
+                         <div className="flex items-center gap-1"><Clock className="h-4 w-4 text-muted-foreground"/> {test.turnaroundTime.value}-{parseInt(test.turnaroundTime.value.toString()) + 2} {test.turnaroundTime.units}</div>
                        </TableCell>
                       <TableCell>
-                        <Badge variant={test.isActive ? 'secondary' : 'destructive'}>
+                        ${test.price.toFixed(2)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={test.isActive ? 'bg-green-200/20 text-green-400 border-green-400/50' : 'bg-red-200/20 text-red-400 border-red-400/50'}>
                           {test.isActive ? 'Active' : 'Inactive'}
                         </Badge>
                       </TableCell>
-                       <TableCell>
+                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button aria-haspopup="true" size="icon" variant="ghost">
@@ -382,7 +408,7 @@ export default function TestCatalogPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                       No tests found. Add a new test to get started.
                     </TableCell>
                   </TableRow>
@@ -395,5 +421,3 @@ export default function TestCatalogPage() {
     </div>
   );
 }
-
-    
