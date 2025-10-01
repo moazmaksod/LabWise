@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
         const physician = await db.collection('users').findOne({ _id: new ObjectId(physicianId) });
         if (!physician || physician.role !== 'physician') return NextResponse.json({ message: 'Physician not found.' }, { status: 404 });
 
-        const allTestCodes = samples.flatMap(s => s.testCodes);
+        const allTestCodes = samples.flatMap((s: any) => s.testCodes);
         if(allTestCodes.length === 0) {
              return NextResponse.json({ message: 'At least one test must be selected.' }, { status: 400 });
         }
@@ -44,7 +44,9 @@ export async function POST(req: NextRequest) {
         const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: allTestCodes } }).toArray();
 
         if (testDefs.length !== allTestCodes.length) {
-            return NextResponse.json({ message: 'One or more invalid test codes provided.' }, { status: 400 });
+            const foundCodes = new Set(testDefs.map(t => t.testCode));
+            const missingCodes = allTestCodes.filter((c: string) => !foundCodes.has(c));
+            return NextResponse.json({ message: `One or more invalid test codes provided: ${missingCodes.join(', ')}` }, { status: 400 });
         }
 
         const testDefMap = new Map(testDefs.map(t => [t.testCode, t]));
@@ -90,7 +92,7 @@ export async function POST(req: NextRequest) {
 
         const createdOrder = { ...newOrder, _id: result.insertedId };
         
-        return NextResponse.json({ ...createdOrder, id: result.insertedId.toHexString() }, { status: 201 });
+        return NextResponse.json({ ...createdOrder, id: result.insertedId.toHexString(), orderId: newOrderId }, { status: 201 });
 
     } catch (error) {
         console.error('Failed to create order:', error);
@@ -155,7 +157,8 @@ export async function GET(req: NextRequest) {
 
         const clientOrders = orders.map(order => {
           const { _id, ...rest } = order;
-          return { ...rest, id: _id.toHexString() };
+          const patientInfo = rest.patientInfo ? { ...rest.patientInfo, id: rest.patientInfo._id.toHexString(), _id: undefined } : undefined;
+          return { ...rest, id: _id.toHexString(), patientInfo };
         });
 
         return NextResponse.json(clientOrders, { status: 200 });

@@ -53,7 +53,7 @@ export type SpecimenRequirements = {
   tubeType: string;
   minVolume: number;
   units: string;
-  specialHandling: string;
+  specialHandling?: string;
 };
 
 export type ReferenceRange = {
@@ -80,7 +80,7 @@ export type TestCatalogItem = {
   _id: ObjectId;
   testCode: string;
   name: string;
-  description: string;
+  description?: string;
   specimenRequirements: SpecimenRequirements;
   turnaroundTime: {
     value: number;
@@ -169,11 +169,12 @@ export type Order = {
     updatedAt: Date;
 }
 
-export type ClientOrder = Omit<Order, '_id' | 'patientId' | 'physicianId' | 'createdBy'> & {
+export type ClientOrder = Omit<Order, '_id' | 'patientId' | 'physicianId' | 'createdBy' | 'samples'> & {
     id: string;
     patientId: string;
     physicianId: string;
     createdBy: string;
+    samples: (Omit<OrderSample, 'sampleId'> & { sampleId: string })[];
     patientInfo?: ClientPatient; // Added for aggregation results
 }
 export type Appointment = {
