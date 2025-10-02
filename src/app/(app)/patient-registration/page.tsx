@@ -146,10 +146,18 @@ export default function PatientRegistrationPage() {
     form.setValue('contactInfo.phone', getRandomPhone());
     form.setValue('contactInfo.email', `${fName.toLowerCase()}.${lName.toLowerCase()}@example.com`);
     form.setValue('dateOfBirth', getRandomDateOfBirth());
-    form.setValue('insuranceInfo.policyNumber', getRandomPolicyNumber());
+    const policyNumber = getRandomPolicyNumber();
+    form.setValue('insuranceInfo.policyNumber', policyNumber);
 
     toast({ title: 'Simulation Successful', description: 'Patient data has been populated with random values.' });
     
+    // Simulate eligibility check
+    await new Promise(resolve => setTimeout(resolve, 500));
+    toast({
+        title: 'Insurance Eligibility Verified',
+        description: `Policy #${policyNumber} is Active. Co-pay: $25.00`,
+    });
+
     setIsOcrLoading(false);
   };
 
