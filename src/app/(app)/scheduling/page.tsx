@@ -71,10 +71,8 @@ function NewAppointmentForm({ onSave }: { onSave: () => void }) {
   }, [patientSearch, token, toast]);
 
   const handleSelectPatient = (patient: ClientPatient) => {
-    console.log('DEBUG: Patient selected in form:', patient);
     setSelectedPatient(patient);
     form.setValue('patientId', patient.id, { shouldValidate: true });
-    console.log('DEBUG: Form value for patientId set to:', patient.id);
   }
   
   const handleUnselectPatient = () => {
@@ -85,17 +83,15 @@ function NewAppointmentForm({ onSave }: { onSave: () => void }) {
   }
 
   const onSubmit = async (data: AppointmentFormValues) => {
-    console.log('DEBUG: Submitting form with data:', data);
-    if (!token) {
-        console.error('DEBUG: No token available on submit.');
-        return;
-    }
+    if (!token) return;
+
     try {
         const response = await fetch('/api/v1/appointments', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({
                 ...data,
+                patientId: new ObjectId(data.patientId),
                 scheduledTime: new Date(data.scheduledTime),
                 durationMinutes: 15,
                 status: 'Scheduled',
@@ -103,13 +99,11 @@ function NewAppointmentForm({ onSave }: { onSave: () => void }) {
         });
         if (!response.ok) {
             const errorBody = await response.json();
-            console.error('DEBUG: Failed to create appointment, server response:', errorBody);
             throw new Error(errorBody.message || 'Failed to create appointment');
         }
         toast({ title: 'Appointment Created', description: 'The new appointment has been added to the schedule.' });
         onSave();
     } catch (error: any) {
-        console.error('DEBUG: Error in onSubmit:', error);
         toast({ variant: 'destructive', title: 'Error', description: error.message });
     }
   }
@@ -187,7 +181,6 @@ export default function SchedulingPage() {
   const [token, setToken] = useState<string | null>(null);
 
   const fetchAppointments = useCallback(async (authToken: string) => {
-    console.log('DEBUG: Fetching appointments with token...');
     setLoading(true);
     try {
       const response = await fetch('/api/v1/appointments', {
@@ -196,15 +189,12 @@ export default function SchedulingPage() {
       
       if (!response.ok) {
         const errorBody = await response.text();
-        console.error('DEBUG: Failed to fetch appointments. Status:', response.status, 'Body:', errorBody);
         throw new Error('Failed to fetch appointments');
       }
       
       const data = await response.json();
-      console.log('DEBUG: Appointments data received from API:', data);
       setAppointments(data);
     } catch (error: any) {
-      console.error('DEBUG: Error in fetchAppointments:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -218,12 +208,10 @@ export default function SchedulingPage() {
 
   useEffect(() => {
     const storedToken = localStorage.getItem('labwise-token');
-    console.log('DEBUG: Token from localStorage:', storedToken);
     if (storedToken) {
       setToken(storedToken);
       fetchAppointments(storedToken);
     } else {
-        console.log('DEBUG: No token found in localStorage.');
         setLoading(false);
     }
   }, [fetchAppointments]);
@@ -234,85 +222,90 @@ export default function SchedulingPage() {
         fetchAppointments(token);
     }
   }
+  
+  const getStatusVariant = (status: ClientAppointment['status']) => {
+    switch (status) {
+        case 'Completed': return 'secondary';
+        case 'CheckedIn': return 'default';
+        case 'NoShow': return 'destructive';
+        case 'Scheduled': 
+        default: return 'outline';
+    }
+  }
 
   return (
     <div className="space-y-6">
-       <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Appointment Scheduling</h1>
-            <p className="text-muted-foreground">Manage phlebotomy appointments and walk-ins for today.</p>
-          </div>
-          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogTrigger asChild>
-                <Button>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    New Appointment
-                </Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Create New Appointment</DialogTitle>
-                    <DialogDescription>Schedule a new phlebotomy appointment for a patient.</DialogDescription>
-                </DialogHeader>
-                <NewAppointmentForm onSave={handleSave} />
-            </DialogContent>
-          </Dialog>
-        </div>
       <Card>
         <CardHeader>
-          <CardTitle>Today's Appointments</CardTitle>
-          <CardDescription>A list of scheduled, active, and completed appointments for today.</CardDescription>
+          <CardTitle>Appointment Scheduling</CardTitle>
+          <CardDescription>Manage phlebotomy appointments for today.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {loading ? (
-              Array.from({length: 7}).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)
-            ) : appointments.length > 0 ? (
-              appointments.map((appt) => (
-                <div
-                  key={appt.id}
-                  className="flex items-center gap-4 rounded-lg border p-3 transition-colors hover:bg-secondary/50"
-                >
-                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground md:text-base">
-                    <Clock className="h-4 w-4" />
-                    <span>{format(new Date(appt.scheduledTime), 'hh:mm a')}</span>
-                  </div>
-                  <div className="flex-1 font-medium">{appt.patientInfo?.firstName} {appt.patientInfo?.lastName || 'Walk-in'}</div>
-                  <div className="text-sm text-muted-foreground hidden md:block">
-                      MRN: {appt.patientInfo?.mrn || 'N/A'}
-                  </div>
-                  <div>
-                    <Badge
-                      variant={
-                        appt.status === 'Completed'
-                          ? 'secondary'
-                          : appt.status === 'CheckedIn'
-                          ? 'default'
-                          : appt.status === 'NoShow'
-                          ? 'destructive'
-                          : 'outline'
-                      }
-                      className={cn(
-                        'text-xs md:text-sm',
-                        appt.status === 'Scheduled' && 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200',
-                        appt.status === 'CheckedIn' && 'bg-accent text-accent-foreground',
-                      )}
-                    >
-                      {appt.status}
-                    </Badge>
-                  </div>
-                </div>
-              ))
-            ) : (
-                <div className="flex h-48 items-center justify-center text-muted-foreground">
-                    No appointments scheduled for today.
-                </div>
-            )}
+          <div className="flex gap-2 mb-4">
+              <div className="relative flex-grow">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input type="search" placeholder="Search appointments..." className="pl-10" />
+              </div>
+              <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                <DialogTrigger asChild>
+                    <Button>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        New Appointment
+                    </Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Create New Appointment</DialogTitle>
+                        <DialogDescription>Schedule a new phlebotomy appointment for a patient.</DialogDescription>
+                    </DialogHeader>
+                    <NewAppointmentForm onSave={handleSave} />
+                </DialogContent>
+              </Dialog>
+          </div>
+          
+          <div className="overflow-hidden rounded-md border">
+            <Table>
+                <TableHeader>
+                    <TableRow className="bg-secondary hover:bg-secondary">
+                        <TableHead className="w-[120px]">Time</TableHead>
+                        <TableHead>Patient</TableHead>
+                        <TableHead>MRN</TableHead>
+                        <TableHead className="text-right">Status</TableHead>
+                    </TableRow>
+                </TableHeader>
+              <TableBody>
+                {loading ? (
+                  Array.from({length: 7}).map((_, i) => <TableRow key={i}><TableCell colSpan={4}><Skeleton className="h-12 w-full" /></TableCell></TableRow>)
+                ) : appointments.length > 0 ? (
+                  appointments.map((appt) => (
+                    <TableRow key={appt.id} className="cursor-pointer hover:bg-muted/50">
+                      <TableCell>
+                        <div className="flex items-center gap-2 font-medium">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <span>{format(new Date(appt.scheduledTime), 'hh:mm a')}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium">{appt.patientInfo?.firstName} {appt.patientInfo?.lastName || 'Walk-in'}</TableCell>
+                      <TableCell className="text-muted-foreground">{appt.patientInfo?.mrn || 'N/A'}</TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant={getStatusVariant(appt.status)}>
+                          {appt.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                    <TableRow>
+                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                            No appointments scheduled for today.
+                        </TableCell>
+                    </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>
     </div>
   );
 }
-
-    
