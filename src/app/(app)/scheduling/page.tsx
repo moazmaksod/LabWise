@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { cn, calculateAge } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import type { ClientAppointment, ClientPatient } from '@/lib/types';
 
 const appointmentSchema = z.object({
@@ -37,7 +37,11 @@ function NewAppointmentForm({ onSave }: { onSave: () => void }) {
 
   const form = useForm<AppointmentFormValues>({
     resolver: zodResolver(appointmentSchema),
-    defaultValues: { scheduledTime: format(new Date(), "yyyy-MM-dd'T'HH:mm") },
+    defaultValues: { 
+        patientId: '',
+        scheduledTime: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+        notes: ''
+    },
   });
 
   useEffect(() => {
@@ -70,6 +74,13 @@ function NewAppointmentForm({ onSave }: { onSave: () => void }) {
     setSelectedPatient(patient);
     form.setValue('patientId', patient.id);
   }
+  
+  const handleUnselectPatient = () => {
+      setSelectedPatient(null);
+      form.setValue('patientId', '');
+      setPatientSearch('');
+      setPatientResults([]);
+  }
 
   const onSubmit = async (data: AppointmentFormValues) => {
     if (!token) return;
@@ -92,86 +103,83 @@ function NewAppointmentForm({ onSave }: { onSave: () => void }) {
     }
   }
 
-  if (selectedPatient) {
-      return (
-        <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <Card className="bg-secondary">
-                    <CardHeader className="py-3">
-                        <CardTitle className="text-lg">Selected Patient</CardTitle>
-                    </CardHeader>
-                    <CardContent className="pb-3 flex justify-between items-center">
-                        <div>
-                            <p className="font-semibold">{selectedPatient.firstName} {selectedPatient.lastName}</p>
-                            <p className="text-sm text-muted-foreground">MRN: {selectedPatient.mrn}</p>
-                        </div>
-                        <Button variant="outline" size="sm" onClick={() => setSelectedPatient(null)}>Change</Button>
-                    </CardContent>
-                </Card>
-                <FormField control={form.control} name="scheduledTime" render={({ field }) => (<FormItem><FormLabel>Scheduled Time</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="notes" render={({ field }) => (<FormItem><FormLabel>Notes (optional)</FormLabel><FormControl><Input placeholder="e.g., Patient is nervous" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <DialogFooter>
-                    <Button type="submit" disabled={form.formState.isSubmitting}>
-                        {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Create Appointment
-                    </Button>
-                </DialogFooter>
-            </form>
-        </Form>
-      )
-  }
-
   return (
-    <div className="space-y-4">
-        <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-                type="text" 
-                placeholder="Search patient by name, MRN..." 
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        {selectedPatient ? (
+          <Card className="bg-secondary">
+            <CardHeader className="py-3">
+              <CardTitle className="text-lg">Selected Patient</CardTitle>
+            </CardHeader>
+            <CardContent className="pb-3 flex justify-between items-center">
+              <div>
+                <p className="font-semibold">{selectedPatient.firstName} {selectedPatient.lastName}</p>
+                <p className="text-sm text-muted-foreground">MRN: {selectedPatient.mrn}</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleUnselectPatient}>Change</Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search patient by name, MRN..."
+                className="pl-10"
                 value={patientSearch}
                 onChange={(e) => setPatientSearch(e.target.value)}
-                className="pl-10"
-            />
-        </div>
-        <div className="mt-4 overflow-hidden rounded-md border max-h-60 overflow-y-auto">
-            <Table>
+              />
+            </div>
+            <div className="mt-4 overflow-hidden rounded-md border max-h-60 overflow-y-auto">
+              <Table>
                 <TableHeader><TableRow><TableHead>Patient</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
                 <TableBody>
-                    {isSearching ? <TableRow><TableCell colSpan={2}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                  {isSearching ? <TableRow><TableCell colSpan={2}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                     : patientResults.length > 0 ? patientResults.map(patient => (
-                        <TableRow key={patient.id}>
-                            <TableCell>
-                                <div className="font-medium">{patient.firstName} {patient.lastName}</div>
-                                <div className="text-sm text-muted-foreground">MRN: {patient.mrn}</div>
-                            </TableCell>
-                            <TableCell className="text-right">
-                                <Button size="sm" onClick={() => handleSelectPatient(patient)}>Select</Button>
-                            </TableCell>
-                        </TableRow>
+                      <TableRow key={patient.id}>
+                        <TableCell>
+                          <div className="font-medium">{patient.firstName} {patient.lastName}</div>
+                          <div className="text-sm text-muted-foreground">MRN: {patient.mrn}</div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button size="sm" onClick={() => handleSelectPatient(patient)}>Select</Button>
+                        </TableCell>
+                      </TableRow>
                     ))
                     : <TableRow><TableCell colSpan={2} className="h-24 text-center">{patientSearch ? 'No patients found.' : 'Start typing to see results.'}</TableCell></TableRow>}
                 </TableBody>
-            </Table>
-        </div>
-    </div>
+              </Table>
+            </div>
+          </div>
+        )}
+
+        <FormField control={form.control} name="patientId" render={({ field }) => (<FormItem className="hidden"><FormLabel>Patient ID</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+
+        <FormField control={form.control} name="scheduledTime" render={({ field }) => (<FormItem><FormLabel>Scheduled Time</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>)} />
+        <FormField control={form.control} name="notes" render={({ field }) => (<FormItem><FormLabel>Notes (optional)</FormLabel><FormControl><Input placeholder="e.g., Patient is nervous" {...field} /></FormControl><FormMessage /></FormItem>)} />
+        <DialogFooter>
+          <Button type="submit" disabled={form.formState.isSubmitting || !selectedPatient}>
+            {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Create Appointment
+          </Button>
+        </DialogFooter>
+      </form>
+    </Form>
   )
 }
-
 
 export default function SchedulingPage() {
   const [appointments, setAppointments] = useState<ClientAppointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const { toast } = useToast();
+  const [token, setToken] = useState<string | null>(null);
 
-  const fetchAppointments = useCallback(async () => {
+  const fetchAppointments = useCallback(async (authToken: string) => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('labwise-token');
-      if (!token) throw new Error("Authentication token not found.");
-      
       const response = await fetch('/api/v1/appointments', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${authToken}` }
       });
       
       if (!response.ok) throw new Error('Failed to fetch appointments');
@@ -184,18 +192,27 @@ export default function SchedulingPage() {
         title: 'Error',
         description: error.message,
       });
+      setAppointments([]);
     } finally {
       setLoading(false);
     }
   }, [toast]);
 
   useEffect(() => {
-    fetchAppointments();
+    const storedToken = localStorage.getItem('labwise-token');
+    if (storedToken) {
+      setToken(storedToken);
+      fetchAppointments(storedToken);
+    } else {
+        setLoading(false);
+    }
   }, [fetchAppointments]);
 
   const handleSave = () => {
     setIsFormOpen(false);
-    fetchAppointments();
+    if(token) {
+        fetchAppointments(token);
+    }
   }
 
   return (
@@ -277,5 +294,3 @@ export default function SchedulingPage() {
     </div>
   );
 }
-
-    
