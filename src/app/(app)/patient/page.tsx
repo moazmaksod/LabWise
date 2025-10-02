@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -296,7 +297,7 @@ export default function PatientPage() {
                   New Patient
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl">
+              <DialogContent className="max-w-4xl" onPointerDownOutside={(e) => e.preventDefault()}>
                  <DialogHeader>
                     <DialogTitle>{editingPatient ? 'Edit Patient' : 'Create New Patient'}</DialogTitle>
                     <DialogDescription>{editingPatient ? `Updating information for ${editingPatient.firstName} ${editingPatient.lastName}` : 'Fill out the form below to register a new patient. The MRN will be generated automatically.'}</DialogDescription>

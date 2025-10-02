@@ -476,7 +476,7 @@ function OrdersPageComponent() {
             <DialogTrigger asChild>
                 <Button onClick={() => handleOpenDialog()}><PlusCircle className="mr-2 h-4 w-4" />New Order</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="max-w-4xl" onPointerDownOutside={(e) => e.preventDefault()}>
               <Suspense fallback={<Skeleton className="h-96 w-full" />}>
                 <OrderDialogContent onOrderSaved={handleOrderSaved} editingOrder={editingOrder} />
               </Suspense>
