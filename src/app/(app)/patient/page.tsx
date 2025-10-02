@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Search, PlusCircle, UploadCloud, Loader2, User, ShieldAlert, FilePlus } from 'lucide-react';
+import { Search, PlusCircle, UploadCloud, Loader2, User, ShieldAlert, FilePlus, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/hooks/use-user';
 import { useRouter } from 'next/navigation';
@@ -81,6 +81,7 @@ export default function PatientPage() {
   const [ocrFileName, setOcrFileName] = useState('');
   const [editingPatient, setEditingPatient] = useState<ClientPatient | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isVerifyingEligibility, setIsVerifyingEligibility] = useState(false);
   
   const form = useForm<PatientFormValues>({
     resolver: zodResolver(patientSchema),
@@ -151,6 +152,26 @@ export default function PatientPage() {
     toast({ title: 'Simulation Successful', description: 'Patient data has been populated with random values.' });
     
     setIsOcrLoading(false);
+  };
+
+  const handleVerifyEligibility = async () => {
+    const policyNumber = form.getValues('insuranceInfo.policyNumber');
+    if (!policyNumber) {
+        toast({
+            variant: 'destructive',
+            title: 'Missing Policy Number',
+            description: 'Please enter an insurance policy number to verify.',
+        });
+        return;
+    }
+    setIsVerifyingEligibility(true);
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1200));
+    toast({
+        title: 'Insurance Eligibility Verified',
+        description: `Policy #${policyNumber} is Active. Co-pay: $${(Math.random() * 50).toFixed(2)}`,
+    });
+    setIsVerifyingEligibility(false);
   };
 
   const handleAddNew = () => {
@@ -301,8 +322,19 @@ export default function PatientPage() {
                     <FormField control={form.control} name="contactInfo.address.street" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Street Address</FormLabel><FormControl><Input placeholder="123 Main St" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="contactInfo.address.city" render={({ field }) => ( <FormItem><FormLabel>City</FormLabel><FormControl><Input placeholder="Anytown" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="contactInfo.address.state" render={({ field }) => ( <FormItem><FormLabel>State</FormLabel><FormControl><Input placeholder="CA" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="contactInfo.address.zipCode" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Zip Code</FormLabel><FormControl><Input placeholder="12345" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="insuranceInfo.policyNumber" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Insurance Policy #</FormLabel><FormControl><Input placeholder="XZ987654321" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="contactInfo.address.zipCode" render={({ field }) => ( <FormItem><FormLabel>Zip Code</FormLabel><FormControl><Input placeholder="12345" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    
+                    <div className="md:col-span-2">
+                        <FormLabel>Insurance Policy #</FormLabel>
+                        <div className="flex items-center gap-2">
+                            <FormField control={form.control} name="insuranceInfo.policyNumber" render={({ field }) => ( <FormItem className="flex-grow"><FormControl><Input placeholder="XZ987654321" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                             <Button type="button" variant="outline" onClick={handleVerifyEligibility} disabled={isVerifyingEligibility}>
+                                {isVerifyingEligibility ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                                <span className="ml-2">Verify Eligibility</span>
+                             </Button>
+                        </div>
+                    </div>
+
 
                     <DialogFooter className="md:col-span-2">
                         <Button type="button" variant="ghost" onClick={() => setIsFormOpen(false)}>Cancel</Button>
@@ -390,3 +422,5 @@ export default function PatientPage() {
     </div>
   );
 }
+
+    
