@@ -119,6 +119,11 @@ export async function POST(req: NextRequest) {
         const result = await db.collection('appointments').insertOne(newAppointment);
         console.log('DEBUG: Insert result:', result);
 
+        if (!result.insertedId) {
+            console.log('DEBUG: MongoDB insert operation failed.');
+            throw new Error('MongoDB insert operation failed.');
+        }
+        
         const createdAppointment = await db.collection('appointments').aggregate([
             { $match: { _id: result.insertedId } },
             {
