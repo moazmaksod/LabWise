@@ -5,8 +5,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
-import { Clock, PlusCircle, Search, Loader2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { Clock, PlusCircle, Search, Loader2, CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { format, addDays, subDays } from 'date-fns';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,6 +16,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import type { ClientAppointment, ClientPatient } from '@/lib/types';
 
@@ -27,7 +29,7 @@ const appointmentSchema = z.object({
 
 type AppointmentFormValues = z.infer<typeof appointmentSchema>;
 
-function NewAppointmentForm({ onSave }: { onSave: () => void }) {
+function NewAppointmentForm({ onSave, selectedDate }: { onSave: () => void, selectedDate: Date }) {
   const { toast } = useToast();
   const [token, setToken] = useState<string | null>(null);
   const [patientSearch, setPatientSearch] = useState('');
@@ -39,7 +41,7 @@ function NewAppointmentForm({ onSave }: { onSave: () => void }) {
     resolver: zodResolver(appointmentSchema),
     defaultValues: { 
         patientId: '',
-        scheduledTime: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+        scheduledTime: format(selectedDate, "yyyy-MM-dd'T'HH:mm"),
         notes: ''
     },
   });
@@ -180,11 +182,13 @@ export default function SchedulingPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const { toast } = useToast();
   const [token, setToken] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
-  const fetchAppointments = useCallback(async (authToken: string) => {
+  const fetchAppointments = useCallback(async (authToken: string, date: Date) => {
     setLoading(true);
     try {
-      const response = await fetch('/api/v1/appointments', {
+      const dateString = format(date, 'yyyy-MM-dd');
+      const response = await fetch(`/api/v1/appointments?date=${dateString}`, {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
       
@@ -213,16 +217,22 @@ export default function SchedulingPage() {
     const storedToken = localStorage.getItem('labwise-token');
     if (storedToken) {
       setToken(storedToken);
-      fetchAppointments(storedToken);
     } else {
         setLoading(false);
     }
-  }, [fetchAppointments]);
+  }, []);
+
+  useEffect(() => {
+    if(token) {
+        fetchAppointments(token, selectedDate);
+    }
+  }, [fetchAppointments, token, selectedDate]);
+
 
   const handleSave = () => {
     setIsFormOpen(false);
     if(token) {
-        fetchAppointments(token);
+        fetchAppointments(token, selectedDate);
     }
   }
   
@@ -236,6 +246,12 @@ export default function SchedulingPage() {
     }
   }
 
+  const handleDateChange = (date: Date | undefined) => {
+      if (date) {
+          setSelectedDate(date);
+      }
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -243,7 +259,38 @@ export default function SchedulingPage() {
           <div className="flex justify-between items-center">
             <div>
                 <CardTitle>Appointment Scheduling</CardTitle>
-                <CardDescription>Manage phlebotomy appointments for today.</CardDescription>
+                <CardDescription>Manage phlebotomy appointments for {format(selectedDate, 'PPP')}.</CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon" onClick={() => handleDateChange(subDays(selectedDate, 1))}>
+                    <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-[200px] justify-start text-left font-normal",
+                        !selectedDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(day) => handleDateChange(day)}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                 <Button variant="outline" onClick={() => handleDateChange(new Date())}>Today</Button>
+                 <Button variant="outline" size="icon" onClick={() => handleDateChange(addDays(selectedDate, 1))}>
+                    <ChevronRight className="h-4 w-4" />
+                </Button>
             </div>
             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                 <DialogTrigger asChild>
@@ -257,19 +304,12 @@ export default function SchedulingPage() {
                         <DialogTitle>Create New Appointment</DialogTitle>
                         <DialogDescription>Schedule a new phlebotomy appointment for a patient.</DialogDescription>
                     </DialogHeader>
-                    <NewAppointmentForm onSave={handleSave} />
+                    <NewAppointmentForm onSave={handleSave} selectedDate={selectedDate} />
                 </DialogContent>
               </Dialog>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2 mb-4">
-              <div className="relative flex-grow">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input type="search" placeholder="Search appointments..." className="pl-10" />
-              </div>
-          </div>
-          
           <div className="overflow-hidden rounded-md border">
             <Table>
                 <TableHeader>
@@ -304,7 +344,7 @@ export default function SchedulingPage() {
                 ) : (
                     <TableRow>
                         <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                            No appointments scheduled for today.
+                            No appointments scheduled for this day.
                         </TableCell>
                     </TableRow>
                 )}

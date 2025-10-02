@@ -4,23 +4,30 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { decrypt } from '@/lib/auth';
 import type { Appointment } from '@/lib/types';
-
+import { format, startOfDay, endOfDay } from 'date-fns';
 
 export async function GET(req: NextRequest) {
     try {
         const { db } = await connectToDatabase();
-        
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
-        const todayEnd = new Date();
-        todayEnd.setHours(23, 59, 59, 999);
+        const { searchParams } = new URL(req.url);
+        const dateParam = searchParams.get('date');
 
-        const filter = { scheduledTime: { $gte: todayStart, $lte: todayEnd } };
+        let targetDate: Date;
+        if (dateParam && !isNaN(Date.parse(dateParam))) {
+            targetDate = new Date(dateParam);
+        } else {
+            targetDate = new Date();
+        }
+        
+        const dayStart = startOfDay(targetDate);
+        const dayEnd = endOfDay(targetDate);
+
+        const filter = { scheduledTime: { $gte: dayStart, $lte: dayEnd } };
         
         const aggregationPipeline = [
             { $match: filter },
             { $sort: { scheduledTime: 1 } },
-            { $limit: 50 }, // Increased limit to fetch more appointments
+            { $limit: 50 },
             {
                 $lookup: {
                     from: 'patients',
