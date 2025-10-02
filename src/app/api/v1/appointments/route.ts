@@ -92,6 +92,10 @@ export async function POST(req: NextRequest) {
             console.log('DEBUG: Missing required fields.');
             return NextResponse.json({ message: 'Missing required fields.' }, { status: 400 });
         }
+        
+        if (!ObjectId.isValid(patientId)) {
+            return NextResponse.json({ message: 'Invalid patient ID format.' }, { status: 400 });
+        }
 
         const { db } = await connectToDatabase();
 
