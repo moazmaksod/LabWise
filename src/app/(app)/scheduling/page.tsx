@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import type { ClientAppointment, ClientPatient } from '@/lib/types';
+import { ObjectId } from 'mongodb';
 
 const appointmentSchema = z.object({
   patientId: z.string().min(1, 'Patient is required.'),
@@ -256,58 +257,59 @@ export default function SchedulingPage() {
     <div className="space-y-6">
       <Card>
         <CardHeader className="space-y-4">
-          <div className="flex justify-between items-start">
-            <div>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
                 <CardTitle>Appointment Scheduling</CardTitle>
-                <CardDescription>Manage phlebotomy appointments.</CardDescription>
-            </div>
-             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                <DialogTrigger asChild>
-                    <Button>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        New Appointment
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="icon" onClick={() => handleDateChange(subDays(selectedDate, 1))}>
+                        <ChevronLeft className="h-4 w-4" />
                     </Button>
-                </DialogTrigger>
-                <DialogContent onPointerDownOutside={(e) => e.preventDefault()}>
-                    <DialogHeader>
-                        <DialogTitle>Create New Appointment</DialogTitle>
-                        <DialogDescription>Schedule a new phlebotomy appointment for a patient.</DialogDescription>
-                    </DialogHeader>
-                    <NewAppointmentForm onSave={handleSave} selectedDate={selectedDate} />
-                </DialogContent>
-              </Dialog>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-[240px] justify-start text-left font-normal",
+                            !selectedDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={(day) => handleDateChange(day)}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                     <Button variant="outline" onClick={() => handleDateChange(new Date())}>Today</Button>
+                     <Button variant="outline" size="icon" onClick={() => handleDateChange(addDays(selectedDate, 1))}>
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
+            </div>
+            <div className="flex-shrink-0">
+                 <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                    <DialogTrigger asChild>
+                        <Button>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            New Appointment
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent onPointerDownOutside={(e) => e.preventDefault()}>
+                        <DialogHeader>
+                            <DialogTitle>Create New Appointment</DialogTitle>
+                            <DialogDescription>Schedule a new phlebotomy appointment for a patient.</DialogDescription>
+                        </DialogHeader>
+                        <NewAppointmentForm onSave={handleSave} selectedDate={selectedDate} />
+                    </DialogContent>
+                  </Dialog>
+            </div>
           </div>
-           <div className="flex items-center gap-2">
-                <Button variant="outline" size="icon" onClick={() => handleDateChange(subDays(selectedDate, 1))}>
-                    <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-[240px] justify-start text-left font-normal",
-                        !selectedDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={(day) => handleDateChange(day)}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                 <Button variant="outline" onClick={() => handleDateChange(new Date())}>Today</Button>
-                 <Button variant="outline" size="icon" onClick={() => handleDateChange(addDays(selectedDate, 1))}>
-                    <ChevronRight className="h-4 w-4" />
-                </Button>
-            </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-hidden rounded-md border">
