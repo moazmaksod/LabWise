@@ -263,69 +263,71 @@ export default function SchedulingPage() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardContent className="grid grid-cols-2 gap-4 p-6">
-            <div className="space-y-1">
-                <CardTitle>Appointment Scheduling</CardTitle>
-                <CardDescription>View the daily schedule or add a new appointment.</CardDescription>
-            </div>
-            <div className="flex items-start justify-end gap-2">
-                <Button variant="outline" size="icon" onClick={() => handleDateChange(subDays(selectedDate, 1))}>
-                    <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Popover>
-                  <PopoverTrigger asChild>
-                      <Button
-                      variant={"outline"}
-                      className={cn(
-                          "w-[240px] justify-start text-left font-normal",
-                          !selectedDate && "text-muted-foreground"
-                      )}
-                      >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
-                      </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                      <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={(day) => handleDateChange(day)}
-                      initialFocus
+        <CardHeader>
+            <CardTitle>Appointment Scheduling</CardTitle>
+            <CardDescription>View the daily schedule, search for appointments, or create a new one.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                  <Button variant="outline" size="icon" onClick={() => handleDateChange(subDays(selectedDate, 1))}>
+                      <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                        variant={"outline"}
+                        className={cn(
+                            "w-[240px] justify-start text-left font-normal",
+                            !selectedDate && "text-muted-foreground"
+                        )}
+                        >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                        <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={(day) => handleDateChange(day)}
+                        initialFocus
+                        />
+                    </PopoverContent>
+                  </Popover>
+                  <Button variant="outline" onClick={() => handleDateChange(new Date())}>Today</Button>
+                  <Button variant="outline" size="icon" onClick={() => handleDateChange(addDays(selectedDate, 1))}>
+                      <ChevronRight className="h-4 w-4" />
+                  </Button>
+              </div>
+              <div className="flex gap-2">
+                  <div className="relative flex-grow">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                          type="search"
+                          placeholder="Search by patient name or MRN..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-10"
                       />
-                  </PopoverContent>
-                </Popover>
-                <Button variant="outline" onClick={() => handleDateChange(new Date())}>Today</Button>
-                <Button variant="outline" size="icon" onClick={() => handleDateChange(addDays(selectedDate, 1))}>
-                    <ChevronRight className="h-4 w-4" />
-                </Button>
-            </div>
-            <div className="relative col-span-1">
-                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                 <Input
-                    type="search"
-                    placeholder="Search by patient name, MRN..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                />
-            </div>
-            <div className="col-span-1 flex justify-end items-center">
-              <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                  <DialogTrigger asChild>
-                      <Button>
-                          <PlusCircle className="mr-2 h-4 w-4" />
-                          New Appointment
-                      </Button>
-                  </DialogTrigger>
-                  <DialogContent onPointerDownOutside={(e) => e.preventDefault()}>
-                      <DialogHeader>
-                          <DialogTitle>Create New Appointment</DialogTitle>
-                          <DialogDescription>Schedule a new phlebotomy appointment for a patient.</DialogDescription>
-                      </DialogHeader>
-                      <NewAppointmentForm onSave={handleSave} selectedDate={selectedDate} />
-                  </DialogContent>
-              </Dialog>
-            </div>
+                  </div>
+                  <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                      <DialogTrigger asChild>
+                          <Button>
+                              <PlusCircle className="mr-2 h-4 w-4" />
+                              New Appointment
+                          </Button>
+                      </DialogTrigger>
+                      <DialogContent onPointerDownOutside={(e) => e.preventDefault()}>
+                          <DialogHeader>
+                              <DialogTitle>Create New Appointment</DialogTitle>
+                              <DialogDescription>Schedule a new phlebotomy appointment for a patient.</DialogDescription>
+                          </DialogHeader>
+                          <NewAppointmentForm onSave={handleSave} selectedDate={selectedDate} />
+                      </DialogContent>
+                  </Dialog>
+              </div>
+          </div>
         </CardContent>
       </Card>
       
