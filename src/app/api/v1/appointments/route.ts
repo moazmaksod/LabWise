@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
         const aggregationPipeline = [
             { $match: filter },
             { $sort: { scheduledTime: 1 } },
+            { $limit: 50 }, // Increased limit to fetch more appointments
             {
                 $lookup: {
                     from: 'patients',
