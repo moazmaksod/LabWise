@@ -33,7 +33,7 @@ export default function ReceptionistDashboard() {
                 </CardHeader>
                 <CardContent>
                     <Button className="w-full" asChild>
-                        <Link href="/patient">Go to Patients</Link>
+                        <Link href="/patient">Create Patient</Link>
                     </Button>
                 </CardContent>
             </Card>
@@ -44,7 +44,7 @@ export default function ReceptionistDashboard() {
                 </CardHeader>
                 <CardContent>
                      <Button className="w-full" asChild>
-                        <Link href="/orders">Go to Orders</Link>
+                        <Link href="/orders">Create Order</Link>
                     </Button>
                 </CardContent>
             </Card>
