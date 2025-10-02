@@ -36,7 +36,15 @@ export async function GET(req: NextRequest) {
             },
             {
                 $project: {
-                    'patientInfo.passwordHash': 0, // Ensure sensitive data is not returned
+                    _id: 1,
+                    scheduledTime: 1,
+                    status: 1,
+                    notes: 1,
+                    patientId: 1,
+                    'patientInfo._id': 1,
+                    'patientInfo.firstName': 1,
+                    'patientInfo.lastName': 1,
+                    'patientInfo.mrn': 1,
                 }
             }
         ];
@@ -49,7 +57,7 @@ export async function GET(req: NextRequest) {
             const clientPatientInfo = patientInfo ? {
               ...patientInfo,
               id: patientInfo._id.toHexString(),
-              _id: undefined, // remove original _id
+              _id: undefined,
             } : undefined;
 
             return { 
@@ -103,15 +111,14 @@ export async function POST(req: NextRequest) {
             patientId: new ObjectId(patientId),
             scheduledTime: new Date(scheduledTime),
             durationMinutes: durationMinutes || 15,
-            status,
-            notes,
+            status: status,
+            notes: notes,
         };
         console.log('DEBUG: New appointment document:', newAppointment);
 
         const result = await db.collection('appointments').insertOne(newAppointment);
         console.log('DEBUG: Insert result:', result);
 
-        // Fetch the newly created appointment with patient info
         const createdAppointment = await db.collection('appointments').aggregate([
             { $match: { _id: result.insertedId } },
             {
