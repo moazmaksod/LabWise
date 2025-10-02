@@ -84,6 +84,7 @@ function NewAppointmentForm({ onSave }: { onSave: () => void }) {
 
   const onSubmit = async (data: AppointmentFormValues) => {
     if (!token) return;
+    console.log('DEBUG: Submitting form with data:', data);
 
     try {
         const response = await fetch('/api/v1/appointments', {
@@ -91,7 +92,6 @@ function NewAppointmentForm({ onSave }: { onSave: () => void }) {
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({
                 ...data,
-                patientId: new ObjectId(data.patientId),
                 scheduledTime: new Date(data.scheduledTime),
                 durationMinutes: 15,
                 status: 'Scheduled',
@@ -99,6 +99,7 @@ function NewAppointmentForm({ onSave }: { onSave: () => void }) {
         });
         if (!response.ok) {
             const errorBody = await response.json();
+            console.error('DEBUG: Failed to create appointment, server response:', errorBody);
             throw new Error(errorBody.message || 'Failed to create appointment');
         }
         toast({ title: 'Appointment Created', description: 'The new appointment has been added to the schedule.' });
@@ -189,10 +190,12 @@ export default function SchedulingPage() {
       
       if (!response.ok) {
         const errorBody = await response.text();
+        console.error('DEBUG: Failed to fetch appointments, server response:', errorBody);
         throw new Error('Failed to fetch appointments');
       }
       
       const data = await response.json();
+      console.log('DEBUG: Fetched appointments:', data);
       setAppointments(data);
     } catch (error: any) {
       toast({
@@ -237,23 +240,19 @@ export default function SchedulingPage() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Appointment Scheduling</CardTitle>
-          <CardDescription>Manage phlebotomy appointments for today.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2 mb-4">
-              <div className="relative flex-grow">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input type="search" placeholder="Search appointments..." className="pl-10" />
-              </div>
-              <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+          <div className="flex justify-between items-center">
+            <div>
+                <CardTitle>Appointment Scheduling</CardTitle>
+                <CardDescription>Manage phlebotomy appointments for today.</CardDescription>
+            </div>
+            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                 <DialogTrigger asChild>
                     <Button>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         New Appointment
                     </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent onPointerDownOutside={(e) => e.preventDefault()}>
                     <DialogHeader>
                         <DialogTitle>Create New Appointment</DialogTitle>
                         <DialogDescription>Schedule a new phlebotomy appointment for a patient.</DialogDescription>
@@ -261,6 +260,14 @@ export default function SchedulingPage() {
                     <NewAppointmentForm onSave={handleSave} />
                 </DialogContent>
               </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2 mb-4">
+              <div className="relative flex-grow">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input type="search" placeholder="Search appointments..." className="pl-10" />
+              </div>
           </div>
           
           <div className="overflow-hidden rounded-md border">
