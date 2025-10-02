@@ -350,7 +350,7 @@ function OrderDialogContent({ onOrderSaved, editingOrder }: { onOrderSaved: () =
             <CardContent className="pb-4">
                 <div className="flex justify-between items-center">
                     <div>
-                        <p className="font-semibold text-xl">{selectedPatient.firstName} {selectedPatient.lastName}</p>
+                        <p className="font-semibold text-xl">{selectedPatient.firstName} ${selectedPatient.lastName}</p>
                         <p className="text-muted-foreground">MRN: {selectedPatient.mrn}</p>
                     </div>
                     <div className="text-right">
@@ -467,32 +467,39 @@ function OrdersPageComponent() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
-        <Dialog open={isOrderDialogOpen} onOpenChange={(isOpen) => {
-          setIsOrderDialogOpen(isOpen);
-          if (!isOpen) setEditingOrder(null);
-        }}>
-            <DialogTrigger asChild>
-                <Button onClick={() => handleOpenDialog()}><PlusCircle className="mr-2 h-4 w-4" />New Order</Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl" onPointerDownOutside={(e) => e.preventDefault()}>
-              <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-                <OrderDialogContent onOrderSaved={handleOrderSaved} editingOrder={editingOrder} />
-              </Suspense>
-            </DialogContent>
-        </Dialog>
-      </div>
-
       <Card>
         <CardHeader>
-          <CardTitle>Find an Order</CardTitle>
-          <CardDescription>Search by Order ID, Patient Name, or MRN.</CardDescription>
+          <CardTitle>Orders</CardTitle>
+          <CardDescription>Search for an existing order or create a new one.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="relative">
-            <FileSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input type="search" placeholder="Search by Order ID, Patient Name, MRN..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 text-lg" />
+          <div className="flex gap-2">
+            <div className="relative flex-grow">
+               <FileSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+               <Input
+                  type="search"
+                  placeholder="Search by Order ID, Patient Name, MRN..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+            </div>
+            <Dialog open={isOrderDialogOpen} onOpenChange={(isOpen) => {
+                setIsOrderDialogOpen(isOpen);
+                if (!isOpen) setEditingOrder(null);
+            }}>
+                <DialogTrigger asChild>
+                    <Button variant="outline" onClick={() => handleOpenDialog()}>
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      New Order
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl" onPointerDownOutside={(e) => e.preventDefault()}>
+                  <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                    <OrderDialogContent onOrderSaved={handleOrderSaved} editingOrder={editingOrder} />
+                  </Suspense>
+                </DialogContent>
+            </Dialog>
           </div>
         </CardContent>
       </Card>
@@ -550,5 +557,3 @@ export default function OrdersPage() {
         </Suspense>
     )
 }
-
-    
