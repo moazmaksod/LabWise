@@ -15,9 +15,8 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { cn } from '@/lib/utils';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn, calculateAge } from '@/lib/utils';
 import type { ClientAppointment, ClientPatient } from '@/lib/types';
 
 const appointmentSchema = z.object({
@@ -34,7 +33,6 @@ function NewAppointmentForm({ onSave }: { onSave: () => void }) {
   const [patientSearch, setPatientSearch] = useState('');
   const [patientResults, setPatientResults] = useState<ClientPatient[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<ClientPatient | null>(null);
 
   const form = useForm<AppointmentFormValues>({
@@ -71,7 +69,6 @@ function NewAppointmentForm({ onSave }: { onSave: () => void }) {
   const handleSelectPatient = (patient: ClientPatient) => {
     setSelectedPatient(patient);
     form.setValue('patientId', patient.id);
-    setIsPopoverOpen(false);
   }
 
   const onSubmit = async (data: AppointmentFormValues) => {
@@ -95,55 +92,68 @@ function NewAppointmentForm({ onSave }: { onSave: () => void }) {
     }
   }
 
+  if (selectedPatient) {
+      return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <Card className="bg-secondary">
+                    <CardHeader className="py-3">
+                        <CardTitle className="text-lg">Selected Patient</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pb-3 flex justify-between items-center">
+                        <div>
+                            <p className="font-semibold">{selectedPatient.firstName} {selectedPatient.lastName}</p>
+                            <p className="text-sm text-muted-foreground">MRN: {selectedPatient.mrn}</p>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => setSelectedPatient(null)}>Change</Button>
+                    </CardContent>
+                </Card>
+                <FormField control={form.control} name="scheduledTime" render={({ field }) => (<FormItem><FormLabel>Scheduled Time</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="notes" render={({ field }) => (<FormItem><FormLabel>Notes (optional)</FormLabel><FormControl><Input placeholder="e.g., Patient is nervous" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <DialogFooter>
+                    <Button type="submit" disabled={form.formState.isSubmitting}>
+                        {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Create Appointment
+                    </Button>
+                </DialogFooter>
+            </form>
+        </Form>
+      )
+  }
+
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="patientId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Patient</FormLabel>
-               <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-                <PopoverTrigger asChild>
-                   <FormControl>
-                      <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
-                        {selectedPatient ? `${selectedPatient.firstName} ${selectedPatient.lastName}` : "Select patient"}
-                        <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                    <Command>
-                        <CommandInput placeholder="Search patient..." value={patientSearch} onValueChange={setPatientSearch} />
-                        <CommandList>
-                            {isSearching && <CommandEmpty>Searching...</CommandEmpty>}
-                            {patientResults.length === 0 && !isSearching && <CommandEmpty>No patient found.</CommandEmpty>}
-                            <CommandGroup>
-                                {patientResults.map((patient) => (
-                                    <CommandItem value={patient.id} key={patient.id} onSelect={() => handleSelectPatient(patient)}>
-                                        {patient.firstName} {patient.lastName} (MRN: {patient.mrn})
-                                    </CommandItem>
-                                ))}
-                            </CommandGroup>
-                        </CommandList>
-                    </Command>
-                </PopoverContent>
-              </Popover>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField control={form.control} name="scheduledTime" render={({ field }) => (<FormItem><FormLabel>Scheduled Time</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>)} />
-        <FormField control={form.control} name="notes" render={({ field }) => (<FormItem><FormLabel>Notes (optional)</FormLabel><FormControl><Input placeholder="e.g., Patient is nervous" {...field} /></FormControl><FormMessage /></FormItem>)} />
-        <DialogFooter>
-          <Button type="submit" disabled={form.formState.isSubmitting}>
-             {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-             Create Appointment
-          </Button>
-        </DialogFooter>
-      </form>
-    </Form>
+    <div className="space-y-4">
+        <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+                type="text" 
+                placeholder="Search patient by name, MRN..." 
+                value={patientSearch}
+                onChange={(e) => setPatientSearch(e.target.value)}
+                className="pl-10"
+            />
+        </div>
+        <div className="mt-4 overflow-hidden rounded-md border max-h-60 overflow-y-auto">
+            <Table>
+                <TableHeader><TableRow><TableHead>Patient</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                <TableBody>
+                    {isSearching ? <TableRow><TableCell colSpan={2}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                    : patientResults.length > 0 ? patientResults.map(patient => (
+                        <TableRow key={patient.id}>
+                            <TableCell>
+                                <div className="font-medium">{patient.firstName} {patient.lastName}</div>
+                                <div className="text-sm text-muted-foreground">MRN: {patient.mrn}</div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                                <Button size="sm" onClick={() => handleSelectPatient(patient)}>Select</Button>
+                            </TableCell>
+                        </TableRow>
+                    ))
+                    : <TableRow><TableCell colSpan={2} className="h-24 text-center">{patientSearch ? 'No patients found.' : 'Start typing to see results.'}</TableCell></TableRow>}
+                </TableBody>
+            </Table>
+        </div>
+    </div>
   )
 }
 
@@ -267,3 +277,5 @@ export default function SchedulingPage() {
     </div>
   );
 }
+
+    
