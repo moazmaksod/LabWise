@@ -184,12 +184,16 @@ export default function SchedulingPage() {
   const { toast } = useToast();
   const [token, setToken] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const fetchAppointments = useCallback(async (authToken: string, date: Date) => {
+  const fetchAppointments = useCallback(async (authToken: string, date: Date, query?: string) => {
     setLoading(true);
     try {
       const dateString = format(date, 'yyyy-MM-dd');
-      const response = await fetch(`/api/v1/appointments?date=${dateString}`, {
+      const url = query
+        ? `/api/v1/appointments?date=${dateString}&q=${query}`
+        : `/api/v1/appointments?date=${dateString}`;
+      const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
       
@@ -225,15 +229,18 @@ export default function SchedulingPage() {
 
   useEffect(() => {
     if(token) {
-        fetchAppointments(token, selectedDate);
+        const debounce = setTimeout(() => {
+            fetchAppointments(token, selectedDate, searchTerm);
+        }, 300);
+        return () => clearTimeout(debounce);
     }
-  }, [fetchAppointments, token, selectedDate]);
+  }, [fetchAppointments, token, selectedDate, searchTerm]);
 
 
   const handleSave = () => {
     setIsFormOpen(false);
     if(token) {
-        fetchAppointments(token, selectedDate);
+        fetchAppointments(token, selectedDate, searchTerm);
     }
   }
   
@@ -256,11 +263,12 @@ export default function SchedulingPage() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader className="flex flex-wrap items-start justify-between gap-4 md:flex-row">
-          <div>
-            <CardTitle className="flex flex-wrap items-center gap-4">
-              <span>Appointment Scheduling</span>
-              <div className="flex items-center gap-2">
+        <CardContent className="grid grid-cols-2 gap-4 p-6">
+            <div className="space-y-1">
+                <CardTitle>Appointment Scheduling</CardTitle>
+                <CardDescription>View the daily schedule or add a new appointment.</CardDescription>
+            </div>
+            <div className="flex items-start justify-end gap-2">
                 <Button variant="outline" size="icon" onClick={() => handleDateChange(subDays(selectedDate, 1))}>
                     <ChevronLeft className="h-4 w-4" />
                 </Button>
@@ -290,13 +298,18 @@ export default function SchedulingPage() {
                 <Button variant="outline" size="icon" onClick={() => handleDateChange(addDays(selectedDate, 1))}>
                     <ChevronRight className="h-4 w-4" />
                 </Button>
-              </div>
-            </CardTitle>
-            <CardDescription>
-                View the daily schedule or add a new appointment.
-            </CardDescription>
-          </div>
-          <div className="flex-shrink-0">
+            </div>
+            <div className="relative col-span-1">
+                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                 <Input
+                    type="search"
+                    placeholder="Search by patient name, MRN..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                />
+            </div>
+            <div className="col-span-1 flex justify-end items-center">
               <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                   <DialogTrigger asChild>
                       <Button>
@@ -312,14 +325,17 @@ export default function SchedulingPage() {
                       <NewAppointmentForm onSave={handleSave} selectedDate={selectedDate} />
                   </DialogContent>
               </Dialog>
-          </div>
-        </CardHeader>
+            </div>
+        </CardContent>
       </Card>
       
       <Card>
         <CardHeader>
             <CardTitle>Appointment Records</CardTitle>
-            <CardDescription>Showing appointments for {format(selectedDate, "PPP")}</CardDescription>
+            <CardDescription>
+                {searchTerm ? `Showing results for "${searchTerm}" on ` : 'Showing appointments for '}
+                {format(selectedDate, "PPP")}
+            </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-hidden rounded-md border">
@@ -356,7 +372,7 @@ export default function SchedulingPage() {
                 ) : (
                     <TableRow>
                         <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                            No appointments scheduled for this day.
+                            No appointments found for this day.
                         </TableCell>
                     </TableRow>
                 )}

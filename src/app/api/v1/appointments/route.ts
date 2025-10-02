@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
         const { db } = await connectToDatabase();
         const { searchParams } = new URL(req.url);
         const dateParam = searchParams.get('date');
+        const query = searchParams.get('q');
 
         let targetDate: Date;
         if (dateParam && !isNaN(Date.parse(dateParam))) {
@@ -22,12 +23,10 @@ export async function GET(req: NextRequest) {
         const dayStart = startOfDay(targetDate);
         const dayEnd = endOfDay(targetDate);
 
-        const filter = { scheduledTime: { $gte: dayStart, $lte: dayEnd } };
+        let filter: any = { scheduledTime: { $gte: dayStart, $lte: dayEnd } };
         
-        const aggregationPipeline = [
+        const aggregationPipeline: any[] = [
             { $match: filter },
-            { $sort: { scheduledTime: 1 } },
-            { $limit: 50 },
             {
                 $lookup: {
                     from: 'patients',
@@ -42,20 +41,37 @@ export async function GET(req: NextRequest) {
                     preserveNullAndEmptyArrays: true
                 }
             },
-            {
-                $project: {
-                    _id: 1,
-                    scheduledTime: 1,
-                    status: 1,
-                    notes: 1,
-                    patientId: 1,
-                    'patientInfo._id': 1,
-                    'patientInfo.firstName': 1,
-                    'patientInfo.lastName': 1,
-                    'patientInfo.mrn': 1,
-                }
-            }
         ];
+
+        if (query) {
+            const searchRegex = new RegExp(query, 'i');
+            aggregationPipeline.push({
+                $match: {
+                    $or: [
+                        { 'patientInfo.firstName': searchRegex },
+                        { 'patientInfo.lastName': searchRegex },
+                        { 'patientInfo.mrn': searchRegex },
+                        { 'notes': searchRegex },
+                    ]
+                }
+            });
+        }
+        
+        aggregationPipeline.push({ $sort: { scheduledTime: 1 } });
+        aggregationPipeline.push({ $limit: 50 });
+        aggregationPipeline.push({
+            $project: {
+                _id: 1,
+                scheduledTime: 1,
+                status: 1,
+                notes: 1,
+                patientId: 1,
+                'patientInfo._id': 1,
+                'patientInfo.firstName': 1,
+                'patientInfo.lastName': 1,
+                'patientInfo.mrn': 1,
+            }
+        });
         
         const appointments = await db.collection('appointments').aggregate(aggregationPipeline).toArray();
 
