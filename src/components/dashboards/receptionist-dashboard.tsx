@@ -26,19 +26,19 @@ export default function ReceptionistDashboard() {
             <p className="text-lg text-muted-foreground">Your central hub for patient and order management.</p>
         </div>
          <div className="grid gap-8 md:grid-cols-2">
-            <Card className="shadow-lg hover:shadow-primary/20 transition-shadow">
-                <CardHeader>
+            <Card className="shadow-lg hover:shadow-primary/20 transition-shadow flex flex-col">
+                <CardHeader className="flex-grow">
                     <CardTitle className="flex items-center gap-2"><User className="h-6 w-6" /> Patient Management</CardTitle>
                     <CardDescription>Search, register, and update patient records.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Button className="w-full" asChild>
-                        <Link href="/patient">Create Patient</Link>
+                        <Link href="/patient-registration">Create Patient</Link>
                     </Button>
                 </CardContent>
             </Card>
-            <Card className="shadow-lg hover:shadow-primary/20 transition-shadow">
-                <CardHeader>
+            <Card className="shadow-lg hover:shadow-primary/20 transition-shadow flex flex-col">
+                <CardHeader className="flex-grow">
                     <CardTitle className="flex items-center gap-2"><ClipboardPlus className="h-6 w-6" /> Order Management</CardTitle>
                     <CardDescription>Create new orders for patients.</CardDescription>
                 </CardHeader>
