@@ -118,7 +118,7 @@ function NewAppointmentForm({ onSave }: { onSave: () => void }) {
                         <CommandInput placeholder="Search patient..." value={patientSearch} onValueChange={setPatientSearch} />
                         <CommandList>
                             {isSearching && <CommandEmpty>Searching...</CommandEmpty>}
-                            <CommandEmpty>No patient found.</CommandEmpty>
+                            {patientResults.length === 0 && !isSearching && <CommandEmpty>No patient found.</CommandEmpty>}
                             <CommandGroup>
                                 {patientResults.map((patient) => (
                                     <CommandItem value={patient.id} key={patient.id} onSelect={() => handleSelectPatient(patient)}>
