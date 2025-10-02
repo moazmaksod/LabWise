@@ -70,20 +70,26 @@ export async function GET(req: NextRequest) {
 
 
 export async function POST(req: NextRequest) {
+    console.log('DEBUG: Received request to create appointment.');
     try {
         const token = req.headers.get('authorization')?.split(' ')[1];
         if (!token) {
+            console.log('DEBUG: Authorization token missing.');
             return NextResponse.json({ message: 'Authorization token missing.' }, { status: 401 });
         }
         const userPayload = await decrypt(token);
         if (!userPayload?.userId) {
+            console.log('DEBUG: Invalid or expired token.');
             return NextResponse.json({ message: 'Invalid or expired token.' }, { status: 401 });
         }
 
         const body = await req.json();
+        console.log('DEBUG: Request body:', body);
+
         const { patientId, scheduledTime, durationMinutes, status, notes } = body;
 
         if (!patientId || !scheduledTime || !status) {
+            console.log('DEBUG: Missing required fields.');
             return NextResponse.json({ message: 'Missing required fields.' }, { status: 400 });
         }
 
@@ -96,8 +102,10 @@ export async function POST(req: NextRequest) {
             status,
             notes,
         };
+        console.log('DEBUG: New appointment document:', newAppointment);
 
         const result = await db.collection('appointments').insertOne(newAppointment);
+        console.log('DEBUG: Insert result:', result);
 
         // Fetch the newly created appointment with patient info
         const createdAppointment = await db.collection('appointments').aggregate([
@@ -119,8 +127,10 @@ export async function POST(req: NextRequest) {
         ]).next();
 
         if (!createdAppointment) {
+            console.log('DEBUG: Failed to retrieve created appointment after insert.');
             return NextResponse.json({ message: 'Failed to retrieve created appointment.' }, { status: 500 });
         }
+        console.log('DEBUG: Successfully retrieved created appointment with patient info.');
         
         const { _id, ...rest } = createdAppointment;
         const patientInfo = rest.patientInfo ? { ...rest.patientInfo, id: rest.patientInfo._id.toHexString(), _id: undefined } : undefined;
@@ -134,7 +144,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(clientResponse, { status: 201 });
 
     } catch (error) {
-        console.error('Failed to create appointment:', error);
-        return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
+        console.error('DEBUG: ERROR in POST /api/v1/appointments:', error);
+        return NextResponse.json({ message: 'Internal Server Error', error: (error as Error).message }, { status: 500 });
     }
 }
