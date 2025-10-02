@@ -10,14 +10,11 @@ export async function GET(req: NextRequest) {
     try {
         const { db } = await connectToDatabase();
         
-        // In a real app, you would filter by date, e.g., for today
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
         const todayEnd = new Date();
         todayEnd.setHours(23, 59, 59, 999);
 
-        // For this demo, let's just fetch all appointments as we only have a few.
-        // In a real scenario, you'd use:
         const filter = { scheduledTime: { $gte: todayStart, $lte: todayEnd } };
         
         const aggregationPipeline = [
@@ -34,7 +31,12 @@ export async function GET(req: NextRequest) {
             {
                 $unwind: {
                     path: '$patientInfo',
-                    preserveNullAndEmptyArrays: true // Keep appointments even if patient is not found (e.g. walk-in slots)
+                    preserveNullAndEmptyArrays: true
+                }
+            },
+            {
+                $project: {
+                    'patientInfo.passwordHash': 0, // Ensure sensitive data is not returned
                 }
             }
         ];
@@ -42,11 +44,19 @@ export async function GET(req: NextRequest) {
         const appointments = await db.collection('appointments').aggregate(aggregationPipeline).toArray();
 
         const clientAppointments = appointments.map(appt => {
-            const { _id, patientId, ...rest } = appt;
+            const { _id, patientId, patientInfo, ...rest } = appt;
+            
+            const clientPatientInfo = patientInfo ? {
+              ...patientInfo,
+              id: patientInfo._id.toHexString(),
+              _id: undefined, // remove original _id
+            } : undefined;
+
             return { 
                 ...rest, 
                 id: _id.toHexString(),
-                patientId: patientId?.toHexString()
+                patientId: patientId?.toHexString(),
+                patientInfo: clientPatientInfo
             };
         });
 
@@ -89,7 +99,39 @@ export async function POST(req: NextRequest) {
 
         const result = await db.collection('appointments').insertOne(newAppointment);
 
-        return NextResponse.json({ id: result.insertedId, ...newAppointment }, { status: 201 });
+        // Fetch the newly created appointment with patient info
+        const createdAppointment = await db.collection('appointments').aggregate([
+            { $match: { _id: result.insertedId } },
+            {
+                $lookup: {
+                    from: 'patients',
+                    localField: 'patientId',
+                    foreignField: '_id',
+                    as: 'patientInfo'
+                }
+            },
+            {
+                $unwind: {
+                    path: '$patientInfo',
+                    preserveNullAndEmptyArrays: true
+                }
+            }
+        ]).next();
+
+        if (!createdAppointment) {
+            return NextResponse.json({ message: 'Failed to retrieve created appointment.' }, { status: 500 });
+        }
+        
+        const { _id, ...rest } = createdAppointment;
+        const patientInfo = rest.patientInfo ? { ...rest.patientInfo, id: rest.patientInfo._id.toHexString(), _id: undefined } : undefined;
+        
+        const clientResponse = {
+            ...rest,
+            id: _id.toHexString(),
+            patientInfo
+        };
+
+        return NextResponse.json(clientResponse, { status: 201 });
 
     } catch (error) {
         console.error('Failed to create appointment:', error);
