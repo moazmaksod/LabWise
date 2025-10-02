@@ -255,13 +255,29 @@ export default function SchedulingPage() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
+        <CardHeader className="space-y-4">
+          <div className="flex justify-between items-start">
             <div>
                 <CardTitle>Appointment Scheduling</CardTitle>
-                <CardDescription>Manage phlebotomy appointments for {format(selectedDate, 'PPP')}.</CardDescription>
+                <CardDescription>Manage phlebotomy appointments.</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+             <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                <DialogTrigger asChild>
+                    <Button>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        New Appointment
+                    </Button>
+                </DialogTrigger>
+                <DialogContent onPointerDownOutside={(e) => e.preventDefault()}>
+                    <DialogHeader>
+                        <DialogTitle>Create New Appointment</DialogTitle>
+                        <DialogDescription>Schedule a new phlebotomy appointment for a patient.</DialogDescription>
+                    </DialogHeader>
+                    <NewAppointmentForm onSave={handleSave} selectedDate={selectedDate} />
+                </DialogContent>
+              </Dialog>
+          </div>
+           <div className="flex items-center gap-2">
                 <Button variant="outline" size="icon" onClick={() => handleDateChange(subDays(selectedDate, 1))}>
                     <ChevronLeft className="h-4 w-4" />
                 </Button>
@@ -270,7 +286,7 @@ export default function SchedulingPage() {
                     <Button
                       variant={"outline"}
                       className={cn(
-                        "w-[200px] justify-start text-left font-normal",
+                        "w-[240px] justify-start text-left font-normal",
                         !selectedDate && "text-muted-foreground"
                       )}
                     >
@@ -292,22 +308,6 @@ export default function SchedulingPage() {
                     <ChevronRight className="h-4 w-4" />
                 </Button>
             </div>
-            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                <DialogTrigger asChild>
-                    <Button>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        New Appointment
-                    </Button>
-                </DialogTrigger>
-                <DialogContent onPointerDownOutside={(e) => e.preventDefault()}>
-                    <DialogHeader>
-                        <DialogTitle>Create New Appointment</DialogTitle>
-                        <DialogDescription>Schedule a new phlebotomy appointment for a patient.</DialogDescription>
-                    </DialogHeader>
-                    <NewAppointmentForm onSave={handleSave} selectedDate={selectedDate} />
-                </DialogContent>
-              </Dialog>
-          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-hidden rounded-md border">
