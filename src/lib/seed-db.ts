@@ -5,11 +5,26 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { hash } from 'bcryptjs';
 import { USERS } from '@/lib/constants';
 import type { User, Appointment, Patient } from '@/lib/types';
-import { MongoClient, ObjectId } from 'mongodb';
+import { MongoClient, Db, ObjectId } from 'mongodb';
 
-async function seedAppointments(db: any) {
+async function seedAppointments(db: Db) {
     const appointmentsCollection = db.collection('appointments');
     const count = await appointmentsCollection.countDocuments();
+    
+    // Check for unique index and drop if it exists
+    try {
+        const indexes = await appointmentsCollection.indexes();
+        const uniqueTimeIndex = indexes.find(idx => idx.key && idx.key.scheduledTime === 1 && idx.unique);
+        if (uniqueTimeIndex) {
+            console.log('Dropping incorrect unique index on scheduledTime...');
+            await appointmentsCollection.dropIndex('scheduledTime_1');
+            console.log('Unique index dropped.');
+        }
+    } catch (e) {
+        // Ignore errors if index doesn't exist
+    }
+
+
     if (count > 0) {
         return; // Already seeded
     }
@@ -31,6 +46,10 @@ async function seedAppointments(db: any) {
         { patientId: patients[4]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0), durationMinutes: 15, status: 'Scheduled', notes: 'Needs a butterfly needle.' },
     ];
     await appointmentsCollection.insertMany(appointmentsToInsert);
+
+    // Create a non-unique index for performance
+    await appointmentsCollection.createIndex({ scheduledTime: 1 });
+
     console.log('Appointments seeded successfully.');
 }
 
@@ -78,7 +97,7 @@ export async function seedDatabase() {
             await usersCollection.insertMany(usersToInsert);
             console.log('Users seeded successfully!');
         } else {
-            console.log('Users collection already seeded. Skipping.');
+            // console.log('Users collection already seeded. Skipping.');
         }
 
         await seedAppointments(db);
