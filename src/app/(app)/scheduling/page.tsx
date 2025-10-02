@@ -87,8 +87,6 @@ function NewAppointmentForm({ onSave, selectedDate }: { onSave: () => void, sele
 
   const onSubmit = async (data: AppointmentFormValues) => {
     if (!token) return;
-    console.log('DEBUG: Submitting form with data:', data);
-
     try {
         const response = await fetch('/api/v1/appointments', {
             method: 'POST',
@@ -102,7 +100,6 @@ function NewAppointmentForm({ onSave, selectedDate }: { onSave: () => void, sele
         });
         if (!response.ok) {
             const errorBody = await response.json();
-            console.error('DEBUG: Failed to create appointment, server response:', errorBody);
             throw new Error(errorBody.message || 'Failed to create appointment');
         }
         toast({ title: 'Appointment Created', description: 'The new appointment has been added to the schedule.' });
@@ -198,13 +195,10 @@ export default function SchedulingPage() {
       });
       
       if (!response.ok) {
-        const errorBody = await response.text();
-        console.error('DEBUG: Failed to fetch appointments, server response:', errorBody);
         throw new Error('Failed to fetch appointments');
       }
       
       const data = await response.json();
-      console.log('DEBUG: Fetched appointments:', data);
       setAppointments(data);
     } catch (error: any) {
       toast({
@@ -300,10 +294,10 @@ export default function SchedulingPage() {
       
       <Card>
         <CardHeader>
-            <div className='flex items-center gap-4'>
-                 <CardTitle>
-                    Appointment Records for
-                 </CardTitle>
+            <div className='flex items-center justify-between'>
+                <CardTitle>
+                    Appointment Records
+                </CardTitle>
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="icon" onClick={() => handleDateChange(subDays(selectedDate, 1))}>
                         <ChevronLeft className="h-4 w-4" />
@@ -384,5 +378,3 @@ export default function SchedulingPage() {
     </div>
   );
 }
-
-    
