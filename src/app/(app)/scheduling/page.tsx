@@ -71,19 +71,25 @@ function NewAppointmentForm({ onSave }: { onSave: () => void }) {
   }, [patientSearch, token, toast]);
 
   const handleSelectPatient = (patient: ClientPatient) => {
+    console.log('DEBUG: Patient selected in form:', patient);
     setSelectedPatient(patient);
-    form.setValue('patientId', patient.id);
+    form.setValue('patientId', patient.id, { shouldValidate: true });
+    console.log('DEBUG: Form value for patientId set to:', patient.id);
   }
   
   const handleUnselectPatient = () => {
       setSelectedPatient(null);
-      form.setValue('patientId', '');
+      form.resetField('patientId');
       setPatientSearch('');
       setPatientResults([]);
   }
 
   const onSubmit = async (data: AppointmentFormValues) => {
-    if (!token) return;
+    console.log('DEBUG: Submitting form with data:', data);
+    if (!token) {
+        console.error('DEBUG: No token available on submit.');
+        return;
+    }
     try {
         const response = await fetch('/api/v1/appointments', {
             method: 'POST',
@@ -95,10 +101,15 @@ function NewAppointmentForm({ onSave }: { onSave: () => void }) {
                 status: 'Scheduled',
             }),
         });
-        if (!response.ok) throw new Error('Failed to create appointment');
+        if (!response.ok) {
+            const errorBody = await response.json();
+            console.error('DEBUG: Failed to create appointment, server response:', errorBody);
+            throw new Error(errorBody.message || 'Failed to create appointment');
+        }
         toast({ title: 'Appointment Created', description: 'The new appointment has been added to the schedule.' });
         onSave();
     } catch (error: any) {
+        console.error('DEBUG: Error in onSubmit:', error);
         toast({ variant: 'destructive', title: 'Error', description: error.message });
     }
   }
@@ -176,17 +187,24 @@ export default function SchedulingPage() {
   const [token, setToken] = useState<string | null>(null);
 
   const fetchAppointments = useCallback(async (authToken: string) => {
+    console.log('DEBUG: Fetching appointments with token...');
     setLoading(true);
     try {
       const response = await fetch('/api/v1/appointments', {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
       
-      if (!response.ok) throw new Error('Failed to fetch appointments');
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error('DEBUG: Failed to fetch appointments. Status:', response.status, 'Body:', errorBody);
+        throw new Error('Failed to fetch appointments');
+      }
       
       const data = await response.json();
+      console.log('DEBUG: Appointments data received from API:', data);
       setAppointments(data);
     } catch (error: any) {
+      console.error('DEBUG: Error in fetchAppointments:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -200,10 +218,12 @@ export default function SchedulingPage() {
 
   useEffect(() => {
     const storedToken = localStorage.getItem('labwise-token');
+    console.log('DEBUG: Token from localStorage:', storedToken);
     if (storedToken) {
       setToken(storedToken);
       fetchAppointments(storedToken);
     } else {
+        console.log('DEBUG: No token found in localStorage.');
         setLoading(false);
     }
   }, [fetchAppointments]);
@@ -294,3 +314,5 @@ export default function SchedulingPage() {
     </div>
   );
 }
+
+    
