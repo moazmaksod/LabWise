@@ -177,6 +177,7 @@ export type ClientOrder = Omit<Order, '_id' | 'patientId' | 'physicianId' | 'cre
     samples: (Omit<OrderSample, 'sampleId'> & { sampleId: string })[];
     patientInfo?: ClientPatient; // Added for aggregation results
 }
+
 export type Appointment = {
     _id: ObjectId;
     patientId: ObjectId;

@@ -24,11 +24,11 @@ async function seedAppointments(db: any) {
     
     const now = new Date();
     const appointmentsToInsert: Omit<Appointment, '_id'>[] = [
-        { patientId: patients[0]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0), durationMinutes: 15, status: 'Completed' },
-        { patientId: patients[1]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 15), durationMinutes: 15, status: 'Completed' },
-        { patientId: patients[2]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 30), durationMinutes: 15, status: 'CheckedIn' },
-        { patientId: patients[3]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 45), durationMinutes: 15, status: 'Scheduled' },
-        { patientId: patients[4]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0), durationMinutes: 15, status: 'Scheduled' },
+        { patientId: patients[0]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0), durationMinutes: 15, status: 'Completed', notes: 'Patient was a little late.' },
+        { patientId: patients[1]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 15), durationMinutes: 15, status: 'Completed', notes: '' },
+        { patientId: patients[2]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 30), durationMinutes: 15, status: 'CheckedIn', notes: 'Waiting for phlebotomist.' },
+        { patientId: patients[3]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 45), durationMinutes: 15, status: 'Scheduled', notes: '' },
+        { patientId: patients[4]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0), durationMinutes: 15, status: 'Scheduled', notes: 'Needs a butterfly needle.' },
     ];
     await appointmentsCollection.insertMany(appointmentsToInsert);
     console.log('Appointments seeded successfully.');
