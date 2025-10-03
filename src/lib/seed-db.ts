@@ -53,6 +53,41 @@ async function seedAppointments(db: Db) {
     console.log('Appointments seeded successfully.');
 }
 
+async function seedUsers(db: Db) {
+    const usersCollection = db.collection('users');
+    const existingUsers = await usersCollection.find({}, { projection: { email: 1 } }).toArray();
+    const existingUserEmails = new Set(existingUsers.map(u => u.email));
+
+    const usersToInsert: Omit<User, '_id'>[] = [];
+    const passwordHash = await hash('password123', 10);
+
+    for (const user of Object.values(USERS)) {
+        if (!existingUserEmails.has(user.email)) {
+            console.log(`User ${user.email} not found. Adding to seed list.`);
+            usersToInsert.push({
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                role: user.role,
+                avatar: user.avatar,
+                isActive: user.isActive,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt,
+                passwordHash
+            });
+        }
+    }
+
+    if (usersToInsert.length > 0) {
+        console.log(`Seeding ${usersToInsert.length} new mock users...`);
+        await usersCollection.insertMany(usersToInsert);
+        console.log('New users seeded successfully!');
+    } else {
+        // console.log('All mock users already exist in the database. Skipping user seed.');
+    }
+}
+
+
 // A wrapper to ensure the seeding logic is self-contained and handles its own DB connection.
 export async function seedDatabase() {
     // We check for an environment variable to prevent seeding in production environments
@@ -74,32 +109,8 @@ export async function seedDatabase() {
         client = new MongoClient(MONGODB_URI);
         await client.connect();
         const db = client.db(MONGODB_DB);
-        const usersCollection = db.collection('users');
-        const count = await usersCollection.countDocuments();
-        
-        if (count === 0) {
-            console.log('Database is empty. Seeding with mock users...');
-            const usersToInsert: Omit<User, '_id'>[] = [];
-            for (const user of Object.values(USERS)) {
-                const passwordHash = await hash('password123', 10);
-                usersToInsert.push({ 
-                    firstName: user.firstName,
-                    lastName: user.lastName,
-                    email: user.email,
-                    role: user.role,
-                    avatar: user.avatar,
-                    isActive: user.isActive,
-                    createdAt: user.createdAt,
-                    updatedAt: user.updatedAt,
-                    passwordHash 
-                });
-            }
-            await usersCollection.insertMany(usersToInsert);
-            console.log('Users seeded successfully!');
-        } else {
-            // console.log('Users collection already seeded. Skipping.');
-        }
 
+        await seedUsers(db);
         await seedAppointments(db);
 
     } catch (error) {
