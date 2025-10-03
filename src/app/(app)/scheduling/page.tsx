@@ -115,7 +115,7 @@ function AppointmentForm({ onSave, selectedDate, editingAppointment }: { onSave:
                 ...data,
                 scheduledTime: new Date(data.scheduledTime),
                 durationMinutes: 15,
-                status: 'Scheduled',
+                status: editingAppointment?.status || 'Scheduled', // Preserve status on edit
             }),
         });
         if (!response.ok) {
