@@ -38,12 +38,19 @@ function AppointmentForm({ onSave, selectedDate, editingAppointment }: { onSave:
   const [isSearching, setIsSearching] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<ClientPatient | null>(null);
 
+  console.log("DEBUG: AppointmentForm rendering or re-rendering.");
+
   const form = useForm<AppointmentFormValues>({
     resolver: zodResolver(appointmentSchema),
     defaultValues: {
+      id: undefined,
+      patientId: '',
+      scheduledTime: format(selectedDate, "yyyy-MM-dd'T'09:00"),
       notes: '',
     }
   });
+
+  console.log("DEBUG: Initial form defaultValues:", form.formState.defaultValues);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('labwise-token');
@@ -51,22 +58,27 @@ function AppointmentForm({ onSave, selectedDate, editingAppointment }: { onSave:
   }, []);
 
   useEffect(() => {
+    console.log("DEBUG: useEffect for editingAppointment triggered. editingAppointment:", editingAppointment);
     if(editingAppointment && editingAppointment.patientInfo) {
       setSelectedPatient(editingAppointment.patientInfo as ClientPatient);
-      form.reset({
+      const resetValues = {
         id: editingAppointment.id,
         patientId: editingAppointment.patientId,
         scheduledTime: format(new Date(editingAppointment.scheduledTime), "yyyy-MM-dd'T'HH:mm"),
         notes: editingAppointment.notes || ''
-      });
+      };
+      console.log("DEBUG: Resetting form with values for editing:", resetValues);
+      form.reset(resetValues);
     } else {
       setSelectedPatient(null);
-      form.reset({
+      const resetValues = {
         id: undefined,
         patientId: '',
-        scheduledTime: format(selectedDate, "yyyy-MM-dd'T'09:00"),
+        scheduledTime: format(selectedDate, "yyyy-M-dd'T'09:00"),
         notes: ''
-      });
+      };
+       console.log("DEBUG: Resetting form for new appointment:", resetValues);
+      form.reset(resetValues);
     }
   }, [editingAppointment, selectedDate, form]);
 
@@ -185,7 +197,22 @@ function AppointmentForm({ onSave, selectedDate, editingAppointment }: { onSave:
         <FormField control={form.control} name="patientId" render={({ field }) => (<FormItem className="hidden"><FormLabel>Patient ID</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
 
         <FormField control={form.control} name="scheduledTime" render={({ field }) => (<FormItem><FormLabel>Scheduled Time</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>)} />
-        <FormField control={form.control} name="notes" render={({ field }) => ( <FormItem><FormLabel>Notes (optional)</FormLabel><FormControl><Input placeholder="e.g., Patient is nervous" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+        <FormField
+          control={form.control}
+          name="notes"
+          render={({ field }) => {
+            console.log("DEBUG: Rendering 'notes' field. Current value:", field.value, "Type:", typeof field.value);
+            return (
+              <FormItem>
+                <FormLabel>Notes (optional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., Patient is nervous" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            );
+          }}
+        />
         <DialogFooter>
           <Button type="submit" disabled={form.formState.isSubmitting || !selectedPatient}>
             {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
