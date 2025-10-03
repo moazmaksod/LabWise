@@ -75,6 +75,16 @@ export const USERS: Record<string, Omit<ClientUser, 'id'>> = {
     isActive: true,
     createdAt: now,
     updatedAt: now,
+  },
+  'user-phleb-01': {
+    firstName: 'Charles',
+    lastName: 'Brown',
+    email: 'charles.b@labwise.com',
+    role: 'phlebotomist',
+    avatar: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f',
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
   }
 };
 
@@ -109,6 +119,10 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
     { href: '/inventory', label: 'Inventory Mgmt', icon: Boxes },
     { href: '/quality-assurance', label: 'Quality Assurance', icon: FileCheck },
     { href: '/audit-trail', label: 'Audit Trail', icon: ClipboardCopy },
+  ],
+  phlebotomist: [
+    { href: '/dashboard', label: 'Collection List', icon: ClipboardList },
+    { href: '/search-patient', label: 'Search Patient', icon: Search },
   ],
   physician: [],
   patient: [],

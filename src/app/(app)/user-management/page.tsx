@@ -77,7 +77,7 @@ const userFormSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   email: z.string().email('Invalid email address'),
-  role: z.enum(['receptionist', 'technician', 'manager', 'physician', 'patient']),
+  role: z.enum(['receptionist', 'technician', 'manager', 'physician', 'patient', 'phlebotomist']),
   password: z.string().optional(),
 }).refine(data => {
     if (!data.id) { // Only require password for new users
@@ -253,6 +253,7 @@ export default function UserManagementPage() {
     receptionist: 'bg-yellow-200/20 text-yellow-400 border-yellow-400/50',
     physician: 'bg-blue-200/20 text-blue-400 border-blue-400/50',
     patient: 'bg-gray-200/20 text-gray-400 border-gray-400/50',
+    phlebotomist: 'bg-purple-200/20 text-purple-400 border-purple-400/50',
   }
 
   return (
@@ -280,6 +281,7 @@ export default function UserManagementPage() {
                         <SelectItem value="receptionist">Receptionist</SelectItem>
                         <SelectItem value="physician">Physician</SelectItem>
                         <SelectItem value="patient">Patient</SelectItem>
+                        <SelectItem value="phlebotomist">Phlebotomist</SelectItem>
                     </SelectContent>
                 </Select>
                 <Button>
@@ -317,7 +319,7 @@ export default function UserManagementPage() {
                                 <FormField control={form.control} name="firstName" render={({ field }) => ( <FormItem><FormLabel>First Name</FormLabel><FormControl><Input placeholder="John" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                  <FormField control={form.control} name="lastName" render={({ field }) => ( <FormItem><FormLabel>Last Name</FormLabel><FormControl><Input placeholder="Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="john.doe@email.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                 <FormField control={form.control} name="role" render={({ field }) => ( <FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl><SelectContent><SelectItem value="receptionist">Receptionist</SelectItem><SelectItem value="technician">Technician</SelectItem><SelectItem value="manager">Manager</SelectItem><SelectItem value="physician">Physician</SelectItem><SelectItem value="patient">Patient</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
+                                 <FormField control={form.control} name="role" render={({ field }) => ( <FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl><SelectContent><SelectItem value="receptionist">Receptionist</SelectItem><SelectItem value="technician">Technician</SelectItem><SelectItem value="manager">Manager</SelectItem><SelectItem value="physician">Physician</SelectItem><SelectItem value="patient">Patient</SelectItem><SelectItem value="phlebotomist">Phlebotomist</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
                                 {!editingUser && ( <FormField control={form.control} name="password" render={({ field }) => ( <FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>)} /> )}
                                  <DialogFooter>
                                     <Button type="button" variant="ghost" onClick={() => setIsFormOpen(false)}>Cancel</Button>

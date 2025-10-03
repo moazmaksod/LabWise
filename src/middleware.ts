@@ -7,10 +7,10 @@ import type { Role } from '@/lib/types';
 // 1. Define the RBAC Matrix from the backend specification
 const rbacMatrix: Record<string, { methods: string[], roles: Role[] }[]> = {
     '/api/v1/auth/login': [
-        { methods: ['POST'], roles: ['receptionist', 'technician', 'manager', 'physician', 'patient'] }
+        { methods: ['POST'], roles: ['receptionist', 'technician', 'manager', 'physician', 'patient', 'phlebotomist'] }
     ],
     '/api/v1/auth/me': [
-        { methods: ['GET'], roles: ['receptionist', 'technician', 'manager', 'physician', 'patient'] }
+        { methods: ['GET'], roles: ['receptionist', 'technician', 'manager', 'physician', 'patient', 'phlebotomist'] }
     ],
     '/api/v1/users': [
         { methods: ['GET'], roles: ['manager', 'receptionist', 'physician'] },

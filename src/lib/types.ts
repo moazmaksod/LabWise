@@ -2,7 +2,7 @@
 
 import type { ObjectId } from 'mongodb';
 
-export type Role = 'receptionist' | 'technician' | 'manager' | 'physician' | 'patient';
+export type Role = 'receptionist' | 'technician' | 'manager' | 'physician' | 'patient' | 'phlebotomist';
 
 export type TrainingRecord = {
   documentName: string;
