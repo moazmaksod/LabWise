@@ -280,7 +280,7 @@ export default function SchedulingPage() {
                             {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
+                        <PopoverContent className="w-auto p-0" onPointerDownOutside={(e) => e.preventDefault()}>
                             <Calendar
                             mode="single"
                             selected={selectedDate}
@@ -310,7 +310,7 @@ export default function SchedulingPage() {
               </div>
               <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                   <DialogTrigger asChild>
-                      <Button>
+                      <Button variant="outline">
                           <PlusCircle className="mr-2 h-4 w-4" />
                           New Appointment
                       </Button>
