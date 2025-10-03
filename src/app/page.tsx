@@ -138,7 +138,7 @@ export default function LoginPage() {
                     </span>
                 </div>
             </div>
-            <div className="mt-4 grid grid-cols-3 gap-3">
+            <div className="mt-4 grid grid-cols-2 gap-3">
                 <Button variant="outline" onClick={() => handleLoginAs('receptionist')}>
                     <User className="mr-2 h-4 w-4" />
                     Receptionist
@@ -150,6 +150,10 @@ export default function LoginPage() {
                  <Button variant="outline" onClick={() => handleLoginAs('manager')}>
                     <AreaChart className="mr-2 h-4 w-4" />
                     Manager
+                </Button>
+                <Button variant="outline" onClick={() => handleLoginAs('phlebotomist')}>
+                    <Beaker className="mr-2 h-4 w-4" />
+                    Phlebotomist
                 </Button>
             </div>
           </div>
