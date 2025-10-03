@@ -185,7 +185,7 @@ function AppointmentForm({ onSave, selectedDate, editingAppointment }: { onSave:
         <FormField control={form.control} name="patientId" render={({ field }) => (<FormItem className="hidden"><FormLabel>Patient ID</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
 
         <FormField control={form.control} name="scheduledTime" render={({ field }) => (<FormItem><FormLabel>Scheduled Time</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>)} />
-        <FormField control={form.control} name="notes" render={({ field }) => ( <FormItem><FormLabel>Notes (optional)</FormLabel><FormControl><Input placeholder="e.g., Patient is nervous" {...field} /></FormControl><FormMessage /></FormItem>)} />
+        <FormField control={form.control} name="notes" render={({ field }) => ( <FormItem><FormLabel>Notes (optional)</FormLabel><FormControl><Input placeholder="e.g., Patient is nervous" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
         <DialogFooter>
           <Button type="submit" disabled={form.formState.isSubmitting || !selectedPatient}>
             {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -343,7 +343,7 @@ export default function SchedulingPage() {
                 if (!isOpen) setEditingAppointment(null);
               }}>
                   <DialogTrigger asChild>
-                      <Button onClick={() => handleOpenDialog()}>
+                      <Button variant="outline" onClick={() => handleOpenDialog()}>
                           <PlusCircle className="mr-2 h-4 w-4" />
                           New Appointment
                       </Button>
