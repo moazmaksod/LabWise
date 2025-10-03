@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
-import { Clock, PlusCircle, Search, Loader2, CalendarIcon, ChevronLeft, ChevronRight, Edit } from 'lucide-react';
+import { Clock, PlusCircle, Search, Loader2, CalendarIcon, ChevronLeft, ChevronRight, Edit, Trash2 } from 'lucide-react';
 import { format, addDays, subDays } from 'date-fns';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import type { ClientAppointment, ClientPatient } from '@/lib/types';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 const appointmentSchema = z.object({
   id: z.string().optional(),
@@ -30,13 +31,15 @@ const appointmentSchema = z.object({
 
 type AppointmentFormValues = z.infer<typeof appointmentSchema>;
 
-function AppointmentForm({ onSave, selectedDate, editingAppointment }: { onSave: () => void, selectedDate: Date, editingAppointment: ClientAppointment | null }) {
+function AppointmentForm({ onSave, selectedDate, editingAppointment, onDelete }: { onSave: () => void, selectedDate: Date, editingAppointment: ClientAppointment | null, onDelete: (appointmentId: string) => void }) {
   const { toast } = useToast();
   const [token, setToken] = useState<string | null>(null);
   const [patientSearch, setPatientSearch] = useState('');
   const [patientResults, setPatientResults] = useState<ClientPatient[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<ClientPatient | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
 
   const form = useForm<AppointmentFormValues>({
     resolver: zodResolver(appointmentSchema),
@@ -137,81 +140,116 @@ function AppointmentForm({ onSave, selectedDate, editingAppointment }: { onSave:
     }
   }
 
+  const handleDelete = () => {
+    if (editingAppointment) {
+        onDelete(editingAppointment.id);
+    }
+    setIsDeleteDialogOpen(false);
+  }
+
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        {selectedPatient ? (
-          <Card className="bg-secondary">
-            <CardHeader className="py-3">
-              <CardTitle className="text-lg">Selected Patient</CardTitle>
-            </CardHeader>
-            <CardContent className="pb-3 flex justify-between items-center">
-              <div>
-                <p className="font-semibold">{selectedPatient.firstName} {selectedPatient.lastName}</p>
-                <p className="text-sm text-muted-foreground">MRN: {selectedPatient.mrn}</p>
+    <>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          {selectedPatient ? (
+            <Card className="bg-secondary">
+              <CardHeader className="py-3">
+                <CardTitle className="text-lg">Selected Patient</CardTitle>
+              </CardHeader>
+              <CardContent className="pb-3 flex justify-between items-center">
+                <div>
+                  <p className="font-semibold">{selectedPatient.firstName} {selectedPatient.lastName}</p>
+                  <p className="text-sm text-muted-foreground">MRN: {selectedPatient.mrn}</p>
+                </div>
+                {!editingAppointment && <Button variant="outline" size="sm" onClick={handleUnselectPatient}>Change</Button>}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search patient by name, MRN..."
+                  className="pl-10"
+                  value={patientSearch}
+                  onChange={(e) => setPatientSearch(e.target.value)}
+                />
               </div>
-              {!editingAppointment && <Button variant="outline" size="sm" onClick={handleUnselectPatient}>Change</Button>}
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search patient by name, MRN..."
-                className="pl-10"
-                value={patientSearch}
-                onChange={(e) => setPatientSearch(e.target.value)}
-              />
+              <div className="mt-4 overflow-hidden rounded-md border max-h-60 overflow-y-auto">
+                <Table>
+                  <TableHeader><TableRow><TableHead>Patient</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {isSearching ? <TableRow><TableCell colSpan={2}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                      : patientResults.length > 0 ? patientResults.map(patient => (
+                        <TableRow key={patient.id}>
+                          <TableCell>
+                            <div className="font-medium">{patient.firstName} {patient.lastName}</div>
+                            <div className="text-sm text-muted-foreground">MRN: {patient.mrn}</div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button size="sm" onClick={() => handleSelectPatient(patient)}>Select</Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                      : <TableRow><TableCell colSpan={2} className="h-24 text-center">{patientSearch ? 'No patients found.' : 'Start typing to see results.'}</TableCell></TableRow>}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
-            <div className="mt-4 overflow-hidden rounded-md border max-h-60 overflow-y-auto">
-              <Table>
-                <TableHeader><TableRow><TableHead>Patient</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {isSearching ? <TableRow><TableCell colSpan={2}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                    : patientResults.length > 0 ? patientResults.map(patient => (
-                      <TableRow key={patient.id}>
-                        <TableCell>
-                          <div className="font-medium">{patient.firstName} {patient.lastName}</div>
-                          <div className="text-sm text-muted-foreground">MRN: {patient.mrn}</div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button size="sm" onClick={() => handleSelectPatient(patient)}>Select</Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                    : <TableRow><TableCell colSpan={2} className="h-24 text-center">{patientSearch ? 'No patients found.' : 'Start typing to see results.'}</TableCell></TableRow>}
-                </TableBody>
-              </Table>
+          )}
+
+          <FormField control={form.control} name="patientId" render={({ field }) => (<FormItem className="hidden"><FormLabel>Patient ID</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+
+          <FormField control={form.control} name="scheduledTime" render={({ field }) => (<FormItem><FormLabel>Scheduled Time</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>)} />
+          <FormField
+            control={form.control}
+            name="notes"
+            render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes (optional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., Patient is nervous" {...field} value={field.value ?? ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )
+            }
+          />
+          <DialogFooter className="sm:justify-between">
+            {editingAppointment && (
+                <Button type="button" variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                </Button>
+            )}
+            <div className="flex gap-2">
+                <Button type="submit" disabled={form.formState.isSubmitting || !selectedPatient}>
+                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {editingAppointment ? 'Save Changes' : 'Create Appointment'}
+                </Button>
             </div>
-          </div>
-        )}
-
-        <FormField control={form.control} name="patientId" render={({ field }) => (<FormItem className="hidden"><FormLabel>Patient ID</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-
-        <FormField control={form.control} name="scheduledTime" render={({ field }) => (<FormItem><FormLabel>Scheduled Time</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>)} />
-        <FormField
-          control={form.control}
-          name="notes"
-          render={({ field }) => (
-              <FormItem>
-                <FormLabel>Notes (optional)</FormLabel>
-                <FormControl>
-                  <Input placeholder="e.g., Patient is nervous" {...field} value={field.value ?? ''} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )
-          }
-        />
-        <DialogFooter>
-          <Button type="submit" disabled={form.formState.isSubmitting || !selectedPatient}>
-            {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {editingAppointment ? 'Save Changes' : 'Create Appointment'}
-          </Button>
-        </DialogFooter>
-      </form>
-    </Form>
+          </DialogFooter>
+        </form>
+      </Form>
+      {editingAppointment && (
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will permanently delete the appointment for {selectedPatient?.firstName} {selectedPatient?.lastName} at {format(new Date(editingAppointment.scheduledTime), 'p')}. This action cannot be undone.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Delete
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </>
   )
 }
 
@@ -280,6 +318,24 @@ export default function SchedulingPage() {
         fetchAppointments(token, selectedDate, searchTerm);
     }
   }
+
+  const handleDelete = async (appointmentId: string) => {
+    if (!token) return;
+    try {
+        const response = await fetch(`/api/v1/appointments/${appointmentId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) {
+            const errorBody = await response.json();
+            throw new Error(errorBody.message || 'Failed to delete appointment');
+        }
+        toast({ title: 'Appointment Deleted', description: 'The appointment has been removed from the schedule.' });
+        handleSave(); // Close dialog and refresh list
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Deletion Failed', description: error.message });
+    }
+  };
 
   const handleOpenDialog = (appointment: ClientAppointment | null = null) => {
     setEditingAppointment(appointment);
@@ -375,7 +431,7 @@ export default function SchedulingPage() {
                                 : "Schedule a new phlebotomy appointment for a patient."}
                           </DialogDescription>
                       </DialogHeader>
-                      <AppointmentForm onSave={handleSave} selectedDate={selectedDate} editingAppointment={editingAppointment} />
+                      <AppointmentForm onSave={handleSave} selectedDate={selectedDate} editingAppointment={editingAppointment} onDelete={handleDelete} />
                   </DialogContent>
               </Dialog>
           </div>
