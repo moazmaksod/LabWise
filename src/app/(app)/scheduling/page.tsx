@@ -40,6 +40,9 @@ function AppointmentForm({ onSave, selectedDate, editingAppointment }: { onSave:
 
   const form = useForm<AppointmentFormValues>({
     resolver: zodResolver(appointmentSchema),
+    defaultValues: {
+      notes: '',
+    }
   });
 
   useEffect(() => {
@@ -182,7 +185,7 @@ function AppointmentForm({ onSave, selectedDate, editingAppointment }: { onSave:
         <FormField control={form.control} name="patientId" render={({ field }) => (<FormItem className="hidden"><FormLabel>Patient ID</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
 
         <FormField control={form.control} name="scheduledTime" render={({ field }) => (<FormItem><FormLabel>Scheduled Time</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>)} />
-        <FormField control={form.control} name="notes" render={({ field }) => (<FormItem><FormLabel>Notes (optional)</FormLabel><FormControl><Input placeholder="e.g., Patient is nervous" {...field} /></FormControl><FormMessage /></FormItem>)} />
+        <FormField control={form.control} name="notes" render={({ field }) => ( <FormItem><FormLabel>Notes (optional)</FormLabel><FormControl><Input placeholder="e.g., Patient is nervous" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
         <DialogFooter>
           <Button type="submit" disabled={form.formState.isSubmitting || !selectedPatient}>
             {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -285,7 +288,7 @@ export default function SchedulingPage() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className='flex items-start justify-between'>
+          <div className='flex items-center justify-between'>
               <div className="space-y-1.5">
                   <CardTitle>Appointment Scheduling</CardTitle>
                   <CardDescription>View the daily schedule, search for appointments, or create a new one.</CardDescription>
@@ -414,3 +417,5 @@ export default function SchedulingPage() {
     </div>
   );
 }
+
+    
