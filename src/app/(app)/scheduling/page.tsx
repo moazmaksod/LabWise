@@ -289,9 +289,9 @@ export default function SchedulingPage() {
       <Card>
         <CardHeader>
           <div className='flex items-center justify-between'>
-              <div className="space-y-1.5">
+              <div>
                   <CardTitle>Appointment Scheduling</CardTitle>
-                  <CardDescription>View the daily schedule, search for appointments, or create a new one.</CardDescription>
+                  <CardDescription>View the daily schedule or add a new appointment.</CardDescription>
               </div>
               <div className="flex items-center gap-2">
                   <Button variant="outline" size="icon" onClick={() => handleDateChange(subDays(selectedDate, 1))}>
@@ -417,5 +417,3 @@ export default function SchedulingPage() {
     </div>
   );
 }
-
-    
