@@ -258,8 +258,43 @@ export default function SchedulingPage() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-            <CardTitle>Appointment Scheduling</CardTitle>
-            <CardDescription>View the daily schedule, search for appointments, or create a new one.</CardDescription>
+            <div className='flex items-center justify-between'>
+                <div className="space-y-1.5">
+                    <CardTitle>Appointment Scheduling</CardTitle>
+                    <CardDescription>View the daily schedule, search for appointments, or create a new one.</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="icon" onClick={() => handleDateChange(subDays(selectedDate, 1))}>
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                            variant={"outline"}
+                            className={cn(
+                                "w-[240px] justify-start text-left font-normal",
+                                !selectedDate && "text-muted-foreground"
+                            )}
+                            >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                            <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={(day) => handleDateChange(day)}
+                            initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+                    <Button variant="outline" onClick={() => handleDateChange(new Date())}>Today</Button>
+                    <Button variant="outline" size="icon" onClick={() => handleDateChange(addDays(selectedDate, 1))}>
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
+            </div>
         </CardHeader>
         <CardContent>
           <div className="flex gap-2">
@@ -294,42 +329,9 @@ export default function SchedulingPage() {
       
       <Card>
         <CardHeader>
-            <div className='flex items-center justify-between'>
-                <CardTitle>
-                    Appointment Records
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                    <Button variant="outline" size="icon" onClick={() => handleDateChange(subDays(selectedDate, 1))}>
-                        <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                            variant={"outline"}
-                            className={cn(
-                                "w-[240px] justify-start text-left font-normal",
-                                !selectedDate && "text-muted-foreground"
-                            )}
-                            >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                            <Calendar
-                            mode="single"
-                            selected={selectedDate}
-                            onSelect={(day) => handleDateChange(day)}
-                            initialFocus
-                            />
-                        </PopoverContent>
-                    </Popover>
-                    <Button variant="outline" onClick={() => handleDateChange(new Date())}>Today</Button>
-                    <Button variant="outline" size="icon" onClick={() => handleDateChange(addDays(selectedDate, 1))}>
-                        <ChevronRight className="h-4 w-4" />
-                    </Button>
-                </div>
-            </div>
+            <CardTitle>
+                Appointment Records for {format(selectedDate, "PPP")}
+            </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-hidden rounded-md border">
