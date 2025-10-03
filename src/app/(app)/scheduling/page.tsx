@@ -272,7 +272,7 @@ export default function SchedulingPage() {
                             <Button
                             variant={"outline"}
                             className={cn(
-                                "w-[240px] justify-start text-left font-normal",
+                                "w-[180px] justify-start text-left font-normal",
                                 !selectedDate && "text-muted-foreground"
                             )}
                             >
