@@ -85,6 +85,7 @@ export default function PhlebotomistDashboard() {
         switch (status) {
             case 'Completed': return 'secondary';
             case 'CheckedIn': return 'default';
+            case 'NoShow': return 'destructive';
             case 'Scheduled': 
             default: return 'outline';
         }
@@ -110,7 +111,7 @@ export default function PhlebotomistDashboard() {
                         ))
                     ) : appointments.length > 0 ? (
                         appointments.map((appt) => (
-                            <AccordionItem value={appt.id} key={appt.id} disabled={appt.status === 'Completed'}>
+                            <AccordionItem value={appt.id} key={appt.id} disabled={appt.status === 'Completed' && (!appt.pendingOrders || appt.pendingOrders.length === 0)}>
                                 <AccordionTrigger className={cn("hover:no-underline", appt.status === 'CheckedIn' && 'bg-blue-900/40', appt.status === 'Completed' && 'bg-secondary/50 opacity-70 hover:bg-secondary/50 cursor-default')}>
                                     <div className="flex justify-between items-center w-full pr-4">
                                         <div className="flex items-center gap-4">
@@ -138,7 +139,7 @@ export default function PhlebotomistDashboard() {
                                                             <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
                                                                 <CardTitle className="text-md flex items-center gap-2">
                                                                     <Droplets className="h-5 w-5 text-primary"/>
-                                                                    {sample.specimenRequirements?.tubeType || 'Unknown Tube'}
+                                                                    {sample.specimenSummary?.tubeType || 'Unknown Tube'}
                                                                 </CardTitle>
                                                                  <Button 
                                                                     size="sm" 
@@ -155,11 +156,11 @@ export default function PhlebotomistDashboard() {
                                                                         <li key={test.testCode}>{test.name}</li>
                                                                     ))}
                                                                 </ul>
-                                                                {sample.specimenRequirements?.specialHandling && (
+                                                                {sample.specimenSummary?.specialHandling && (
                                                                     <div className="mt-3 flex items-center gap-2 text-yellow-400">
                                                                         <AlertTriangle className="h-4 w-4"/>
                                                                         <span className="font-semibold">Special Handling:</span>
-                                                                        <span>{sample.specimenRequirements.specialHandling}</span>
+                                                                        <span>{sample.specimenSummary.specialHandling}</span>
                                                                     </div>
                                                                 )}
                                                             </CardContent>
@@ -169,7 +170,7 @@ export default function PhlebotomistDashboard() {
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="text-center text-muted-foreground py-4">No pending orders awaiting collection for this patient.</div>
+                                        <div className="text-center text-muted-foreground py-4">No pending orders awaiting collection for this appointment.</div>
                                     )}
                                     </div>
                                 </AccordionContent>

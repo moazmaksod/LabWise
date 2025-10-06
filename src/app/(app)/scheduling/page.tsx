@@ -73,7 +73,7 @@ function AppointmentForm({ onSave, selectedDate, editingAppointment, onDelete }:
       const resetValues = {
         id: undefined,
         patientId: '',
-        scheduledTime: format(selectedDate, "yyyy-M-dd'T'09:00"),
+        scheduledTime: format(selectedDate, "yyyy-MM-dd'T'09:00"),
         notes: ''
       };
       form.reset(resetValues);

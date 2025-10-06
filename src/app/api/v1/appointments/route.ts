@@ -51,7 +51,6 @@ export async function GET(req: NextRequest) {
                     pipeline: [
                          { $match: { 
                             orderStatus: 'Pending',
-                            'samples.status': 'AwaitingCollection'
                           }
                         },
                         { $sort: { createdAt: -1 } },
