@@ -1,0 +1,155 @@
+
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { format, addDays, subDays } from 'date-fns';
+import { Clock, Beaker, Check, User, Microscope, AlertTriangle, ChevronDown, ChevronRight, Droplets, CalendarIcon, ChevronLeft } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import type { ClientAppointment, ClientOrder, OrderSample } from '@/lib/types';
+import { cn } from '@/lib/utils';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+
+export default function CollectionSchedulePage() {
+    const [appointments, setAppointments] = useState<ClientAppointment[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [token, setToken] = useState<string | null>(null);
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+    const { toast } = useToast();
+
+    const fetchAppointments = useCallback(async (authToken: string, date: Date) => {
+        setLoading(true);
+        try {
+            const dateString = format(date, 'yyyy-MM-dd');
+            const url = `/api/v1/appointments?date=${dateString}&type=Sample Collection`;
+            const response = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            if (!response.ok) throw new Error('Failed to fetch collection list');
+            
+            const data = await response.json();
+            setAppointments(data);
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } finally {
+            setLoading(false);
+        }
+    }, [toast]);
+
+    useEffect(() => {
+        const storedToken = localStorage.getItem('labwise-token');
+        if (storedToken) {
+            setToken(storedToken);
+        } else {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if(token) {
+            fetchAppointments(token, selectedDate);
+        }
+    }, [token, selectedDate, fetchAppointments]);
+    
+    const getStatusVariant = (status: ClientAppointment['status']) => {
+        switch (status) {
+            case 'Completed': return 'secondary';
+            case 'CheckedIn': return 'default';
+            case 'NoShow': return 'destructive';
+            case 'Scheduled': 
+            default: return 'outline';
+        }
+    };
+
+    const handleDateChange = (date: Date | undefined) => {
+        if (date) {
+            setSelectedDate(date);
+        }
+    }
+    
+    return (
+        <Card className="shadow-lg">
+            <CardHeader>
+                <div className='flex items-center justify-between'>
+                    <div>
+                        <CardTitle>Sample Collection Schedule</CardTitle>
+                        <CardDescription>View scheduled sample collections.</CardDescription>
+                    </div>
+                     <div className="flex items-center gap-2">
+                        <Button variant="outline" size="icon" onClick={() => handleDateChange(subDays(selectedDate, 1))}>
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                variant={"outline"}
+                                className={cn(
+                                    "w-[180px] justify-start text-left font-normal",
+                                    !selectedDate && "text-muted-foreground"
+                                )}
+                                >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" onPointerDownOutside={(e) => e.preventDefault()}>
+                                <Calendar
+                                mode="single"
+                                selected={selectedDate}
+                                onSelect={(day) => handleDateChange(day)}
+                                initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
+                        <Button variant="outline" onClick={() => handleDateChange(new Date())}>Today</Button>
+                        <Button variant="outline" size="icon" onClick={() => handleDateChange(addDays(selectedDate, 1))}>
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent>
+                <Accordion type="single" collapsible className="w-full">
+                    {loading ? (
+                        Array.from({ length: 5 }).map((_, i) => (
+                            <div key={i} className="flex items-center space-x-4 p-4 border-b">
+                                <Skeleton className="h-10 w-24" />
+                                <Skeleton className="h-6 w-48" />
+                                <Skeleton className="h-6 w-24 ml-auto" />
+                            </div>
+                        ))
+                    ) : appointments.length > 0 ? (
+                        appointments.map((appt) => (
+                            <AccordionItem value={appt.id} key={appt.id} disabled>
+                                <AccordionTrigger className={cn("hover:no-underline px-4 cursor-default", appt.status === 'Completed' && 'bg-secondary/50 opacity-70')}>
+                                    <div className="flex justify-between items-center w-full">
+                                        <div className="flex items-center gap-4">
+                                             <div className="flex items-center gap-2 font-semibold text-lg">
+                                                <Clock className="h-5 w-5 text-muted-foreground" />
+                                                <span>{format(new Date(appt.scheduledTime), 'p')}</span>
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-xl">{appt.patientInfo?.firstName} {appt.patientInfo?.lastName}</div>
+                                                <div className="text-sm text-muted-foreground">MRN: {appt.patientInfo?.mrn}</div>
+                                            </div>
+                                        </div>
+                                        <Badge variant={getStatusVariant(appt.status)} className="text-base">{appt.status}</Badge>
+                                    </div>
+                                </AccordionTrigger>
+                            </AccordionItem>
+                        ))
+                    ) : (
+                        <div className="text-center text-muted-foreground py-10 h-48 flex items-center justify-center">
+                            No sample collections scheduled for this day.
+                        </div>
+                    )}
+                </Accordion>
+            </CardContent>
+        </Card>
+    );
+}
