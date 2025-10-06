@@ -161,6 +161,7 @@ export type Order = {
     orderId: string; // Human-readable ID, e.g., ORD-2025-00001
     patientId: ObjectId;
     physicianId: ObjectId;
+    appointmentId?: ObjectId; // Link to a specific appointment
     icd10Code: string;
     orderStatus: 'Pending' | 'Partially Complete' | 'Complete' | 'Cancelled';
     priority: 'Routine' | 'STAT';
@@ -170,11 +171,12 @@ export type Order = {
     updatedAt: Date;
 }
 
-export type ClientOrder = Omit<Order, '_id' | 'patientId' | 'physicianId' | 'createdBy' | 'samples'> & {
+export type ClientOrder = Omit<Order, '_id' | 'patientId' | 'physicianId' | 'createdBy' | 'samples' | 'appointmentId'> & {
     id: string;
     patientId: string;
     physicianId: string;
     createdBy: string;
+    appointmentId?: string;
     samples: (Omit<OrderSample, 'sampleId'> & { sampleId: string })[];
     patientInfo?: ClientPatient; // Added for aggregation results
 }

@@ -52,6 +52,21 @@ export async function POST(req: NextRequest) {
 
         const testDefMap = new Map(testDefs.map(t => [t.testCode, t]));
         
+        let newAppointmentId: ObjectId | undefined = undefined;
+
+        // If appointment details are provided, create an appointment first
+        if (appointmentDetails) {
+            const newAppointment: Omit<Appointment, '_id'> = {
+                patientId: new ObjectId(patientId),
+                scheduledTime: new Date(appointmentDetails.scheduledTime),
+                durationMinutes: appointmentDetails.durationMinutes || 15,
+                status: appointmentDetails.status || 'Scheduled',
+                notes: appointmentDetails.notes || '',
+            };
+            const appointmentResult = await db.collection('appointments').insertOne(newAppointment);
+            newAppointmentId = appointmentResult.insertedId;
+        }
+
         const orderSamples: OrderSample[] = samples.map((sample: any) => {
             const testsForSample: OrderTest[] = sample.testCodes.map((tc: string) => {
                 const testDef = testDefMap.get(tc);
@@ -80,6 +95,7 @@ export async function POST(req: NextRequest) {
             orderId: newOrderId,
             patientId: new ObjectId(patientId),
             physicianId: new ObjectId(physicianId),
+            appointmentId: newAppointmentId,
             icd10Code,
             priority: priority || 'Routine',
             orderStatus: 'Pending',
@@ -90,18 +106,6 @@ export async function POST(req: NextRequest) {
         };
 
         const result = await db.collection('orders').insertOne(newOrder);
-
-        // If appointment details are provided, create an appointment
-        if (appointmentDetails) {
-            const newAppointment: Omit<Appointment, '_id'> = {
-                patientId: new ObjectId(patientId),
-                scheduledTime: new Date(appointmentDetails.scheduledTime),
-                durationMinutes: appointmentDetails.durationMinutes || 15,
-                status: appointmentDetails.status || 'Scheduled',
-                notes: appointmentDetails.notes || '',
-            };
-            await db.collection('appointments').insertOne(newAppointment);
-        }
 
         const createdOrder = { ...newOrder, _id: result.insertedId };
         
@@ -171,7 +175,7 @@ export async function GET(req: NextRequest) {
         const clientOrders = orders.map(order => {
           const { _id, ...rest } = order;
           const patientInfo = rest.patientInfo ? { ...rest.patientInfo, id: rest.patientInfo._id.toHexString(), _id: undefined } : undefined;
-          return { ...rest, id: _id.toHexString(), patientInfo };
+          return { ...rest, id: _id.toHexString(), patientInfo, appointmentId: rest.appointmentId?.toHexString() };
         });
 
         return NextResponse.json(clientOrders, { status: 200 });

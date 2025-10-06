@@ -46,11 +46,10 @@ export async function GET(req: NextRequest) {
             {
                 $lookup: {
                     from: 'orders',
-                    let: { patient_id: '$patientId' },
+                    localField: '_id',
+                    foreignField: 'appointmentId',
                     pipeline: [
-                        { $match: { 
-                            $expr: { $eq: ['$patientId', '$$patient_id'] },
-                            // Only show orders that are still pending and need collection
+                         { $match: { 
                             orderStatus: 'Pending',
                             'samples.status': 'AwaitingCollection'
                           }
