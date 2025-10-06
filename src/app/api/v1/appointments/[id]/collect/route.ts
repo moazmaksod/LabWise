@@ -11,6 +11,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         if (!ObjectId.isValid(params.id)) {
             return NextResponse.json({ message: 'Invalid appointment ID.' }, { status: 400 });
         }
+        
+        const { sampleId } = await req.json();
+        if (!sampleId || !ObjectId.isValid(sampleId)) {
+            return NextResponse.json({ message: 'Invalid or missing sampleId.' }, { status: 400 });
+        }
 
         const token = req.headers.get('authorization')?.split(' ')[1];
         if (!token) return NextResponse.json({ message: 'Authorization token missing.' }, { status: 401 });
@@ -19,62 +24,64 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
         const { db } = await connectToDatabase();
         
-        // 1. Update the appointment status to 'Completed'
-        const appointmentUpdateResult = await db.collection<Appointment>('appointments').updateOne(
-            { _id: new ObjectId(params.id) },
-            { $set: { status: 'Completed' } }
-        );
-
-        if (appointmentUpdateResult.matchedCount === 0) {
-            return NextResponse.json({ message: 'Appointment not found.' }, { status: 404 });
-        }
-        
         const appointment = await db.collection<Appointment>('appointments').findOne({ _id: new ObjectId(params.id) });
         if (!appointment) {
-             return NextResponse.json({ message: 'Appointment not found after update attempt.' }, { status: 404 });
+             return NextResponse.json({ message: 'Appointment not found.' }, { status: 404 });
         }
 
-        // 2. Find the most recent order for the patient that is still 'Pending'
-        const latestOrder = await db.collection<Order>('orders').findOne(
-            { patientId: appointment.patientId, orderStatus: 'Pending' },
-            { sort: { createdAt: -1 } }
+        // Find the order that contains this sample
+        const orderContainingSample = await db.collection<Order>('orders').findOne(
+            { "samples.sampleId": new ObjectId(sampleId) }
         );
 
-        if (!latestOrder) {
-            // This might not be an error state, could just mean no orders are pending
-            return NextResponse.json({ message: 'Collection confirmed, but no pending orders found for this patient.' }, { status: 200 });
+        if (!orderContainingSample) {
+            return NextResponse.json({ message: 'Order containing the specified sample not found.' }, { status: 404 });
         }
 
-        // 3. Update the status of all samples in that order to 'InLab'
+        // Update the status of the specific sample in that order to 'InLab'
         const collectionTimestamp = new Date();
         const sampleUpdateResult = await db.collection<Order>('orders').updateOne(
-            { _id: latestOrder._id },
+            { "samples.sampleId": new ObjectId(sampleId) },
             { 
                 $set: { 
-                    "samples.$[].status": "InLab",
-                    "samples.$[].collectionTimestamp": collectionTimestamp,
-                    "samples.$[].receivedTimestamp": collectionTimestamp,
+                    "samples.$.status": "InLab",
+                    "samples.$.collectionTimestamp": collectionTimestamp,
+                    "samples.$.receivedTimestamp": collectionTimestamp,
                  }
             }
         );
 
         if (sampleUpdateResult.modifiedCount === 0) {
-            return NextResponse.json({ message: 'Order found, but failed to update sample statuses.' }, { status: 500 });
+            return NextResponse.json({ message: 'Order found, but failed to update sample status. It might have been collected already.' }, { status: 500 });
+        }
+        
+        // After updating the sample, check if all samples in the order are now 'InLab' or beyond.
+        const updatedOrder = await db.collection<Order>('orders').findOne({ _id: orderContainingSample._id });
+        const allSamplesCollected = updatedOrder?.samples.every(s => s.status !== 'AwaitingCollection');
+
+        // If all samples for this patient's orders associated with the appointment are collected,
+        // update the appointment status to 'Completed'.
+        if (allSamplesCollected) {
+             await db.collection<Appointment>('appointments').updateOne(
+                { _id: new ObjectId(params.id) },
+                { $set: { status: 'Completed' } }
+            );
         }
 
-        // 4. Create an audit log entry
+        // Create an audit log entry
          await db.collection('auditLogs').insertOne({
             timestamp: new Date(),
             userId: new ObjectId(userPayload.userId as string),
             action: 'SAMPLE_COLLECTED',
             entity: {
                 collectionName: 'orders',
-                documentId: latestOrder._id,
+                documentId: orderContainingSample._id,
             },
             details: {
-                orderId: latestOrder.orderId,
-                patientId: latestOrder.patientId.toHexString(),
-                message: `Samples for order ${latestOrder.orderId} marked as 'InLab'.`
+                orderId: orderContainingSample.orderId,
+                patientId: orderContainingSample.patientId.toHexString(),
+                sampleId: sampleId,
+                message: `Sample ${sampleId} for order ${orderContainingSample.orderId} marked as 'InLab'.`
             },
             ipAddress: req.ip || req.headers.get('x-forwarded-for'),
         });

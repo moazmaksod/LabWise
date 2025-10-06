@@ -50,13 +50,17 @@ export default function PhlebotomistDashboard() {
         }
     }, [fetchAppointments]);
     
-    const handleConfirmCollection = async (appointmentId: string) => {
+    const handleConfirmCollection = async (appointmentId: string, sampleId: string) => {
         if (!token) return;
         
         try {
             const response = await fetch(`/api/v1/appointments/${appointmentId}/collect`, {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` 
+                },
+                body: JSON.stringify({ sampleId })
             });
 
             if (!response.ok) {
@@ -130,11 +134,19 @@ export default function PhlebotomistDashboard() {
                                                 <div className="space-y-4">
                                                     {order.samples.map(sample => (
                                                         <Card key={sample.sampleId}>
-                                                            <CardHeader className="pb-2 pt-4">
+                                                            <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
                                                                 <CardTitle className="text-md flex items-center gap-2">
                                                                     <Droplets className="h-5 w-5 text-primary"/>
                                                                     {sample.specimenRequirements?.tubeType || 'Unknown Tube'}
                                                                 </CardTitle>
+                                                                 <Button 
+                                                                    size="sm" 
+                                                                    onClick={() => handleConfirmCollection(appt.id, sample.sampleId)}
+                                                                    disabled={sample.status !== 'AwaitingCollection'}
+                                                                >
+                                                                    <Check className="mr-2 h-4 w-4" />
+                                                                    {sample.status === 'AwaitingCollection' ? 'Confirm Collection' : 'Collected'}
+                                                                </Button>
                                                             </CardHeader>
                                                             <CardContent>
                                                                 <ul className="list-disc list-inside text-muted-foreground space-y-1">
@@ -152,12 +164,6 @@ export default function PhlebotomistDashboard() {
                                                             </CardContent>
                                                         </Card>
                                                     ))}
-                                                </div>
-                                                <div className="pt-2 text-right">
-                                                    <Button size="sm" onClick={() => handleConfirmCollection(appt.id)}>
-                                                        <Check className="mr-2 h-4 w-4" />
-                                                        Confirm Collection for Order #{order.orderId}
-                                                    </Button>
                                                 </div>
                                             </div>
                                         ))
