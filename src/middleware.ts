@@ -22,11 +22,11 @@ const rbacMatrix: Record<string, { methods: string[], roles: Role[] }[]> = {
     '/api/v1/patients': [
         { methods: ['POST', 'PUT'], roles: ['receptionist', 'manager'] },
         // Note: Technician access is limited at the app layer per spec
-        { methods: ['GET'], roles: ['receptionist', 'technician', 'manager'] }
+        { methods: ['GET'], roles: ['receptionist', 'technician', 'manager', 'phlebotomist'] }
     ],
      '/api/v1/patients/.*': [
         // Note: Technician access is limited at the app layer per spec
-        { methods: ['GET'], roles: ['receptionist', 'technician', 'manager'] },
+        { methods: ['GET'], roles: ['receptionist', 'technician', 'manager', 'phlebotomist'] },
         { methods: ['PUT'], roles: ['receptionist', 'manager'] }
     ],
     '/api/v1/orders': [
@@ -71,7 +71,11 @@ const rbacMatrix: Record<string, { methods: string[], roles: Role[] }[]> = {
         { methods: ['PUT'], roles: ['manager'] }
     ],
     '/api/v1/appointments': [
-        { methods: ['GET', 'POST'], roles: ['receptionist', 'manager'] }
+        { methods: ['GET'], roles: ['receptionist', 'manager', 'phlebotomist'] },
+        { methods: ['POST'], roles: ['receptionist', 'manager'] }
+    ],
+    '/api/v1/appointments/.*/collect': [
+        { methods: ['POST'], roles: ['phlebotomist', 'manager', 'technician'] }
     ],
     '/api/v1/appointments/.*': [
         { methods: ['PUT', 'DELETE'], roles: ['receptionist', 'manager'] }

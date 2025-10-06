@@ -122,7 +122,7 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
   ],
   phlebotomist: [
     { href: '/dashboard', label: 'Collection List', icon: ClipboardList },
-    { href: '/search-patient', label: 'Search Patient', icon: Search },
+    { href: '/patient', label: 'Search Patient', icon: Users },
   ],
   physician: [],
   patient: [],

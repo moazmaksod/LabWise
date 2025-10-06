@@ -3,6 +3,7 @@ import { useUser } from '@/hooks/use-user';
 import ManagerDashboard from '@/components/dashboards/manager-dashboard';
 import ReceptionistDashboard from '@/components/dashboards/receptionist-dashboard';
 import TechnicianDashboard from '@/components/dashboards/technician-dashboard';
+import PhlebotomistDashboard from '@/components/dashboards/phlebotomist-dashboard';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardPage() {
@@ -32,6 +33,8 @@ export default function DashboardPage() {
       return <ReceptionistDashboard />;
     case 'technician':
       return <TechnicianDashboard />;
+    case 'phlebotomist':
+      return <PhlebotomistDashboard />;
     default:
       return (
         <div className="flex h-[calc(100vh-10rem)] items-center justify-center rounded-lg border border-dashed">
