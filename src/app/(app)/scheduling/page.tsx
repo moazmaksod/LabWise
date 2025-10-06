@@ -460,7 +460,7 @@ export default function SchedulingPage() {
               ) : appointments.length > 0 ? (
                   appointments.map((appt) => (
                       <AccordionItem value={appt.id} key={appt.id}>
-                          <AccordionTrigger className="hover:no-underline px-4" onClick={() => handleOpenDialog(appt)}>
+                          <AccordionTrigger className="hover:no-underline px-4">
                               <div className="flex justify-between items-center w-full">
                                   <div className="flex items-center gap-4">
                                       <div className="flex items-center gap-2 font-medium text-lg">
@@ -503,6 +503,12 @@ export default function SchedulingPage() {
                                 ) : (
                                     <p className="text-muted-foreground text-sm">No pending orders for this appointment.</p>
                                 )}
+                                <div className="pt-4 border-t border-border/50 flex justify-end">
+                                    <Button variant="outline" size="sm" onClick={() => handleOpenDialog(appt)}>
+                                        <Edit className="mr-2 h-4 w-4" />
+                                        Edit Appointment
+                                    </Button>
+                                </div>
                               </div>
                           </AccordionContent>
                       </AccordionItem>
