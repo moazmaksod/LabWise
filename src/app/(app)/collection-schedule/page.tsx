@@ -136,6 +136,9 @@ export default function CollectionSchedulePage() {
                                             <div>
                                                 <div className="font-bold text-xl">{appt.patientInfo?.firstName} {appt.patientInfo?.lastName}</div>
                                                 <div className="text-sm text-muted-foreground">MRN: {appt.patientInfo?.mrn}</div>
+                                                {appt.orderInfo?.orderId && (
+                                                    <div className="text-sm text-muted-foreground font-mono">Order: {appt.orderInfo.orderId}</div>
+                                                )}
                                             </div>
                                         </div>
                                         <Badge variant={getStatusVariant(appt.status)} className="text-base">{appt.status}</Badge>
