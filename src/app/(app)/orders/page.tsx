@@ -35,16 +35,7 @@ const orderFormSchema = z.object({
   icd10Code: z.string().min(3, 'A valid ICD-10 code is required.'),
   testIds: z.array(z.string()).min(1, 'At least one test must be added to the order.'),
   sampleType: z.string().default('Whole Blood'), // Default value, can be enhanced later
-  scheduleAppointment: z.boolean().default(false),
-  appointmentDateTime: z.string().optional(),
-}).refine(data => {
-    if (data.scheduleAppointment) {
-        return !!data.appointmentDateTime;
-    }
-    return true;
-}, {
-    message: "Appointment date and time is required when scheduling.",
-    path: ["appointmentDateTime"],
+  appointmentDateTime: z.string().min(1, 'An appointment time for sample collection is required.'),
 });
 
 
@@ -77,12 +68,9 @@ function OrderForm({
       physicianId: editingOrder?.physicianId || '',
       icd10Code: editingOrder?.icd10Code || '',
       testIds: editingOrder?.samples[0]?.tests.map(t => t.testCode) || [],
-      scheduleAppointment: false,
-      appointmentDateTime: format(addHours(new Date(), 1), "yyyy-MM-dd'T'HH:mm"),
+      appointmentDateTime: editingOrder?.appointmentId ? format(new Date(editingOrder.createdAt), "yyyy-MM-dd'T'HH:mm") : format(addHours(new Date(), 1), "yyyy-MM-dd'T'HH:mm"),
     },
   });
-
-  const watchScheduleAppointment = form.watch('scheduleAppointment');
 
   useEffect(() => {
     const storedToken = localStorage.getItem('labwise-token');
@@ -198,16 +186,15 @@ function OrderForm({
             physicianId: data.physicianId,
             icd10Code: data.icd10Code,
             priority: 'Routine', // This could be a form field in the future
-            samples: [{ sampleType: data.sampleType, testCodes: data.testIds }]
-        };
-        
-        if (data.scheduleAppointment && data.appointmentDateTime) {
-            payload.appointmentDetails = {
+            samples: [{ sampleType: data.sampleType, testCodes: data.testIds }],
+            // Include appointment details for both create and update
+            appointmentDetails: {
                 scheduledTime: new Date(data.appointmentDateTime),
                 durationMinutes: 15,
                 status: 'Scheduled',
-            };
-        }
+                appointmentType: 'Sample Collection'
+            },
+        };
         
         const response = await fetch(isEditing ? `/api/v1/orders/${data.id}` : '/api/v1/orders', {
             method: isEditing ? 'PUT' : 'POST',
@@ -221,7 +208,7 @@ function OrderForm({
         }
         
         const result = await response.json();
-        toast({ title: `Order ${isEditing ? 'Updated' : 'Created'} Successfully`, description: `Order ID: ${result.orderId}. ${data.scheduleAppointment ? 'Appointment also scheduled.' : ''}` });
+        toast({ title: `Order ${isEditing ? 'Updated' : 'Created'} Successfully`, description: `Order ID: ${result.orderId}. Collection appointment scheduled.` });
         onOrderSaved();
 
     } catch (error: any) {
@@ -261,49 +248,28 @@ function OrderForm({
             <FormField control={form.control} name="testIds" render={({ field }) => ( <FormItem><FormMessage /></FormItem>)} />
         </div>
 
-        {!editingOrder && (
-            <div className="space-y-4 rounded-lg border p-4">
-                <FormField
-                    control={form.control}
-                    name="scheduleAppointment"
-                    render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                        <FormControl>
-                            <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                            <FormLabel>Schedule Phlebotomy Appointment</FormLabel>
-                            <FormMessage />
-                        </div>
-                        </FormItem>
-                    )}
-                />
-
-                {watchScheduleAppointment && (
-                    <FormField
-                        control={form.control}
-                        name="appointmentDateTime"
-                        render={({ field }) => (
-                            <FormItem>
-                            <FormLabel>Appointment Date & Time</FormLabel>
-                            <FormControl>
-                                <Input type="datetime-local" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+        <div className="space-y-4 rounded-lg border p-4 bg-secondary/50">
+            <h3 className="font-semibold leading-none tracking-tight">Sample Collection Appointment</h3>
+             <FormField
+                control={form.control}
+                name="appointmentDateTime"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Scheduled Date & Time</FormLabel>
+                    <FormControl>
+                        <Input type="datetime-local" {...field} />
+                    </FormControl>
+                    <FormDescription>A collection appointment must be scheduled for every order.</FormDescription>
+                    <FormMessage />
+                    </FormItem>
                 )}
-            </div>
-        )}
+            />
+        </div>
 
         <DialogFooter>
             <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {editingOrder ? 'Save Changes' : 'Create Order'}
+                {editingOrder ? 'Save Changes' : 'Create Order & Schedule'}
             </Button>
         </DialogFooter>
       </form>

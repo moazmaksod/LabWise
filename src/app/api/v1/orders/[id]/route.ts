@@ -1,8 +1,9 @@
 
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
-import type { Order, TestCatalogItem, OrderSample, OrderTest } from '@/lib/types';
+import type { Order, TestCatalogItem, OrderSample, OrderTest, Appointment } from '@/lib/types';
 import { decrypt } from '@/lib/auth';
 
 // GET a single order by ID
@@ -44,16 +45,16 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         if (!userPayload?.userId) return NextResponse.json({ message: 'Invalid or expired token.' }, { status: 401 });
 
         const body = await req.json();
-        const { patientId, physicianId, icd10Code, priority, samples } = body;
+        const { patientId, physicianId, icd10Code, priority, samples, appointmentDetails } = body;
         
         // Validation
-        if (!patientId || !physicianId || !icd10Code || !samples || !Array.isArray(samples) || samples.length === 0) {
+        if (!patientId || !physicianId || !icd10Code || !samples || !Array.isArray(samples) || samples.length === 0 || !appointmentDetails) {
             return NextResponse.json({ message: 'Missing or invalid required fields.' }, { status: 400 });
         }
 
         const { db } = await connectToDatabase();
 
-        const allTestCodes = samples.flatMap(s => s.testCodes);
+        const allTestCodes = samples.flatMap((s:any) => s.testCodes);
         if(allTestCodes.length === 0) {
              return NextResponse.json({ message: 'At least one test must be selected.' }, { status: 400 });
         }
@@ -85,6 +86,24 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             };
         });
         
+        // Find existing order to get appointmentId
+        const existingOrder = await db.collection<Order>('orders').findOne({ _id: new ObjectId(params.id) });
+        if (!existingOrder) {
+            return NextResponse.json({ message: 'Order not found' }, { status: 404 });
+        }
+        
+        // Update the associated appointment
+        if (existingOrder.appointmentId) {
+            await db.collection<Appointment>('appointments').updateOne(
+                { _id: existingOrder.appointmentId },
+                { $set: { 
+                    scheduledTime: new Date(appointmentDetails.scheduledTime),
+                    notes: appointmentDetails.notes,
+                    updatedAt: new Date(),
+                 } }
+            );
+        }
+
         const updatePayload = {
             physicianId: new ObjectId(physicianId),
             icd10Code,
@@ -98,9 +117,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             { $set: updatePayload }
         );
 
-        if (result.matchedCount === 0) {
-            return NextResponse.json({ message: 'Order not found' }, { status: 404 });
-        }
 
         const updatedOrder = await db.collection('orders').findOne({ _id: new ObjectId(params.id) });
 
@@ -110,5 +126,3 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
     }
 }
-
-    

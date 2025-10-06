@@ -13,11 +13,10 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const dateParam = searchParams.get('date');
         const query = searchParams.get('q');
+        const type = searchParams.get('type') as Appointment['appointmentType'] | null;
 
         let targetDate: Date;
         if (dateParam && !isNaN(Date.parse(dateParam))) {
-            // When a date string like 'YYYY-MM-DD' is parsed, it's treated as UTC midnight.
-            // To correctly query for the whole local day, we need to account for the timezone offset.
             const utcDate = new Date(dateParam);
             const timezoneOffset = utcDate.getTimezoneOffset() * 60000;
             targetDate = new Date(utcDate.getTime() + timezoneOffset);
@@ -30,6 +29,10 @@ export async function GET(req: NextRequest) {
 
         let filter: any = { scheduledTime: { $gte: dayStart, $lte: dayEnd } };
         
+        if (type) {
+            filter.appointmentType = type;
+        }
+
         const aggregationPipeline: any[] = [
             { $match: filter },
             { $sort: { scheduledTime: 1 } },
@@ -50,16 +53,21 @@ export async function GET(req: NextRequest) {
             {
                 $lookup: {
                     from: 'orders',
-                    localField: '_id',
-                    foreignField: 'appointmentId',
+                    localField: 'orderId',
+                    foreignField: '_id',
                     pipeline: [
                          { $match: { 
                             orderStatus: { $ne: 'Cancelled' }
                           }
                         },
-                        { $sort: { createdAt: -1 } },
                     ],
-                    as: 'pendingOrders'
+                    as: 'orderInfo'
+                }
+            },
+             {
+                $unwind: {
+                    path: '$orderInfo',
+                    preserveNullAndEmptyArrays: true
                 }
             },
         ];
@@ -84,10 +92,8 @@ export async function GET(req: NextRequest) {
 
         // Fetch all unique test codes from all pending orders
         const allTestCodes = appointments.flatMap(appt => 
-            appt.pendingOrders?.flatMap((order: any) => 
-                order.samples.flatMap((sample: any) => 
-                    sample.tests.map((test: any) => test.testCode)
-                ) || []
+            appt.orderInfo?.samples.flatMap((sample: any) => 
+                sample.tests.map((test: any) => test.testCode)
             ) || []
         );
         const uniqueTestCodes = [...new Set(allTestCodes)];
@@ -101,7 +107,7 @@ export async function GET(req: NextRequest) {
 
 
         const clientAppointments = appointments.map(appt => {
-            const { _id, patientId, patientInfo, pendingOrders, ...rest } = appt;
+            const { _id, patientId, orderId, patientInfo, orderInfo, ...rest } = appt;
             
             const clientPatientInfo = patientInfo ? {
               ...patientInfo,
@@ -109,13 +115,12 @@ export async function GET(req: NextRequest) {
               _id: undefined,
             } : undefined;
             
-            const clientPendingOrders = pendingOrders?.map((order: any) => {
-                const { _id: orderId, ...restOrder } = order;
-                
-                const samplesWithDetails = order.samples.map((sample: any) => {
+            let clientOrderInfo;
+            if (orderInfo) {
+                const { _id: orderInfoId, ...restOrder } = orderInfo;
+                 const samplesWithDetails = orderInfo.samples.map((sample: any) => {
                     const testsWithDetails = sample.tests.map((test: any) => ({
                         ...test,
-                        // Add test name back for display purposes, even if snapshotted
                         name: testDefMap.get(test.testCode)?.name || test.name,
                     }));
                     
@@ -133,19 +138,21 @@ export async function GET(req: NextRequest) {
                     }
                 });
 
-                return {
+                clientOrderInfo = {
                     ...restOrder,
-                    id: orderId.toHexString(),
+                    id: orderInfoId.toHexString(),
                     samples: samplesWithDetails
                 };
-            });
+            }
+           
 
             return { 
                 ...rest, 
                 id: _id.toHexString(),
                 patientId: patientId?.toHexString(),
+                orderId: orderId?.toHexString(),
                 patientInfo: clientPatientInfo,
-                pendingOrders: clientPendingOrders
+                orderInfo: clientOrderInfo
             };
         });
 
@@ -159,26 +166,21 @@ export async function GET(req: NextRequest) {
 
 
 export async function POST(req: NextRequest) {
-    console.log('DEBUG: Received request to create appointment.');
     try {
         const token = req.headers.get('authorization')?.split(' ')[1];
         if (!token) {
-            console.log('DEBUG: Authorization token missing.');
             return NextResponse.json({ message: 'Authorization token missing.' }, { status: 401 });
         }
         const userPayload = await decrypt(token);
         if (!userPayload?.userId) {
-            console.log('DEBUG: Invalid or expired token.');
             return NextResponse.json({ message: 'Invalid or expired token.' }, { status: 401 });
         }
 
         const body = await req.json();
-        console.log('DEBUG: Request body:', body);
 
-        const { patientId, scheduledTime, durationMinutes, status, notes } = body;
+        const { patientId, scheduledTime, durationMinutes, status, notes, appointmentType } = body;
 
-        if (!patientId || !scheduledTime || !status) {
-            console.log('DEBUG: Missing required fields.');
+        if (!patientId || !scheduledTime || !status || !appointmentType) {
             return NextResponse.json({ message: 'Missing required fields.' }, { status: 400 });
         }
         
@@ -190,18 +192,16 @@ export async function POST(req: NextRequest) {
 
         const newAppointment: Omit<Appointment, '_id'> = {
             patientId: new ObjectId(patientId),
+            appointmentType,
             scheduledTime: new Date(scheduledTime),
             durationMinutes: durationMinutes || 15,
             status: status,
             notes: notes || '',
         };
-        console.log('DEBUG: New appointment document:', newAppointment);
 
         const result = await db.collection('appointments').insertOne(newAppointment);
-        console.log('DEBUG: Insert result:', result);
-
+        
         if (!result.insertedId) {
-            console.log('DEBUG: MongoDB insert operation failed.');
             throw new Error('MongoDB insert operation failed.');
         }
         
@@ -224,10 +224,8 @@ export async function POST(req: NextRequest) {
         ]).next();
 
         if (!createdAppointment) {
-            console.log('DEBUG: Failed to retrieve created appointment after insert.');
             return NextResponse.json({ message: 'Failed to retrieve created appointment.' }, { status: 500 });
         }
-        console.log('DEBUG: Successfully retrieved created appointment with patient info.');
         
         const { _id, ...rest } = createdAppointment;
         const patientInfo = rest.patientInfo ? { ...rest.patientInfo, id: rest.patientInfo._id.toHexString(), _id: undefined } : undefined;
@@ -241,7 +239,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(clientResponse, { status: 201 });
 
     } catch (error) {
-        console.error('DEBUG: ERROR in POST /api/v1/appointments:', error);
+        console.error('ERROR in POST /api/v1/appointments:', error);
         return NextResponse.json({ message: 'Internal Server Error', error: (error as Error).message }, { status: 500 });
     }
 }

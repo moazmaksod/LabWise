@@ -23,8 +23,8 @@ export async function POST(req: NextRequest) {
         const { patientId, physicianId, icd10Code, priority, samples, appointmentDetails } = body;
 
         // Validation
-        if (!patientId || !physicianId || !icd10Code || !samples || !Array.isArray(samples) || samples.length === 0) {
-            return NextResponse.json({ message: 'Missing or invalid required fields.' }, { status: 400 });
+        if (!patientId || !physicianId || !icd10Code || !samples || !Array.isArray(samples) || samples.length === 0 || !appointmentDetails) {
+            return NextResponse.json({ message: 'Missing or invalid required fields. Order must have an appointment.' }, { status: 400 });
         }
 
         const { db } = await connectToDatabase();
@@ -52,30 +52,27 @@ export async function POST(req: NextRequest) {
 
         const testDefMap = new Map(testDefs.map(t => [t.testCode, t]));
         
-        let newAppointmentId: ObjectId | undefined = undefined;
+        const newOrderId = await getNextOrderId();
+        const orderObjectId = new ObjectId();
 
-        // If appointment details are provided, create an appointment first
-        if (appointmentDetails) {
-            const newAppointment: Omit<Appointment, '_id'> = {
-                patientId: new ObjectId(patientId),
-                scheduledTime: new Date(appointmentDetails.scheduledTime),
-                durationMinutes: appointmentDetails.durationMinutes || 15,
-                status: appointmentDetails.status || 'Scheduled',
-                notes: appointmentDetails.notes || '',
-            };
-            const appointmentResult = await db.collection('appointments').insertOne(newAppointment);
-            newAppointmentId = appointmentResult.insertedId;
-        }
+        const newAppointment: Omit<Appointment, '_id'> = {
+            patientId: new ObjectId(patientId),
+            orderId: orderObjectId, // Link appointment to the new order
+            appointmentType: 'Sample Collection',
+            scheduledTime: new Date(appointmentDetails.scheduledTime),
+            durationMinutes: appointmentDetails.durationMinutes || 15,
+            status: appointmentDetails.status || 'Scheduled',
+            notes: appointmentDetails.notes || '',
+        };
+        const appointmentResult = await db.collection('appointments').insertOne(newAppointment);
 
         const orderSamples: OrderSample[] = samples.map((sample: any) => {
             const testsForSample: OrderTest[] = sample.testCodes.map((tc: string) => {
                 const testDef = testDefMap.get(tc);
-                // --- This is the "Snapshotting" logic ---
                 return {
                     testCode: testDef!.testCode,
                     name: testDef!.name,
                     status: 'Pending',
-                    // For simplicity, we are taking the first reference range. A real system would have more complex logic.
                     referenceRange: testDef!.referenceRanges?.length > 0 ? `${testDef!.referenceRanges[0].rangeLow} - ${testDef!.referenceRanges[0].rangeHigh}` : 'N/A',
                     resultUnits: testDef!.referenceRanges?.length > 0 ? testDef!.referenceRanges[0].units : '',
                 };
@@ -89,13 +86,11 @@ export async function POST(req: NextRequest) {
             };
         });
         
-        const newOrderId = await getNextOrderId();
-
         const newOrder: Omit<Order, '_id'> = {
             orderId: newOrderId,
             patientId: new ObjectId(patientId),
             physicianId: new ObjectId(physicianId),
-            appointmentId: newAppointmentId,
+            appointmentId: appointmentResult.insertedId,
             icd10Code,
             priority: priority || 'Routine',
             orderStatus: 'Pending',
@@ -105,11 +100,11 @@ export async function POST(req: NextRequest) {
             updatedAt: new Date(),
         };
 
-        const result = await db.collection('orders').insertOne(newOrder);
+        const result = await db.collection('orders').insertOne({ ...newOrder, _id: orderObjectId });
 
-        const createdOrder = { ...newOrder, _id: result.insertedId };
+        const createdOrder = { ...newOrder, _id: orderObjectId };
         
-        return NextResponse.json({ ...createdOrder, id: result.insertedId.toHexString(), orderId: newOrderId }, { status: 201 });
+        return NextResponse.json({ ...createdOrder, id: orderObjectId.toHexString(), orderId: newOrderId }, { status: 201 });
 
     } catch (error) {
         console.error('Failed to create order:', error);
@@ -130,7 +125,6 @@ export async function GET(req: NextRequest) {
 
         let aggregationPipeline: any[] = [];
         
-        // Always join with patients collection first to enable searching on patient fields
         aggregationPipeline.push({
             $lookup: {
                 from: 'patients',
@@ -140,7 +134,6 @@ export async function GET(req: NextRequest) {
             }
         });
         
-        // Unwind the patientInfo array. Use preserveNullAndEmptyArrays to not drop orders for deleted patients.
         aggregationPipeline.push({ 
             $unwind: {
                 path: "$patientInfo",
@@ -148,7 +141,6 @@ export async function GET(req: NextRequest) {
             }
         });
 
-        // If there's a search query, add a match stage to filter results
         if (query) {
              const searchRegex = new RegExp(query, 'i');
             aggregationPipeline.push({
@@ -156,7 +148,6 @@ export async function GET(req: NextRequest) {
                     $or: [
                         { orderId: searchRegex },
                         { 'samples.accessionNumber': searchRegex },
-                        // Search on joined patient fields
                         { 'patientInfo.mrn': searchRegex },
                         { 'patientInfo.firstName': searchRegex },
                         { 'patientInfo.lastName': searchRegex },
@@ -166,7 +157,6 @@ export async function GET(req: NextRequest) {
             });
         }
 
-        // Add sorting and limiting to the pipeline
         aggregationPipeline.push({ $sort: { createdAt: -1 } });
         aggregationPipeline.push({ $limit: 50 });
 

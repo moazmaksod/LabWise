@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
-import { Clock, PlusCircle, Search, Loader2, CalendarIcon, ChevronLeft, ChevronRight, Edit, Trash2, Droplets, AlertTriangle } from 'lucide-react';
+import { Clock, PlusCircle, Search, Loader2, CalendarIcon, ChevronLeft, ChevronRight, Edit, Trash2, Droplets, AlertTriangle, User } from 'lucide-react';
 import { format, addDays, subDays } from 'date-fns';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -129,13 +129,14 @@ function AppointmentForm({ onSave, selectedDate, editingAppointment, onDelete }:
                 scheduledTime: new Date(data.scheduledTime),
                 durationMinutes: 15,
                 status: editingAppointment?.status || 'Scheduled', // Preserve status on edit
+                appointmentType: 'Consultation', // This form is for consultations
             }),
         });
         if (!response.ok) {
             const errorBody = await response.json();
             throw new Error(errorBody.message || `Failed to ${isEditing ? 'update' : 'create'} appointment`);
         }
-        toast({ title: `Appointment ${isEditing ? 'Updated' : 'Created'}`, description: 'The schedule has been updated.' });
+        toast({ title: `Appointment ${isEditing ? 'Updated' : 'Created'}`, description: 'The consultation schedule has been updated.' });
         onSave();
     } catch (error: any) {
         toast({ variant: 'destructive', title: 'Error', description: error.message });
@@ -210,7 +211,7 @@ function AppointmentForm({ onSave, selectedDate, editingAppointment, onDelete }:
                 <FormItem>
                   <FormLabel>Notes (optional)</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Patient is nervous" {...field} value={field.value ?? ''} />
+                    <Input placeholder="e.g., Patient wants to discuss test options" {...field} value={field.value ?? ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -270,9 +271,11 @@ export default function SchedulingPage() {
     setLoading(true);
     try {
       const dateString = format(date, 'yyyy-MM-dd');
-      const url = query
-        ? `/api/v1/appointments?date=${dateString}&q=${query}`
-        : `/api/v1/appointments?date=${dateString}`;
+      let url = `/api/v1/appointments?date=${dateString}&type=Consultation`;
+      if(query) {
+        url += `&q=${query}`
+      }
+      
       const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
@@ -366,8 +369,8 @@ export default function SchedulingPage() {
         <CardHeader>
           <div className='flex items-center justify-between'>
               <div>
-                  <CardTitle>Appointment Scheduling</CardTitle>
-                  <CardDescription>View the daily schedule or add a new appointment.</CardDescription>
+                  <CardTitle>Consultation Scheduling</CardTitle>
+                  <CardDescription>Schedule appointments for patients without existing orders.</CardDescription>
               </div>
               <div className="flex items-center gap-2">
                   <Button variant="outline" size="icon" onClick={() => handleDateChange(subDays(selectedDate, 1))}>
@@ -426,11 +429,11 @@ export default function SchedulingPage() {
                   </DialogTrigger>
                   <DialogContent onPointerDownOutside={(e) => e.preventDefault()}>
                       <DialogHeader>
-                          <DialogTitle>{editingAppointment ? 'Edit Appointment' : 'Create New Appointment'}</DialogTitle>
+                          <DialogTitle>{editingAppointment ? 'Edit Appointment' : 'New Consultation'}</DialogTitle>
                           <DialogDescription>
                             {editingAppointment 
                                 ? `Update details for the appointment at ${format(new Date(editingAppointment.scheduledTime), 'p')}.`
-                                : "Schedule a new phlebotomy appointment for a patient."}
+                                : "Schedule a new consultation or registration appointment."}
                           </DialogDescription>
                       </DialogHeader>
                       <AppointmentForm onSave={handleSave} selectedDate={selectedDate} editingAppointment={editingAppointment} onDelete={handleDelete} />
@@ -477,32 +480,8 @@ export default function SchedulingPage() {
                           </AccordionTrigger>
                           <AccordionContent className="bg-muted/30">
                               <div className="p-4 space-y-4">
-                                {(appt.pendingOrders && appt.pendingOrders.length > 0) ? (
-                                    appt.pendingOrders.map(order => (
-                                        <div key={order.id} className="space-y-2">
-                                            <h4 className="font-semibold">Order #{order.orderId}</h4>
-                                            {order.samples.map(sample => (
-                                              <div key={sample.sampleId} className="pl-4">
-                                                <p className="flex items-center gap-2 font-medium">
-                                                  <Droplets className="h-4 w-4 text-primary"/> 
-                                                  {sample.specimenSummary?.tubeType || 'N/A'}
-                                                </p>
-                                                <ul className="list-disc list-inside pl-6 text-sm text-muted-foreground">
-                                                    {sample.tests.map(test => <li key={test.testCode}>{test.name}</li>)}
-                                                </ul>
-                                                {sample.specimenSummary?.specialHandling && (
-                                                  <p className="flex items-center gap-2 mt-1 text-sm text-amber-500">
-                                                    <AlertTriangle className="h-4 w-4"/>
-                                                    {sample.specimenSummary.specialHandling}
-                                                  </p>
-                                                )}
-                                              </div>
-                                            ))}
-                                        </div>
-                                    ))
-                                ) : (
-                                    <p className="text-muted-foreground text-sm">No pending orders for this appointment.</p>
-                                )}
+                                  <h4 className="font-semibold">Notes</h4>
+                                  <p className="text-muted-foreground text-sm">{appt.notes || 'No notes for this appointment.'}</p>
                                 <div className="pt-4 border-t border-border/50 flex justify-end">
                                     <Button variant="outline" size="sm" onClick={() => handleOpenDialog(appt)}>
                                         <Edit className="mr-2 h-4 w-4" />
@@ -515,7 +494,7 @@ export default function SchedulingPage() {
                   ))
               ) : (
                   <div className="h-24 text-center text-muted-foreground flex items-center justify-center">
-                      No appointments found for this day.
+                      No consultation appointments found for this day.
                   </div>
               )}
             </Accordion>

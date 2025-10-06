@@ -1,3 +1,4 @@
+
 'use client';
 import { useUser } from '@/hooks/use-user';
 import ManagerDashboard from '@/components/dashboards/manager-dashboard';
@@ -26,6 +27,11 @@ export default function DashboardPage() {
 
   if (!user) return null;
 
+  // The Phlebotomist role will now show the Collection List dashboard
+  if (user.role === 'phlebotomist') {
+    return <PhlebotomistDashboard />;
+  }
+
   switch (user.role) {
     case 'manager':
       return <ManagerDashboard />;
@@ -33,8 +39,6 @@ export default function DashboardPage() {
       return <ReceptionistDashboard />;
     case 'technician':
       return <TechnicianDashboard />;
-    case 'phlebotomist':
-      return <PhlebotomistDashboard />;
     default:
       return (
         <div className="flex h-[calc(100vh-10rem)] items-center justify-center rounded-lg border border-dashed">

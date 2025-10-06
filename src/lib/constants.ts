@@ -1,4 +1,5 @@
 
+
 import type { LucideIcon } from 'lucide-react';
 import { 
   UserPlus, 
@@ -19,6 +20,7 @@ import {
   FlaskConical,
   FileSearch,
   ClipboardPlus,
+  Droplets,
 } from 'lucide-react';
 import type { Role, ClientUser, Sample } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -100,7 +102,7 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/patient', label: 'Patients', icon: Users },
     { href: '/orders', label: 'Orders', icon: ClipboardPlus },
-    { href: '/scheduling', label: 'Scheduling', icon: CalendarDays },
+    { href: '/scheduling', label: 'Consultations', icon: CalendarDays },
   ],
   technician: [
     { href: '/dashboard', label: 'Worklist', icon: ClipboardList },
@@ -121,7 +123,7 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
     { href: '/audit-trail', label: 'Audit Trail', icon: ClipboardCopy },
   ],
   phlebotomist: [
-    { href: '/dashboard', label: 'Collection List', icon: ClipboardList },
+    { href: '/dashboard', label: 'Collection List', icon: Droplets },
     { href: '/patient', label: 'Search Patient', icon: Users },
   ],
   physician: [],

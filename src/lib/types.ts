@@ -184,15 +184,18 @@ export type ClientOrder = Omit<Order, '_id' | 'patientId' | 'physicianId' | 'cre
 export type Appointment = {
     _id: ObjectId;
     patientId: ObjectId;
+    orderId?: ObjectId; // Optional: Links to a specific order for collection
+    appointmentType: 'Consultation' | 'Sample Collection';
     scheduledTime: Date;
     durationMinutes: number;
     status: 'Scheduled' | 'CheckedIn' | 'Completed' | 'NoShow';
     notes?: string;
 };
 
-export type ClientAppointment = Omit<Appointment, '_id' | 'patientId'> & {
+export type ClientAppointment = Omit<Appointment, '_id' | 'patientId' | 'orderId'> & {
     id: string;
     patientId: string;
+    orderId?: string;
     patientInfo?: Partial<ClientPatient>;
-    pendingOrders?: ClientOrder[]; // To hold associated order details
+    orderInfo?: Partial<ClientOrder>;
 };

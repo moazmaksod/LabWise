@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
@@ -19,10 +20,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         }
         
         const body = await req.json();
-        const { patientId, scheduledTime, notes } = body;
+        const { patientId, scheduledTime, notes, appointmentType } = body;
 
-        if (!patientId || !scheduledTime) {
-            return NextResponse.json({ message: 'Missing required fields: patientId and scheduledTime.' }, { status: 400 });
+        if (!patientId || !scheduledTime || !appointmentType) {
+            return NextResponse.json({ message: 'Missing required fields: patientId, scheduledTime, appointmentType.' }, { status: 400 });
         }
         
         if (!ObjectId.isValid(patientId)) {
@@ -35,6 +36,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             patientId: new ObjectId(patientId),
             scheduledTime: new Date(scheduledTime),
             notes: notes,
+            appointmentType,
             updatedAt: new Date(),
         };
 

@@ -6,7 +6,6 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Clock, Beaker, Check, User, Microscope, AlertTriangle, ChevronDown, ChevronRight, Droplets } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -24,14 +23,13 @@ export default function PhlebotomistDashboard() {
         setLoading(true);
         try {
             const dateString = format(new Date(), 'yyyy-MM-dd');
-            const url = `/api/v1/appointments?date=${dateString}`;
+            const url = `/api/v1/appointments?date=${dateString}&type=Sample Collection`;
             const response = await fetch(url, {
                 headers: { 'Authorization': `Bearer ${authToken}` }
             });
             if (!response.ok) throw new Error('Failed to fetch collection list');
             
             const data = await response.json();
-            // Show all appointments for the day, including completed
             setAppointments(data);
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Error', description: error.message });
@@ -73,7 +71,6 @@ export default function PhlebotomistDashboard() {
                 description: 'The sample status has been updated.',
             });
             
-            // Refresh the list after collection
             fetchAppointments(token);
 
         } catch (error: any) {
@@ -95,25 +92,23 @@ export default function PhlebotomistDashboard() {
         <Card className="shadow-lg">
             <CardHeader>
                 <CardTitle>Phlebotomy Collection List</CardTitle>
-                <CardDescription>Patients scheduled for sample collection today, {format(new Date(), 'PPP')}.</CardDescription>
+                <CardDescription>Appointments for sample collection scheduled for today, {format(new Date(), 'PPP')}.</CardDescription>
             </CardHeader>
             <CardContent>
                 <Accordion type="single" collapsible className="w-full">
                     {loading ? (
                         Array.from({ length: 5 }).map((_, i) => (
-                            <div key={i} className="flex items-center space-x-4 p-4">
-                                <Skeleton className="h-12 w-12 rounded-full" />
-                                <div className="space-y-2">
-                                <Skeleton className="h-4 w-[250px]" />
-                                <Skeleton className="h-4 w-[200px]" />
-                                </div>
+                            <div key={i} className="flex items-center space-x-4 p-4 border-b">
+                                <Skeleton className="h-10 w-24" />
+                                <Skeleton className="h-6 w-48" />
+                                <Skeleton className="h-6 w-24 ml-auto" />
                             </div>
                         ))
                     ) : appointments.length > 0 ? (
                         appointments.map((appt) => (
-                            <AccordionItem value={appt.id} key={appt.id} disabled={appt.status === 'Completed' && (!appt.pendingOrders || appt.pendingOrders.length === 0)}>
-                                <AccordionTrigger className={cn("hover:no-underline", appt.status === 'CheckedIn' && 'bg-blue-900/40', appt.status === 'Completed' && 'bg-secondary/50 opacity-70 hover:bg-secondary/50 cursor-default')}>
-                                    <div className="flex justify-between items-center w-full pr-4">
+                            <AccordionItem value={appt.id} key={appt.id} disabled={appt.status === 'Completed'}>
+                                <AccordionTrigger className={cn("hover:no-underline px-4", appt.status === 'CheckedIn' && 'bg-blue-900/40', appt.status === 'Completed' && 'bg-secondary/50 opacity-70 hover:bg-secondary/50 cursor-default')}>
+                                    <div className="flex justify-between items-center w-full">
                                         <div className="flex items-center gap-4">
                                              <div className="flex items-center gap-2 font-semibold text-lg">
                                                 <Clock className="h-5 w-5 text-muted-foreground" />
@@ -129,56 +124,54 @@ export default function PhlebotomistDashboard() {
                                 </AccordionTrigger>
                                 <AccordionContent className="bg-muted/30">
                                     <div className="p-4">
-                                    {appt.pendingOrders && appt.pendingOrders.length > 0 ? (
-                                        appt.pendingOrders.map(order => (
-                                            <div key={order.id} className="space-y-3">
-                                                <h4 className="font-semibold text-lg">Order #{order.orderId}</h4>
-                                                <div className="space-y-4">
-                                                    {order.samples.map(sample => (
-                                                        <Card key={sample.sampleId}>
-                                                            <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
-                                                                <CardTitle className="text-md flex items-center gap-2">
-                                                                    <Droplets className="h-5 w-5 text-primary"/>
-                                                                    {sample.specimenSummary?.tubeType || 'Unknown Tube'}
-                                                                </CardTitle>
-                                                                 <Button 
-                                                                    size="sm" 
-                                                                    onClick={() => handleConfirmCollection(appt.id, sample.sampleId)}
-                                                                    disabled={sample.status !== 'AwaitingCollection'}
-                                                                >
-                                                                    <Check className="mr-2 h-4 w-4" />
-                                                                    {sample.status === 'AwaitingCollection' ? 'Confirm Collection' : 'Collected'}
-                                                                </Button>
-                                                            </CardHeader>
-                                                            <CardContent>
-                                                                <ul className="list-disc list-inside text-muted-foreground space-y-1">
-                                                                    {sample.tests.map(test => (
-                                                                        <li key={test.testCode}>{test.name}</li>
-                                                                    ))}
-                                                                </ul>
-                                                                {sample.specimenSummary?.specialHandling && (
-                                                                    <div className="mt-3 flex items-center gap-2 text-yellow-400">
-                                                                        <AlertTriangle className="h-4 w-4"/>
-                                                                        <span className="font-semibold">Special Handling:</span>
-                                                                        <span>{sample.specimenSummary.specialHandling}</span>
-                                                                    </div>
-                                                                )}
-                                                            </CardContent>
-                                                        </Card>
-                                                    ))}
-                                                </div>
+                                    {appt.orderInfo ? (
+                                        <div className="space-y-3">
+                                            <h4 className="font-semibold text-lg">Order #{appt.orderInfo.orderId}</h4>
+                                            <div className="space-y-4">
+                                                {appt.orderInfo.samples.map(sample => (
+                                                    <Card key={sample.sampleId}>
+                                                        <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
+                                                            <CardTitle className="text-md flex items-center gap-2">
+                                                                <Droplets className="h-5 w-5 text-primary"/>
+                                                                {sample.specimenSummary?.tubeType || 'Unknown Tube'}
+                                                            </CardTitle>
+                                                             <Button 
+                                                                size="sm" 
+                                                                onClick={() => handleConfirmCollection(appt.id, sample.sampleId)}
+                                                                disabled={sample.status !== 'AwaitingCollection'}
+                                                            >
+                                                                <Check className="mr-2 h-4 w-4" />
+                                                                {sample.status === 'AwaitingCollection' ? 'Confirm Collection' : 'Collected'}
+                                                            </Button>
+                                                        </CardHeader>
+                                                        <CardContent>
+                                                            <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                                                                {sample.tests.map(test => (
+                                                                    <li key={test.testCode}>{test.name}</li>
+                                                                ))}
+                                                            </ul>
+                                                            {sample.specimenSummary?.specialHandling && (
+                                                                <div className="mt-3 flex items-center gap-2 text-yellow-400">
+                                                                    <AlertTriangle className="h-4 w-4"/>
+                                                                    <span className="font-semibold">Special Handling:</span>
+                                                                    <span>{sample.specimenSummary.specialHandling}</span>
+                                                                </div>
+                                                            )}
+                                                        </CardContent>
+                                                    </Card>
+                                                ))}
                                             </div>
-                                        ))
+                                        </div>
                                     ) : (
-                                        <div className="text-center text-muted-foreground py-4">No pending orders awaiting collection for this appointment.</div>
+                                        <div className="text-center text-muted-foreground py-4">Order details not found for this appointment.</div>
                                     )}
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
                         ))
                     ) : (
-                        <div className="text-center text-muted-foreground py-10">
-                            No patients scheduled for collection at this time.
+                        <div className="text-center text-muted-foreground py-10 h-48 flex items-center justify-center">
+                            No sample collections scheduled for today.
                         </div>
                     )}
                 </Accordion>

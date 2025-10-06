@@ -59,8 +59,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         const updatedOrder = await db.collection<Order>('orders').findOne({ _id: orderContainingSample._id });
         const allSamplesCollected = updatedOrder?.samples.every(s => s.status !== 'AwaitingCollection');
 
-        // If all samples for this patient's orders associated with the appointment are collected,
-        // update the appointment status to 'Completed'.
         if (allSamplesCollected) {
              await db.collection<Appointment>('appointments').updateOne(
                 { _id: new ObjectId(params.id) },
