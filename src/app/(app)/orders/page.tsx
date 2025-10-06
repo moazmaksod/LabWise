@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Search, PlusCircle, X, Loader2, FilePlus, TestTube, FileSearch, Edit } from 'lucide-react';
+import { Search, PlusCircle, X, Loader2, FilePlus, TestTube, FileSearch, Edit, CalendarPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 import { Button } from '@/components/ui/button';
@@ -24,8 +24,9 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from '@/components/ui/badge';
 import type { ClientPatient, ClientTestCatalogItem, ClientUser, ClientOrder } from '@/lib/types';
-import { format } from 'date-fns';
+import { format, addHours } from 'date-fns';
 import { calculateAge } from '@/lib/utils';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const orderFormSchema = z.object({
   id: z.string().optional(),
@@ -34,7 +35,18 @@ const orderFormSchema = z.object({
   icd10Code: z.string().min(3, 'A valid ICD-10 code is required.'),
   testIds: z.array(z.string()).min(1, 'At least one test must be added to the order.'),
   sampleType: z.string().default('Whole Blood'), // Default value, can be enhanced later
+  scheduleAppointment: z.boolean().default(false),
+  appointmentDateTime: z.string().optional(),
+}).refine(data => {
+    if (data.scheduleAppointment) {
+        return !!data.appointmentDateTime;
+    }
+    return true;
+}, {
+    message: "Appointment date and time is required when scheduling.",
+    path: ["appointmentDateTime"],
 });
+
 
 type OrderFormValues = z.infer<typeof orderFormSchema>;
 
@@ -65,8 +77,12 @@ function OrderForm({
       physicianId: editingOrder?.physicianId || '',
       icd10Code: editingOrder?.icd10Code || '',
       testIds: editingOrder?.samples[0]?.tests.map(t => t.testCode) || [],
+      scheduleAppointment: false,
+      appointmentDateTime: format(addHours(new Date(), 1), "yyyy-MM-dd'T'HH:mm"),
     },
   });
+
+  const watchScheduleAppointment = form.watch('scheduleAppointment');
 
   useEffect(() => {
     const storedToken = localStorage.getItem('labwise-token');
@@ -176,7 +192,7 @@ function OrderForm({
     const isEditing = !!data.id;
     
     try {
-        const payload = {
+        const payload: any = {
             id: data.id,
             patientId: data.patientId,
             physicianId: data.physicianId,
@@ -184,6 +200,14 @@ function OrderForm({
             priority: 'Routine', // This could be a form field in the future
             samples: [{ sampleType: data.sampleType, testCodes: data.testIds }]
         };
+        
+        if (data.scheduleAppointment && data.appointmentDateTime) {
+            payload.appointmentDetails = {
+                scheduledTime: new Date(data.appointmentDateTime),
+                durationMinutes: 15,
+                status: 'Scheduled',
+            };
+        }
         
         const response = await fetch(isEditing ? `/api/v1/orders/${data.id}` : '/api/v1/orders', {
             method: isEditing ? 'PUT' : 'POST',
@@ -197,7 +221,7 @@ function OrderForm({
         }
         
         const result = await response.json();
-        toast({ title: `Order ${isEditing ? 'Updated' : 'Created'} Successfully`, description: `Order ID: ${result.orderId}` });
+        toast({ title: `Order ${isEditing ? 'Updated' : 'Created'} Successfully`, description: `Order ID: ${result.orderId}. ${data.scheduleAppointment ? 'Appointment also scheduled.' : ''}` });
         onOrderSaved();
 
     } catch (error: any) {
@@ -236,6 +260,46 @@ function OrderForm({
             {selectedTests.length > 0 ? ( <div className="flex flex-wrap gap-2">{selectedTests.map(test => (<Badge key={test.testCode} variant="secondary" className="text-base py-1 pl-3 pr-1">{test.name}<button type="button" onClick={() => handleRemoveTest(test.testCode)} className="ml-2 rounded-full p-0.5 hover:bg-destructive/20 text-destructive"><X className="h-3 w-3" /></button></Badge>))}</div>) : (<div className="text-sm text-muted-foreground">No tests added yet.</div>)}
             <FormField control={form.control} name="testIds" render={({ field }) => ( <FormItem><FormMessage /></FormItem>)} />
         </div>
+
+        {!editingOrder && (
+            <div className="space-y-4 rounded-lg border p-4">
+                <FormField
+                    control={form.control}
+                    name="scheduleAppointment"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                        <FormControl>
+                            <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                            <FormLabel>Schedule Phlebotomy Appointment</FormLabel>
+                            <FormMessage />
+                        </div>
+                        </FormItem>
+                    )}
+                />
+
+                {watchScheduleAppointment && (
+                    <FormField
+                        control={form.control}
+                        name="appointmentDateTime"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Appointment Date & Time</FormLabel>
+                            <FormControl>
+                                <Input type="datetime-local" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                )}
+            </div>
+        )}
+
         <DialogFooter>
             <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -350,7 +414,7 @@ function OrderDialogContent({ onOrderSaved, editingOrder }: { onOrderSaved: () =
             <CardContent className="pb-4">
                 <div className="flex justify-between items-center">
                     <div>
-                        <p className="font-semibold text-xl">{selectedPatient.firstName} ${selectedPatient.lastName}</p>
+                        <p className="font-semibold text-xl">{selectedPatient.firstName} {selectedPatient.lastName}</p>
                         <p className="text-muted-foreground">MRN: {selectedPatient.mrn}</p>
                     </div>
                     <div className="text-right">

@@ -1,10 +1,11 @@
 
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { getNextOrderId } from '@/lib/counters';
 import { decrypt } from '@/lib/auth';
-import type { Order, TestCatalogItem, OrderSample, OrderTest, Role } from '@/lib/types';
+import type { Order, TestCatalogItem, OrderSample, OrderTest, Role, Appointment } from '@/lib/types';
 
 // POST a new order
 export async function POST(req: NextRequest) {
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { patientId, physicianId, icd10Code, priority, samples } = body;
+        const { patientId, physicianId, icd10Code, priority, samples, appointmentDetails } = body;
 
         // Validation
         if (!patientId || !physicianId || !icd10Code || !samples || !Array.isArray(samples) || samples.length === 0) {
@@ -89,6 +90,15 @@ export async function POST(req: NextRequest) {
         };
 
         const result = await db.collection('orders').insertOne(newOrder);
+
+        // If appointment details are provided, create an appointment
+        if (appointmentDetails) {
+            const newAppointment: Omit<Appointment, '_id'> = {
+                patientId: new ObjectId(patientId),
+                ...appointmentDetails,
+            };
+            await db.collection('appointments').insertOne(newAppointment);
+        }
 
         const createdOrder = { ...newOrder, _id: result.insertedId };
         
