@@ -55,7 +55,6 @@ export async function GET(req: NextRequest) {
                           }
                         },
                         { $sort: { createdAt: -1 } },
-                        { $limit: 1 } // Get the most recent pending order
                     ],
                     as: 'pendingOrders'
                 }
