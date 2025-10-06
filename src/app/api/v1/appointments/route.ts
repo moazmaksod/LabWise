@@ -50,6 +50,7 @@ export async function GET(req: NextRequest) {
                     pipeline: [
                         { $match: { 
                             $expr: { $eq: ['$patientId', '$$patient_id'] },
+                            // Only show orders that are still pending and need collection
                             orderStatus: 'Pending',
                             'samples.status': 'AwaitingCollection'
                           }
@@ -92,9 +93,9 @@ export async function GET(req: NextRequest) {
         // Fetch specimen requirements for all needed tests in one query
         const testDefs = await db.collection<TestCatalogItem>('testCatalog').find(
             { testCode: { $in: uniqueTestCodes } },
-            { projection: { testCode: 1, specimenRequirements: 1 } }
+            { projection: { testCode: 1, name: 1, specimenRequirements: 1 } }
         ).toArray();
-        const testDefMap = new Map(testDefs.map(t => [t.testCode, t.specimenRequirements]));
+        const testDefMap = new Map(testDefs.map(t => [t.testCode, t]));
 
 
         const clientAppointments = appointments.map(appt => {
@@ -109,24 +110,21 @@ export async function GET(req: NextRequest) {
             const clientPendingOrders = pendingOrders?.map((order: any) => {
                 const { _id: orderId, ...restOrder } = order;
                 
-                // Add specimen requirements to each sample's tests
                 const samplesWithDetails = restOrder.samples.map((sample: any) => {
                     const testsWithDetails = sample.tests.map((test: any) => ({
                         ...test,
-                        specimenRequirements: testDefMap.get(test.testCode)
+                        // Add test name back for display purposes, even if snapshotted
+                        name: testDefMap.get(test.testCode)?.name || test.name,
                     }));
                     
-                    // Aggregate specimen requirements at the sample level for easy access
-                    const sampleSpecimenReqs = testsWithDetails.map((t: any) => t.specimenRequirements);
-                    const tubeTypes = [...new Set(sampleSpecimenReqs.map(s => s?.tubeType).filter(Boolean))].join(', ');
-                     const specialHandling = [...new Set(sampleSpecimenReqs.map(s => s?.specialHandling).filter(Boolean))].join(', ');
-
+                    const tubeTypes = [...new Set(sample.tests.map((t: any) => testDefMap.get(t.testCode)?.specimenRequirements.tubeType).filter(Boolean))].join(', ');
+                    const specialHandling = [...new Set(sample.tests.map((t: any) => testDefMap.get(t.testCode)?.specimenRequirements.specialHandling).filter(Boolean))].join(', ');
 
                     return {
                         ...sample,
                         sampleId: sample.sampleId.toHexString(),
                         tests: testsWithDetails,
-                        specimenRequirements: { // Simplified view for the phlebotomist
+                        specimenSummary: {
                             tubeType: tubeTypes,
                             specialHandling: specialHandling,
                         }
@@ -193,7 +191,7 @@ export async function POST(req: NextRequest) {
             scheduledTime: new Date(scheduledTime),
             durationMinutes: durationMinutes || 15,
             status: status,
-            notes: notes,
+            notes: notes || '',
         };
         console.log('DEBUG: New appointment document:', newAppointment);
 

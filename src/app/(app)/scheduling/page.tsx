@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
-import { Clock, PlusCircle, Search, Loader2, CalendarIcon, ChevronLeft, ChevronRight, Edit, Trash2 } from 'lucide-react';
+import { Clock, PlusCircle, Search, Loader2, CalendarIcon, ChevronLeft, ChevronRight, Edit, Trash2, Droplets, AlertTriangle } from 'lucide-react';
 import { format, addDays, subDays } from 'date-fns';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +21,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import type { ClientAppointment, ClientPatient } from '@/lib/types';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+
 
 const appointmentSchema = z.object({
   id: z.string().optional(),
@@ -441,50 +443,76 @@ export default function SchedulingPage() {
       <Card>
         <CardHeader>
             <CardTitle>
-                Appointment Records for {format(selectedDate, "PPP")}
+                Appointments for {format(selectedDate, "PPP")}
             </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-hidden rounded-md border">
-            <Table>
-                <TableHeader>
-                    <TableRow className="bg-secondary hover:bg-secondary">
-                        <TableHead className="w-[120px]">Time</TableHead>
-                        <TableHead>Patient</TableHead>
-                        <TableHead>MRN</TableHead>
-                        <TableHead className="text-right">Status</TableHead>
-                    </TableRow>
-                </TableHeader>
-              <TableBody>
-                {loading ? (
-                  Array.from({length: 7}).map((_, i) => <TableRow key={i}><TableCell colSpan={4}><Skeleton className="h-12 w-full" /></TableCell></TableRow>)
-                ) : appointments.length > 0 ? (
-                  appointments.map((appt) => (
-                    <TableRow key={appt.id} className="cursor-pointer hover:bg-muted/50" onClick={() => handleOpenDialog(appt)}>
-                      <TableCell>
-                        <div className="flex items-center gap-2 font-medium">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span>{format(new Date(appt.scheduledTime), 'hh:mm a')}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">{appt.patientInfo?.firstName} {appt.patientInfo?.lastName || 'Walk-in'}</TableCell>
-                      <TableCell className="text-muted-foreground">{appt.patientInfo?.mrn || 'N/A'}</TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant={getStatusVariant(appt.status)}>
-                          {appt.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
+            <Accordion type="single" collapsible className="w-full">
+              {loading ? (
+                  Array.from({ length: 7 }).map((_, i) => (
+                      <div key={i} className="flex items-center space-x-4 p-4 border-b">
+                          <Skeleton className="h-10 w-24" />
+                          <Skeleton className="h-6 w-48" />
+                          <Skeleton className="h-6 w-24 ml-auto" />
+                      </div>
                   ))
-                ) : (
-                    <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                            No appointments found for this day.
-                        </TableCell>
-                    </TableRow>
-                )}
-              </TableBody>
-            </Table>
+              ) : appointments.length > 0 ? (
+                  appointments.map((appt) => (
+                      <AccordionItem value={appt.id} key={appt.id}>
+                          <AccordionTrigger className="hover:no-underline px-4" onClick={() => handleOpenDialog(appt)}>
+                              <div className="flex justify-between items-center w-full">
+                                  <div className="flex items-center gap-4">
+                                      <div className="flex items-center gap-2 font-medium text-lg">
+                                          <Clock className="h-5 w-5 text-muted-foreground" />
+                                          <span>{format(new Date(appt.scheduledTime), 'hh:mm a')}</span>
+                                      </div>
+                                      <div>
+                                          <div className="font-bold text-xl">{appt.patientInfo?.firstName} {appt.patientInfo?.lastName}</div>
+                                          <div className="text-sm text-muted-foreground">MRN: {appt.patientInfo?.mrn}</div>
+                                      </div>
+                                  </div>
+                                  <Badge variant={getStatusVariant(appt.status)} className="text-base">{appt.status}</Badge>
+                              </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="bg-muted/30">
+                              <div className="p-4 space-y-4">
+                                {(appt.pendingOrders && appt.pendingOrders.length > 0) ? (
+                                    appt.pendingOrders.map(order => (
+                                        <div key={order.id} className="space-y-2">
+                                            <h4 className="font-semibold">Order #{order.orderId}</h4>
+                                            {order.samples.map(sample => (
+                                              <div key={sample.sampleId} className="pl-4">
+                                                <p className="flex items-center gap-2 font-medium">
+                                                  <Droplets className="h-4 w-4 text-primary"/> 
+                                                  {sample.specimenSummary?.tubeType || 'N/A'}
+                                                </p>
+                                                <ul className="list-disc list-inside pl-6 text-sm text-muted-foreground">
+                                                    {sample.tests.map(test => <li key={test.testCode}>{test.name}</li>)}
+                                                </ul>
+                                                {sample.specimenSummary?.specialHandling && (
+                                                  <p className="flex items-center gap-2 mt-1 text-sm text-amber-500">
+                                                    <AlertTriangle className="h-4 w-4"/>
+                                                    {sample.specimenSummary.specialHandling}
+                                                  </p>
+                                                )}
+                                              </div>
+                                            ))}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="text-muted-foreground text-sm">No pending orders for this appointment.</p>
+                                )}
+                              </div>
+                          </AccordionContent>
+                      </AccordionItem>
+                  ))
+              ) : (
+                  <div className="h-24 text-center text-muted-foreground flex items-center justify-center">
+                      No appointments found for this day.
+                  </div>
+              )}
+            </Accordion>
           </div>
         </CardContent>
       </Card>
