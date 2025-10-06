@@ -144,6 +144,45 @@ export default function CollectionSchedulePage() {
                                         <Badge variant={getStatusVariant(appt.status)} className="text-base">{appt.status}</Badge>
                                     </div>
                                 </AccordionTrigger>
+                                 <AccordionContent className="bg-muted/30">
+                                    <div className="p-4">
+                                    {appt.orderInfo ? (
+                                        <div className="space-y-3">
+                                            <div className="space-y-4">
+                                                {appt.orderInfo.samples.map(sample => (
+                                                    <Card key={sample.sampleId}>
+                                                        <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
+                                                            <CardTitle className="text-md flex items-center gap-2">
+                                                                <Droplets className="h-5 w-5 text-primary"/>
+                                                                {sample.specimenSummary?.tubeType || 'Unknown Tube'}
+                                                            </CardTitle>
+                                                             <Badge variant={sample.status === 'AwaitingCollection' ? 'outline' : 'secondary'}>
+                                                                {sample.status}
+                                                            </Badge>
+                                                        </CardHeader>
+                                                        <CardContent>
+                                                            <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                                                                {sample.tests.map(test => (
+                                                                    <li key={test.testCode}>{test.name}</li>
+                                                                ))}
+                                                            </ul>
+                                                            {sample.specimenSummary?.specialHandling && (
+                                                                <div className="mt-3 flex items-center gap-2 text-yellow-400">
+                                                                    <AlertTriangle className="h-4 w-4"/>
+                                                                    <span className="font-semibold">Special Handling:</span>
+                                                                    <span>{sample.specimenSummary.specialHandling}</span>
+                                                                </div>
+                                                            )}
+                                                        </CardContent>
+                                                    </Card>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center text-muted-foreground py-4">Order details not found for this appointment.</div>
+                                    )}
+                                    </div>
+                                </AccordionContent>
                             </AccordionItem>
                         ))
                     ) : (
