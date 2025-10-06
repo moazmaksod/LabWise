@@ -107,7 +107,7 @@ export default function PhlebotomistDashboard() {
                     ) : appointments.length > 0 ? (
                         appointments.map((appt) => (
                             <AccordionItem value={appt.id} key={appt.id}>
-                                <AccordionTrigger className={cn("hover:no-underline px-4", appt.status === 'CheckedIn' && 'bg-blue-900/40', appt.status === 'Completed' && 'bg-secondary/50 opacity-70 hover:bg-secondary/50')}>
+                                <AccordionTrigger className={cn("hover:no-underline px-4 cursor-default", appt.status === 'Completed' && 'bg-secondary/50 opacity-70')}>
                                     <div className="flex justify-between items-center w-full">
                                         <div className="flex items-center gap-4">
                                              <div className="flex items-center gap-2 font-semibold text-lg">
@@ -133,7 +133,7 @@ export default function PhlebotomistDashboard() {
                                                         <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
                                                             <CardTitle className="text-md flex items-center gap-2">
                                                                 <Droplets className="h-5 w-5 text-primary"/>
-                                                                {sample.specimenSummary?.tubeType || 'Unknown Tube'}
+                                                                {sample.sampleType || 'Unknown Tube'}
                                                             </CardTitle>
                                                              <Button 
                                                                 size="sm" 
@@ -141,7 +141,7 @@ export default function PhlebotomistDashboard() {
                                                                 disabled={sample.status !== 'AwaitingCollection'}
                                                             >
                                                                 <Check className="mr-2 h-4 w-4" />
-                                                                {sample.status === 'AwaitingCollection' ? 'Confirm Collection' : 'Collected'}
+                                                                {sample.status === 'AwaitingCollection' ? 'Confirm Collection' : sample.status}
                                                             </Button>
                                                         </CardHeader>
                                                         <CardContent>
@@ -150,11 +150,11 @@ export default function PhlebotomistDashboard() {
                                                                     <li key={test.testCode}>{test.name}</li>
                                                                 ))}
                                                             </ul>
-                                                            {sample.specimenSummary?.specialHandling && (
+                                                            {sample.specimenRequirements?.specialHandling && (
                                                                 <div className="mt-3 flex items-center gap-2 text-yellow-400">
                                                                     <AlertTriangle className="h-4 w-4"/>
                                                                     <span className="font-semibold">Special Handling:</span>
-                                                                    <span>{sample.specimenSummary.specialHandling}</span>
+                                                                    <span>{sample.specimenRequirements.specialHandling}</span>
                                                                 </div>
                                                             )}
                                                         </CardContent>

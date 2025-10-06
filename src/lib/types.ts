@@ -151,7 +151,7 @@ export type OrderSample = {
     sampleType: string; // Snapshotted from test catalog specimen requirements
     collectionTimestamp?: Date;
     receivedTimestamp?: Date;
-    status: 'AwaitingCollection' | 'InLab' | 'Testing' | 'AwaitingVerification' | 'Verified' | 'Archived' | 'Rejected';
+    status: 'AwaitingCollection' | 'Collected' | 'InLab' | 'Testing' | 'AwaitingVerification' | 'Verified' | 'Archived' | 'Rejected';
     tests: OrderTest[];
     specimenRequirements?: SpecimenRequirements; // Added for phlebotomist view
 }

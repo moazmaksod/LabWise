@@ -65,6 +65,16 @@ export default function CollectionSchedulePage() {
             default: return 'outline';
         }
     };
+    
+    const getSampleStatusVariant = (status: OrderSample['status']) => {
+        switch (status) {
+            case 'Collected': return 'default';
+            case 'InLab': return 'secondary';
+            case 'AwaitingCollection':
+            default: return 'outline';
+        }
+    }
+
 
     const handleDateChange = (date: Date | undefined) => {
         if (date) {
@@ -154,9 +164,9 @@ export default function CollectionSchedulePage() {
                                                         <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
                                                             <CardTitle className="text-md flex items-center gap-2">
                                                                 <Droplets className="h-5 w-5 text-primary"/>
-                                                                {sample.specimenSummary?.tubeType || 'Unknown Tube'}
+                                                                {sample.sampleType || 'Unknown Tube'}
                                                             </CardTitle>
-                                                             <Badge variant={sample.status === 'AwaitingCollection' ? 'outline' : 'secondary'}>
+                                                             <Badge variant={getSampleStatusVariant(sample.status)}>
                                                                 {sample.status}
                                                             </Badge>
                                                         </CardHeader>
@@ -166,11 +176,11 @@ export default function CollectionSchedulePage() {
                                                                     <li key={test.testCode}>{test.name}</li>
                                                                 ))}
                                                             </ul>
-                                                            {sample.specimenSummary?.specialHandling && (
+                                                            {sample.specimenRequirements?.specialHandling && (
                                                                 <div className="mt-3 flex items-center gap-2 text-yellow-400">
                                                                     <AlertTriangle className="h-4 w-4"/>
                                                                     <span className="font-semibold">Special Handling:</span>
-                                                                    <span>{sample.specimenSummary.specialHandling}</span>
+                                                                    <span>{sample.specimenRequirements.specialHandling}</span>
                                                                 </div>
                                                             )}
                                                         </CardContent>

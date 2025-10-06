@@ -39,15 +39,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             return NextResponse.json({ message: 'Order containing the specified sample not found.' }, { status: 404 });
         }
 
-        // Update the status of the specific sample in that order to 'InLab'
+        // Update the status of the specific sample in that order to 'Collected'
         const collectionTimestamp = new Date();
         const sampleUpdateResult = await db.collection<Order>('orders').updateOne(
             { _id: orderContainingSample._id, "samples.sampleId": new ObjectId(sampleId) },
             { 
                 $set: { 
-                    "samples.$.status": "InLab",
+                    "samples.$.status": "Collected",
                     "samples.$.collectionTimestamp": collectionTimestamp,
-                    "samples.$.receivedTimestamp": collectionTimestamp,
                  }
             }
         );
@@ -60,25 +59,30 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         // If so, update the order's status.
         const updatedOrder = await db.collection<Order>('orders').findOne({ _id: orderContainingSample._id });
         if (updatedOrder && updatedOrder.samples.every(s => s.status !== 'AwaitingCollection')) {
+            const allSamplesInLabOrBeyond = updatedOrder.samples.every(s => s.status === 'InLab' || s.status === 'Testing' || s.status === 'AwaitingVerification' || s.status === 'Verified');
+            const newOrderStatus = allSamplesInLabOrBeyond ? 'Partially Complete' : 'Pending';
+
             await db.collection<Order>('orders').updateOne(
                 { _id: updatedOrder._id },
-                { $set: { orderStatus: 'Partially Complete' } } // Or 'Complete' if all tests are done, but 'Partially Complete' is safer here.
+                { $set: { orderStatus: newOrderStatus } }
             );
         }
         
-        // Now, check if all orders associated with this appointment are complete.
-        // An appointment might be linked to multiple orders in the future, although it's 1-1 for now.
-        const ordersForAppointment = await db.collection<Order>('orders').find({ appointmentId: appointmentObjectId }).toArray();
-        const allOrdersCompleted = ordersForAppointment.every(order => 
-            order.samples.every(s => s.status !== 'AwaitingCollection')
-        );
+        // Now, check if all orders associated with this appointment are complete (all samples collected).
+        if(appointment.orderId){
+             const ordersForAppointment = await db.collection<Order>('orders').find({ appointmentId: appointment.orderId }).toArray();
+             const allOrdersCompleted = ordersForAppointment.every(order => 
+                order.samples.every(s => s.status !== 'AwaitingCollection')
+             );
 
-        if (allOrdersCompleted) {
-             await db.collection<Appointment>('appointments').updateOne(
-                { _id: appointmentObjectId },
-                { $set: { status: 'Completed' } }
-            );
+             if (allOrdersCompleted) {
+                 await db.collection<Appointment>('appointments').updateOne(
+                    { _id: appointmentObjectId },
+                    { $set: { status: 'Completed' } }
+                );
+            }
         }
+
 
         // Create an audit log entry
          await db.collection('auditLogs').insertOne({
@@ -93,7 +97,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
                 orderId: orderContainingSample.orderId,
                 patientId: orderContainingSample.patientId.toHexString(),
                 sampleId: sampleId,
-                message: `Sample ${sampleId} for order ${orderContainingSample.orderId} marked as 'InLab'.`
+                message: `Sample ${sampleId} for order ${orderContainingSample.orderId} marked as 'Collected'.`
             },
             ipAddress: req.ip || req.headers.get('x-forwarded-for'),
         });
