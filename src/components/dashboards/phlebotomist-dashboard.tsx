@@ -106,8 +106,8 @@ export default function PhlebotomistDashboard() {
                         ))
                     ) : appointments.length > 0 ? (
                         appointments.map((appt) => (
-                            <AccordionItem value={appt.id} key={appt.id} disabled={appt.status === 'Completed'}>
-                                <AccordionTrigger className={cn("hover:no-underline px-4", appt.status === 'CheckedIn' && 'bg-blue-900/40', appt.status === 'Completed' && 'bg-secondary/50 opacity-70 hover:bg-secondary/50 cursor-default')}>
+                            <AccordionItem value={appt.id} key={appt.id}>
+                                <AccordionTrigger className={cn("hover:no-underline px-4", appt.status === 'CheckedIn' && 'bg-blue-900/40', appt.status === 'Completed' && 'bg-secondary/50 opacity-70 hover:bg-secondary/50')}>
                                     <div className="flex justify-between items-center w-full">
                                         <div className="flex items-center gap-4">
                                              <div className="flex items-center gap-2 font-semibold text-lg">

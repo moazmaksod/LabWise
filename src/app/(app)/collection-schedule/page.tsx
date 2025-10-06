@@ -125,7 +125,7 @@ export default function CollectionSchedulePage() {
                         ))
                     ) : appointments.length > 0 ? (
                         appointments.map((appt) => (
-                            <AccordionItem value={appt.id} key={appt.id} disabled>
+                            <AccordionItem value={appt.id} key={appt.id}>
                                 <AccordionTrigger className={cn("hover:no-underline px-4 cursor-default", appt.status === 'Completed' && 'bg-secondary/50 opacity-70')}>
                                     <div className="flex justify-between items-center w-full">
                                         <div className="flex items-center gap-4">
