@@ -153,6 +153,7 @@ export type OrderSample = {
     receivedTimestamp?: Date;
     status: 'AwaitingCollection' | 'InLab' | 'Testing' | 'AwaitingVerification' | 'Verified' | 'Archived' | 'Rejected';
     tests: OrderTest[];
+    specimenRequirements?: SpecimenRequirements; // Added for phlebotomist view
 }
 
 export type Order = {
@@ -191,4 +192,5 @@ export type ClientAppointment = Omit<Appointment, '_id' | 'patientId'> & {
     id: string;
     patientId: string;
     patientInfo?: Partial<ClientPatient>;
+    pendingOrders?: ClientOrder[]; // To hold associated order details
 };

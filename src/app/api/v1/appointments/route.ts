@@ -1,9 +1,10 @@
 
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { decrypt } from '@/lib/auth';
-import type { Appointment } from '@/lib/types';
+import type { Appointment, TestCatalogItem } from '@/lib/types';
 import { format, startOfDay, endOfDay } from 'date-fns';
 
 export async function GET(req: NextRequest) {
@@ -27,6 +28,7 @@ export async function GET(req: NextRequest) {
         
         const aggregationPipeline: any[] = [
             { $match: filter },
+            { $sort: { scheduledTime: 1 } },
             {
                 $lookup: {
                     from: 'patients',
@@ -39,6 +41,23 @@ export async function GET(req: NextRequest) {
                 $unwind: {
                     path: '$patientInfo',
                     preserveNullAndEmptyArrays: true
+                }
+            },
+            {
+                $lookup: {
+                    from: 'orders',
+                    let: { patient_id: '$patientId' },
+                    pipeline: [
+                        { $match: { 
+                            $expr: { $eq: ['$patientId', '$$patient_id'] },
+                            orderStatus: 'Pending',
+                            'samples.status': 'AwaitingCollection'
+                          }
+                        },
+                        { $sort: { createdAt: -1 } },
+                        { $limit: 1 } // Get the most recent pending order
+                    ],
+                    as: 'pendingOrders'
                 }
             },
         ];
@@ -57,38 +76,77 @@ export async function GET(req: NextRequest) {
             });
         }
         
-        aggregationPipeline.push({ $sort: { scheduledTime: 1 } });
         aggregationPipeline.push({ $limit: 50 });
-        aggregationPipeline.push({
-            $project: {
-                _id: 1,
-                scheduledTime: 1,
-                status: 1,
-                notes: 1,
-                patientId: 1,
-                'patientInfo._id': 1,
-                'patientInfo.firstName': 1,
-                'patientInfo.lastName': 1,
-                'patientInfo.mrn': 1,
-            }
-        });
         
         const appointments = await db.collection('appointments').aggregate(aggregationPipeline).toArray();
 
+        // Fetch all unique test codes from all pending orders
+        const allTestCodes = appointments.flatMap(appt => 
+            appt.pendingOrders?.flatMap((order: any) => 
+                order.samples.flatMap((sample: any) => 
+                    sample.tests.map((test: any) => test.testCode)
+                ) || []
+            ) || []
+        );
+        const uniqueTestCodes = [...new Set(allTestCodes)];
+
+        // Fetch specimen requirements for all needed tests in one query
+        const testDefs = await db.collection<TestCatalogItem>('testCatalog').find(
+            { testCode: { $in: uniqueTestCodes } },
+            { projection: { testCode: 1, specimenRequirements: 1 } }
+        ).toArray();
+        const testDefMap = new Map(testDefs.map(t => [t.testCode, t.specimenRequirements]));
+
+
         const clientAppointments = appointments.map(appt => {
-            const { _id, patientId, patientInfo, ...rest } = appt;
+            const { _id, patientId, patientInfo, pendingOrders, ...rest } = appt;
             
             const clientPatientInfo = patientInfo ? {
               ...patientInfo,
               id: patientInfo._id.toHexString(),
               _id: undefined,
             } : undefined;
+            
+            const clientPendingOrders = pendingOrders?.map((order: any) => {
+                const { _id: orderId, ...restOrder } = order;
+                
+                // Add specimen requirements to each sample's tests
+                const samplesWithDetails = restOrder.samples.map((sample: any) => {
+                    const testsWithDetails = sample.tests.map((test: any) => ({
+                        ...test,
+                        specimenRequirements: testDefMap.get(test.testCode)
+                    }));
+                    
+                    // Aggregate specimen requirements at the sample level for easy access
+                    const sampleSpecimenReqs = testsWithDetails.map((t: any) => t.specimenRequirements);
+                    const tubeTypes = [...new Set(sampleSpecimenReqs.map(s => s?.tubeType).filter(Boolean))].join(', ');
+                     const specialHandling = [...new Set(sampleSpecimenReqs.map(s => s?.specialHandling).filter(Boolean))].join(', ');
+
+
+                    return {
+                        ...sample,
+                        sampleId: sample.sampleId.toHexString(),
+                        tests: testsWithDetails,
+                        specimenRequirements: { // Simplified view for the phlebotomist
+                            tubeType: tubeTypes,
+                            specialHandling: specialHandling,
+                        }
+                    }
+                });
+
+                return {
+                    ...restOrder,
+                    id: orderId.toHexString(),
+                    samples: samplesWithDetails
+                };
+            });
 
             return { 
                 ...rest, 
                 id: _id.toHexString(),
                 patientId: patientId?.toHexString(),
-                patientInfo: clientPatientInfo
+                patientInfo: clientPatientInfo,
+                pendingOrders: clientPendingOrders
             };
         });
 
