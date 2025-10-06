@@ -95,7 +95,10 @@ export async function POST(req: NextRequest) {
         if (appointmentDetails) {
             const newAppointment: Omit<Appointment, '_id'> = {
                 patientId: new ObjectId(patientId),
-                ...appointmentDetails,
+                scheduledTime: new Date(appointmentDetails.scheduledTime),
+                durationMinutes: appointmentDetails.durationMinutes || 15,
+                status: appointmentDetails.status || 'Scheduled',
+                notes: appointmentDetails.notes || '',
             };
             await db.collection('appointments').insertOne(newAppointment);
         }
