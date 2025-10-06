@@ -31,8 +31,8 @@ export default function PhlebotomistDashboard() {
             if (!response.ok) throw new Error('Failed to fetch collection list');
             
             const data = await response.json();
-            // Filter for only appointments that need action
-            setAppointments(data.filter((a: ClientAppointment) => a.status === 'Scheduled' || a.status === 'CheckedIn'));
+            // Show all appointments for the day, including completed
+            setAppointments(data);
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Error', description: error.message });
         } finally {
@@ -83,6 +83,7 @@ export default function PhlebotomistDashboard() {
 
     const getStatusVariant = (status: ClientAppointment['status']) => {
         switch (status) {
+            case 'Completed': return 'secondary';
             case 'CheckedIn': return 'default';
             case 'Scheduled': 
             default: return 'outline';
@@ -109,8 +110,8 @@ export default function PhlebotomistDashboard() {
                         ))
                     ) : appointments.length > 0 ? (
                         appointments.map((appt) => (
-                            <AccordionItem value={appt.id} key={appt.id}>
-                                <AccordionTrigger className={cn("hover:no-underline", appt.status === 'CheckedIn' && 'bg-blue-900/40')}>
+                            <AccordionItem value={appt.id} key={appt.id} disabled={appt.status === 'Completed'}>
+                                <AccordionTrigger className={cn("hover:no-underline", appt.status === 'CheckedIn' && 'bg-blue-900/40', appt.status === 'Completed' && 'bg-secondary/50 opacity-70 hover:bg-secondary/50 cursor-default')}>
                                     <div className="flex justify-between items-center w-full pr-4">
                                         <div className="flex items-center gap-4">
                                              <div className="flex items-center gap-2 font-semibold text-lg">
