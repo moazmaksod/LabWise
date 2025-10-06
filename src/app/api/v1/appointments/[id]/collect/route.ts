@@ -13,8 +13,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         }
         
         const { sampleId } = await req.json();
-        if (!sampleId || !ObjectId.isValid(sampleId)) {
-            return NextResponse.json({ message: 'Invalid or missing sampleId.' }, { status: 400 });
+        if (!sampleId) {
+            return NextResponse.json({ message: 'Missing sampleId.' }, { status: 400 });
         }
 
         const token = req.headers.get('authorization')?.split(' ')[1];
@@ -24,12 +24,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
         const { db } = await connectToDatabase();
         
-        const appointment = await db.collection<Appointment>('appointments').findOne({ _id: new ObjectId(params.id) });
+        const appointmentObjectId = new ObjectId(params.id);
+        const appointment = await db.collection<Appointment>('appointments').findOne({ _id: appointmentObjectId });
         if (!appointment) {
              return NextResponse.json({ message: 'Appointment not found.' }, { status: 404 });
         }
 
-        // Find the order that contains this sample
+        // The sampleId is a string from the client, find the order that contains this sampleId
         const orderContainingSample = await db.collection<Order>('orders').findOne(
             { "samples.sampleId": new ObjectId(sampleId) }
         );
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         // Update the status of the specific sample in that order to 'InLab'
         const collectionTimestamp = new Date();
         const sampleUpdateResult = await db.collection<Order>('orders').updateOne(
-            { "samples.sampleId": new ObjectId(sampleId) },
+            { _id: orderContainingSample._id, "samples.sampleId": new ObjectId(sampleId) },
             { 
                 $set: { 
                     "samples.$.status": "InLab",
@@ -55,13 +56,26 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             return NextResponse.json({ message: 'Order found, but failed to update sample status. It might have been collected already.' }, { status: 500 });
         }
         
-        // After updating the sample, check if all samples in the order are now 'InLab' or beyond.
+        // After updating the sample, check if all samples for THIS order are collected.
+        // If so, update the order's status.
         const updatedOrder = await db.collection<Order>('orders').findOne({ _id: orderContainingSample._id });
-        const allSamplesCollected = updatedOrder?.samples.every(s => s.status !== 'AwaitingCollection');
+        if (updatedOrder && updatedOrder.samples.every(s => s.status !== 'AwaitingCollection')) {
+            await db.collection<Order>('orders').updateOne(
+                { _id: updatedOrder._id },
+                { $set: { orderStatus: 'Partially Complete' } } // Or 'Complete' if all tests are done, but 'Partially Complete' is safer here.
+            );
+        }
+        
+        // Now, check if all orders associated with this appointment are complete.
+        // An appointment might be linked to multiple orders in the future, although it's 1-1 for now.
+        const ordersForAppointment = await db.collection<Order>('orders').find({ appointmentId: appointmentObjectId }).toArray();
+        const allOrdersCompleted = ordersForAppointment.every(order => 
+            order.samples.every(s => s.status !== 'AwaitingCollection')
+        );
 
-        if (allSamplesCollected) {
+        if (allOrdersCompleted) {
              await db.collection<Appointment>('appointments').updateOne(
-                { _id: new ObjectId(params.id) },
+                { _id: appointmentObjectId },
                 { $set: { status: 'Completed' } }
             );
         }
