@@ -17,9 +17,8 @@ export async function GET(req: NextRequest) {
 
         let targetDate: Date;
         if (dateParam && !isNaN(Date.parse(dateParam))) {
-            const utcDate = new Date(dateParam);
-            const timezoneOffset = utcDate.getTimezoneOffset() * 60000;
-            targetDate = new Date(utcDate.getTime() + timezoneOffset);
+            const localDate = new Date(dateParam + 'T00:00:00');
+            targetDate = localDate;
         } else {
             targetDate = new Date();
         }
@@ -55,12 +54,6 @@ export async function GET(req: NextRequest) {
                     from: 'orders',
                     localField: 'orderId',
                     foreignField: '_id',
-                    pipeline: [
-                         { $match: { 
-                            orderStatus: { $ne: 'Cancelled' }
-                          }
-                        },
-                    ],
                     as: 'orderInfo'
                 }
             },
@@ -119,21 +112,25 @@ export async function GET(req: NextRequest) {
             if (orderInfo) {
                 const { _id: orderInfoId, ...restOrder } = orderInfo;
                  const samplesWithDetails = orderInfo.samples.map((sample: any) => {
-                    const testsWithDetails = sample.tests.map((test: any) => ({
-                        ...test,
-                        name: testDefMap.get(test.testCode)?.name || test.name,
-                    }));
-                    
-                    const tubeTypes = [...new Set(sample.tests.map((t: any) => testDefMap.get(t.testCode)?.specimenRequirements.tubeType).filter(Boolean))].join(', ');
-                    const specialHandling = [...new Set(sample.tests.map((t: any) => testDefMap.get(t.testCode)?.specimenRequirements.specialHandling).filter(Boolean))].join(', ');
+                    const testsWithDetails = sample.tests.map((test: any) => {
+                        const testDef = testDefMap.get(test.testCode);
+                        return {
+                            ...test,
+                            name: testDef?.name || test.name,
+                            specimenRequirements: testDef?.specimenRequirements,
+                        }
+                    });
+
+                    // Get requirements from the first test, assuming all tests in a sample have the same reqs
+                    const firstTestDef = testsWithDetails.length > 0 ? testDefMap.get(testsWithDetails[0].testCode) : undefined;
 
                     return {
                         ...sample,
                         sampleId: sample.sampleId.toHexString(),
                         tests: testsWithDetails,
                         specimenSummary: {
-                            tubeType: tubeTypes,
-                            specialHandling: specialHandling,
+                            tubeType: firstTestDef?.specimenRequirements?.tubeType,
+                            specialHandling: firstTestDef?.specimenRequirements?.specialHandling,
                         }
                     }
                 });
