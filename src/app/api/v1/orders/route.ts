@@ -20,10 +20,10 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { patientId, physicianId, icd10Code, priority, samples, appointmentDetails } = body;
+        const { patientId, physicianId, icd10Code, priority, testCodes, appointmentDetails } = body;
 
         // Validation
-        if (!patientId || !physicianId || !icd10Code || !samples || !Array.isArray(samples) || samples.length === 0 || !appointmentDetails) {
+        if (!patientId || !physicianId || !icd10Code || !testCodes || !Array.isArray(testCodes) || testCodes.length === 0 || !appointmentDetails) {
             return NextResponse.json({ message: 'Missing or invalid required fields. Order must have an appointment.' }, { status: 400 });
         }
 
@@ -36,25 +36,32 @@ export async function POST(req: NextRequest) {
         const physician = await db.collection('users').findOne({ _id: new ObjectId(physicianId) });
         if (!physician || physician.role !== 'physician') return NextResponse.json({ message: 'Physician not found.' }, { status: 404 });
 
-        const allTestCodes = samples.flatMap((s: any) => s.testCodes);
-        if(allTestCodes.length === 0) {
+        if(testCodes.length === 0) {
              return NextResponse.json({ message: 'At least one test must be selected.' }, { status: 400 });
         }
         
         // Fetch all test definitions from the catalog
-        const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: allTestCodes } }).toArray();
+        const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: testCodes } }).toArray();
 
-        if (testDefs.length !== allTestCodes.length) {
+        if (testDefs.length !== testCodes.length) {
             const foundCodes = new Set(testDefs.map(t => t.testCode));
-            const missingCodes = allTestCodes.filter((c: string) => !foundCodes.has(c));
+            const missingCodes = testCodes.filter((c: string) => !foundCodes.has(c));
             return NextResponse.json({ message: `One or more invalid test codes provided: ${missingCodes.join(', ')}` }, { status: 400 });
         }
 
-        const testDefMap = new Map(testDefs.map(t => [t.testCode, t]));
-        
+        // Group tests by required sample type (tube type)
+        const samplesByTubeType = new Map<string, TestCatalogItem[]>();
+        for (const testDef of testDefs) {
+            const tubeType = testDef.specimenRequirements.tubeType;
+            if (!samplesByTubeType.has(tubeType)) {
+                samplesByTubeType.set(tubeType, []);
+            }
+            samplesByTubeType.get(tubeType)!.push(testDef);
+        }
+
         const newOrderId = await getNextOrderId();
         const orderObjectId = new ObjectId();
-
+        
         const newAppointment: Omit<Appointment, '_id'> = {
             patientId: new ObjectId(patientId),
             orderId: orderObjectId, // Link appointment to the new order
@@ -66,21 +73,18 @@ export async function POST(req: NextRequest) {
         };
         const appointmentResult = await db.collection('appointments').insertOne(newAppointment);
 
-        const orderSamples: OrderSample[] = samples.map((sample: any) => {
-            const testsForSample: OrderTest[] = sample.testCodes.map((tc: string) => {
-                const testDef = testDefMap.get(tc);
-                return {
-                    testCode: testDef!.testCode,
-                    name: testDef!.name,
-                    status: 'Pending',
-                    referenceRange: testDef!.referenceRanges?.length > 0 ? `${testDef!.referenceRanges[0].rangeLow} - ${testDef!.referenceRanges[0].rangeHigh}` : 'N/A',
-                    resultUnits: testDef!.referenceRanges?.length > 0 ? testDef!.referenceRanges[0].units : '',
-                };
-            });
-
+        const orderSamples: OrderSample[] = Array.from(samplesByTubeType.entries()).map(([tubeType, tests]) => {
+            const testsForSample: OrderTest[] = tests.map((testDef) => ({
+                testCode: testDef.testCode,
+                name: testDef.name,
+                status: 'Pending',
+                referenceRange: testDef.referenceRanges?.length > 0 ? `${testDef.referenceRanges[0].rangeLow} - ${testDef.referenceRanges[0].rangeHigh}` : 'N/A',
+                resultUnits: testDef.referenceRanges?.length > 0 ? testDef.referenceRanges[0].units : '',
+            }));
+            
             return {
                 sampleId: new ObjectId(),
-                sampleType: sample.sampleType,
+                sampleType: tubeType,
                 status: 'AwaitingCollection',
                 tests: testsForSample,
             };
@@ -175,3 +179,5 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
     }
 }
+
+    

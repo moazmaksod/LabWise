@@ -33,7 +33,6 @@ const orderFormSchema = z.object({
   physicianId: z.string().min(1, 'An ordering physician must be selected.'),
   icd10Code: z.string().min(3, 'A valid ICD-10 code is required.'),
   testIds: z.array(z.string()).min(1, 'At least one test must be added to the order.'),
-  sampleType: z.string().default('Whole Blood'), // Default value, can be enhanced later
   appointmentDateTime: z.string().min(1, 'An appointment time for sample collection is required.'),
 });
 
@@ -66,7 +65,7 @@ function OrderForm({
       patientId: patient.id,
       physicianId: editingOrder?.physicianId || '',
       icd10Code: editingOrder?.icd10Code || '',
-      testIds: editingOrder?.samples[0]?.tests.map(t => t.testCode) || [],
+      testIds: editingOrder?.samples.flatMap(s => s.tests.map(t => t.testCode)) || [],
       appointmentDateTime: editingOrder?.appointmentId ? format(new Date(editingOrder.createdAt), "yyyy-MM-dd'T'HH:mm") : format(addHours(new Date(), 1), "yyyy-MM-dd'T'HH:mm"),
     },
   });
@@ -108,7 +107,7 @@ function OrderForm({
   useEffect(() => {
     fetchPhysicians();
     if(editingOrder) {
-        fetchInitialTests(editingOrder.samples[0].tests.map(t => t.testCode));
+        fetchInitialTests(editingOrder.samples.flatMap(s => s.tests.map(t => t.testCode)));
     }
   }, [token, editingOrder, fetchPhysicians, fetchInitialTests]);
   
@@ -185,8 +184,7 @@ function OrderForm({
             physicianId: data.physicianId,
             icd10Code: data.icd10Code,
             priority: 'Routine', // This could be a form field in the future
-            samples: [{ sampleType: data.sampleType, testCodes: data.testIds }],
-            // Include appointment details for both create and update
+            testCodes: data.testIds,
             appointmentDetails: {
                 scheduledTime: new Date(data.appointmentDateTime),
                 durationMinutes: 15,
@@ -586,3 +584,5 @@ export default function OrdersPage() {
         </Suspense>
     )
 }
+
+    
