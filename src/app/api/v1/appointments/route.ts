@@ -16,7 +16,11 @@ export async function GET(req: NextRequest) {
 
         let targetDate: Date;
         if (dateParam && !isNaN(Date.parse(dateParam))) {
-            targetDate = new Date(dateParam);
+            // When a date string like 'YYYY-MM-DD' is parsed, it's treated as UTC midnight.
+            // To correctly query for the whole local day, we need to account for the timezone offset.
+            const utcDate = new Date(dateParam);
+            const timezoneOffset = utcDate.getTimezoneOffset() * 60000;
+            targetDate = new Date(utcDate.getTime() + timezoneOffset);
         } else {
             targetDate = new Date();
         }
@@ -50,7 +54,7 @@ export async function GET(req: NextRequest) {
                     foreignField: 'appointmentId',
                     pipeline: [
                          { $match: { 
-                            orderStatus: 'Pending',
+                            orderStatus: { $ne: 'Cancelled' }
                           }
                         },
                         { $sort: { createdAt: -1 } },
@@ -108,7 +112,7 @@ export async function GET(req: NextRequest) {
             const clientPendingOrders = pendingOrders?.map((order: any) => {
                 const { _id: orderId, ...restOrder } = order;
                 
-                const samplesWithDetails = restOrder.samples.map((sample: any) => {
+                const samplesWithDetails = order.samples.map((sample: any) => {
                     const testsWithDetails = sample.tests.map((test: any) => ({
                         ...test,
                         // Add test name back for display purposes, even if snapshotted
