@@ -1,32 +1,26 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
+import { Suspense, useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Search, PlusCircle, UploadCloud, Loader2, User, ShieldAlert, FilePlus } from 'lucide-react';
+import { UploadCloud, Loader2, ShieldAlert, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/hooks/use-user';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { handleSmartDataEntry } from '@/app/actions';
 import type { ClientPatient } from '@/lib/types';
 import { format } from 'date-fns';
-import { cn, calculateAge } from '@/lib/utils';
 
 const patientSchema = z.object({
   id: z.string().optional(),
-  // MRN is no longer part of the form validation
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   dateOfBirth: z.string().min(1, 'Date of birth is required'),
@@ -66,77 +60,73 @@ const getRandomDateOfBirth = () => {
 };
 const getRandomPolicyNumber = () => `ID${String(Math.random()).substring(2, 12)}`;
 
-
-export default function PatientRegistrationPage() {
+function PatientRegistrationPageComponent() {
   const { user, loading: userLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
   const [token, setToken] = useState<string | null>(null);
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState<ClientPatient[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [isFormOpen, setIsFormOpen] = useState(false);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const [ocrFileName, setOcrFileName] = useState('');
-  const [editingPatient, setEditingPatient] = useState<ClientPatient | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const [isVerifyingEligibility, setIsVerifyingEligibility] = useState(false);
+  const [pageIsLoading, setPageIsLoading] = useState(true);
+
+  const searchParams = useSearchParams();
+  const patientId = searchParams.get('id');
+
   const form = useForm<PatientFormValues>({
     resolver: zodResolver(patientSchema),
     defaultValues: {
-      firstName: '',
-      lastName: '',
-      dateOfBirth: '',
+      firstName: '', lastName: '', dateOfBirth: '',
       contactInfo: { phone: '', email: '', address: { street: '', city: '', state: '', zipCode: '', country: 'USA' } },
       insuranceInfo: { providerName: 'Mock Insurance', policyNumber: '' },
     },
   });
 
-  const fetchPatients = useCallback(async (query: string) => {
-    if (!token) return;
-    setIsSearching(true);
+  const isEditing = !!patientId;
+
+  const fetchPatient = useCallback(async (id: string, authToken: string) => {
     try {
-        const url = query ? `/api/v1/patients?q=${query}` : '/api/v1/patients';
-        const response = await fetch(url, {
-            headers: { 'Authorization': `Bearer ${token}` }
+        const response = await fetch(`/api/v1/patients/${id}`, { headers: { 'Authorization': `Bearer ${authToken}` }});
+        if (!response.ok) throw new Error('Failed to fetch patient data.');
+        const patientData: ClientPatient = await response.json();
+        form.reset({
+            id: patientData.id,
+            firstName: patientData.firstName,
+            lastName: patientData.lastName,
+            dateOfBirth: format(new Date(patientData.dateOfBirth), 'yyyy-MM-dd'),
+            contactInfo: patientData.contactInfo,
+            insuranceInfo: patientData.insuranceInfo?.[0]
         });
-        if (!response.ok) throw new Error('Search failed');
-        const data = await response.json();
-        setSearchResults(data);
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not perform patient search.' });
-        setSearchResults([]);
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Error', description: error.message });
+        router.push('/patient');
     } finally {
-        setIsSearching(false);
+        setPageIsLoading(false);
     }
-  }, [token, toast]);
+  }, [form, toast, router]);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('labwise-token');
-    if (storedToken) setToken(storedToken);
-  }, []);
-
-  useEffect(() => {
-    if (token) {
-        // Initial fetch for recent patients
-        fetchPatients(searchTerm);
+    if (storedToken) {
+        setToken(storedToken);
+        if (patientId) {
+            fetchPatient(patientId, storedToken);
+        } else {
+            setPageIsLoading(false);
+        }
     }
-  }, [token, fetchPatients, searchTerm]);
+  }, [patientId, fetchPatient]);
   
+
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     setIsOcrLoading(true);
     setOcrFileName(file.name);
-
-    // Simulate a network delay for the OCR process
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
+    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate OCR
     const fName = getRandomItem(MOCK_FIRST_NAMES);
     const lName = getRandomItem(MOCK_LAST_NAMES);
-
     form.setValue('firstName', fName);
     form.setValue('lastName', lName);
     form.setValue('contactInfo.address.street', `${Math.floor(100 + Math.random() * 900)} ${getRandomItem(MOCK_STREETS)}`);
@@ -146,53 +136,25 @@ export default function PatientRegistrationPage() {
     form.setValue('contactInfo.phone', getRandomPhone());
     form.setValue('contactInfo.email', `${fName.toLowerCase()}.${lName.toLowerCase()}@example.com`);
     form.setValue('dateOfBirth', getRandomDateOfBirth());
-    const policyNumber = getRandomPolicyNumber();
-    form.setValue('insuranceInfo.policyNumber', policyNumber);
-
+    form.setValue('insuranceInfo.policyNumber', getRandomPolicyNumber());
     toast({ title: 'Simulation Successful', description: 'Patient data has been populated with random values.' });
-    
-    // Simulate eligibility check
-    await new Promise(resolve => setTimeout(resolve, 500));
-    toast({
-        title: 'Insurance Eligibility Verified',
-        description: `Policy #${policyNumber} is Active. Co-pay: $25.00`,
-    });
-
     setIsOcrLoading(false);
   };
 
-  const handleAddNew = () => {
-    setEditingPatient(null);
-    form.reset({
-      firstName: '',
-      lastName: '',
-      dateOfBirth: '',
-      contactInfo: { phone: '', email: '', address: { street: '', city: '', state: '', zipCode: '', country: 'USA' } },
-      insuranceInfo: { providerName: 'Mock Insurance', policyNumber: '' },
-    });
-    setIsFormOpen(true);
-  };
-
-  const handleEdit = (patient: ClientPatient) => {
-    setEditingPatient(patient);
-    form.reset({
-      id: patient.id,
-      firstName: patient.firstName,
-      lastName: patient.lastName,
-      dateOfBirth: format(new Date(patient.dateOfBirth), 'yyyy-MM-dd'),
-      contactInfo: patient.contactInfo,
-      insuranceInfo: patient.insuranceInfo?.[0]
-    });
-    setIsFormOpen(true);
+  const handleVerifyEligibility = async () => {
+    const policyNumber = form.getValues('insuranceInfo.policyNumber');
+    if (!policyNumber) {
+        toast({ variant: 'destructive', title: 'Missing Policy Number', description: 'Please enter an insurance policy number to verify.' });
+        return;
+    }
+    setIsVerifyingEligibility(true);
+    await new Promise(resolve => setTimeout(resolve, 1200)); // Simulate API call
+    toast({ title: 'Insurance Eligibility Verified', description: `Policy #${policyNumber} is Active. Co-pay: $${(Math.random() * 50).toFixed(2)}` });
+    setIsVerifyingEligibility(false);
   };
 
   const savePatient = async (data: PatientFormValues): Promise<ClientPatient | null> => {
-    if (!token) {
-      toast({ variant: 'destructive', title: 'Authentication Error', description: 'You are not logged in.' });
-      return null;
-    }
-  
-    const isEditing = !!data.id;
+    if (!token) return null;
     const apiEndpoint = isEditing ? '/api/v1/patients' : '/api/v1/patients';
     const method = isEditing ? 'PUT' : 'POST';
   
@@ -202,28 +164,13 @@ export default function PatientRegistrationPage() {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ ...data, dateOfBirth: new Date(data.dateOfBirth) })
       });
-  
-      if (response.status === 409 && !isEditing) {
-        throw new Error('A patient with this MRN already exists. Please search for them instead.');
-      }
-  
+      if (response.status === 409 && !isEditing) throw new Error('A patient with this MRN already exists.');
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to save patient.');
       }
-  
-      toast({ title: `Patient ${isEditing ? 'updated' : 'created'} successfully` });
-      
       const savedPatientData = await response.json();
-
-      setIsFormOpen(false);
-      form.reset();
-  
-      // Trigger a new search to refresh the list
-      fetchPatients(data.lastName);
-
       return isEditing ? { ...data, id: data.id! } as ClientPatient : savedPatientData;
-  
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Error saving patient', description: error.message });
       return null;
@@ -233,14 +180,18 @@ export default function PatientRegistrationPage() {
   const handleFormSubmit = async (data: PatientFormValues, createOrder?: boolean) => {
     setIsSubmitting(true);
     const savedPatient = await savePatient(data);
-    
-    if (savedPatient && createOrder) {
-      router.push(`/orders?patientId=${savedPatient.id}`);
+    if (savedPatient) {
+        toast({ title: `Patient ${isEditing ? 'updated' : 'created'} successfully` });
+        if (createOrder) {
+            router.push(`/order-entry?patientId=${savedPatient.id}`);
+        } else {
+            router.push('/patient');
+        }
     }
     setIsSubmitting(false);
   }
 
-  if (userLoading) {
+  if (userLoading || pageIsLoading) {
     return <Skeleton className="h-96 w-full" />;
   }
 
@@ -250,48 +201,27 @@ export default function PatientRegistrationPage() {
         <Alert variant="destructive">
             <ShieldAlert className="h-4 w-4" />
             <AlertTitle>Access Denied</AlertTitle>
-            <AlertDescription>
-                You do not have permission to access this page. You will be redirected.
-            </AlertDescription>
+            <AlertDescription>You do not have permission to access this page. You will be redirected.</AlertDescription>
         </Alert>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Patients</CardTitle>
-          <CardDescription>Search for an existing patient or create a new record.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
-            <div className="relative flex-grow">
-               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-               <Input
-                  type="search"
-                  placeholder="Start typing to search by Name, MRN, Phone..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-            </div>
-            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" onClick={handleAddNew}>
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  New Patient
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl">
-                 <DialogHeader>
-                    <DialogTitle>{editingPatient ? 'Edit Patient' : 'Create New Patient'}</DialogTitle>
-                    <DialogDescription>{editingPatient ? `Updating information for ${editingPatient.firstName} ${editingPatient.lastName}` : 'Fill out the form below to register a new patient. The MRN will be generated automatically.'}</DialogDescription>
-                 </DialogHeader>
-                 <Form {...form}>
-                 <form onSubmit={form.handleSubmit((data) => handleFormSubmit(data))} className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 max-h-[75vh] overflow-y-auto pr-6">
-                    {!editingPatient && (
-                      <div className="md:col-span-2 space-y-4">
+    <div className="space-y-6 max-w-4xl mx-auto">
+        <Button variant="outline" onClick={() => router.push('/patient')} className="mb-4">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Patient List
+        </Button>
+        <Card>
+            <CardHeader>
+                <CardTitle>{isEditing ? 'Edit Patient' : 'Create New Patient'}</CardTitle>
+                <CardDescription>{isEditing ? `Updating information for ${form.getValues('firstName')} ${form.getValues('lastName')}` : 'Fill out the form below to register a new patient. The MRN will be generated automatically.'}</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Form {...form}>
+                 <form onSubmit={form.handleSubmit((data) => handleFormSubmit(data))} className="space-y-6">
+                    {!isEditing && (
+                      <div className="space-y-4">
                           <div className="relative flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-card text-center hover:border-primary">
                             <UploadCloud className="h-8 w-8 text-muted-foreground" />
                             <p className="mt-2 text-sm text-muted-foreground">
@@ -301,102 +231,54 @@ export default function PatientRegistrationPage() {
                           </div>
                       </div>
                     )}
-                    <FormField control={form.control} name="firstName" render={({ field }) => ( <FormItem><FormLabel>First Name</FormLabel><FormControl><Input placeholder="John" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="lastName" render={({ field }) => ( <FormItem><FormLabel>Last Name</FormLabel><FormControl><Input placeholder="Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="dateOfBirth" render={({ field }) => ( <FormItem><FormLabel>Date of Birth</FormLabel><FormControl><Input type="date" placeholder="YYYY-MM-DD" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="contactInfo.phone" render={({ field }) => ( <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="(555) 123-4567" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="contactInfo.email" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Email Address</FormLabel><FormControl><Input placeholder="john.doe@email.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="contactInfo.address.street" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Street Address</FormLabel><FormControl><Input placeholder="123 Main St" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="contactInfo.address.city" render={({ field }) => ( <FormItem><FormLabel>City</FormLabel><FormControl><Input placeholder="Anytown" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="contactInfo.address.state" render={({ field }) => ( <FormItem><FormLabel>State</FormLabel><FormControl><Input placeholder="CA" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="contactInfo.address.zipCode" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Zip Code</FormLabel><FormControl><Input placeholder="12345" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="insuranceInfo.policyNumber" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Insurance Policy #</FormLabel><FormControl><Input placeholder="XZ987654321" {...field} /></FormControl><FormMessage /></FormItem>)} />
-
-                    <DialogFooter className="md:col-span-2">
-                        <Button type="button" variant="ghost" onClick={() => setIsFormOpen(false)}>Cancel</Button>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField control={form.control} name="firstName" render={({ field }) => ( <FormItem><FormLabel>First Name</FormLabel><FormControl><Input placeholder="John" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="lastName" render={({ field }) => ( <FormItem><FormLabel>Last Name</FormLabel><FormControl><Input placeholder="Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="dateOfBirth" render={({ field }) => ( <FormItem><FormLabel>Date of Birth</FormLabel><FormControl><Input type="date" placeholder="YYYY-MM-DD" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="contactInfo.phone" render={({ field }) => ( <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="(555) 123-4567" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="contactInfo.email" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Email Address</FormLabel><FormControl><Input placeholder="john.doe@email.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="contactInfo.address.street" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Street Address</FormLabel><FormControl><Input placeholder="123 Main St" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="contactInfo.address.city" render={({ field }) => ( <FormItem><FormLabel>City</FormLabel><FormControl><Input placeholder="Anytown" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="contactInfo.address.state" render={({ field }) => ( <FormItem><FormLabel>State</FormLabel><FormControl><Input placeholder="CA" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="contactInfo.address.zipCode" render={({ field }) => ( <FormItem><FormLabel>Zip Code</FormLabel><FormControl><Input placeholder="12345" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        
+                        <div className="md:col-span-2">
+                            <FormLabel>Insurance Policy #</FormLabel>
+                            <div className="flex items-center gap-2">
+                                <FormField control={form.control} name="insuranceInfo.policyNumber" render={({ field }) => ( <FormItem className="flex-grow"><FormControl><Input placeholder="XZ987654321" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                 <Button type="button" variant="outline" onClick={handleVerifyEligibility} disabled={isVerifyingEligibility}>
+                                    {isVerifyingEligibility ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                                    <span className="ml-2">Verify Eligibility</span>
+                                 </Button>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-4">
+                        <Button type="button" variant="ghost" onClick={() => router.push('/patient')}>Cancel</Button>
                         <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {editingPatient ? 'Save Changes' : 'Save Patient'}
+                            {isEditing ? 'Save Changes' : 'Save Patient'}
                         </Button>
-                         {!editingPatient && (
+                         {!isEditing && (
                             <Button type="button" onClick={form.handleSubmit((data) => handleFormSubmit(data, true))} disabled={isSubmitting}>
                                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Save and Create Order
                             </Button>
                         )}
-                    </DialogFooter>
+                    </div>
                  </form>
                  </Form>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {searchTerm ? 'Search Results' : 'Recent Patients'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-hidden rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-secondary hover:bg-secondary">
-                  <TableHead>Patient</TableHead>
-                  <TableHead>MRN</TableHead>
-                  <TableHead>Age</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isSearching ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell>
-                    </TableRow>
-                  ))
-                ) : searchResults.length > 0 ? (
-                  searchResults.map((patient) => (
-                    <TableRow key={patient.id}>
-                      <TableCell>
-                        <div
-                          className="group flex cursor-pointer items-center gap-3"
-                          onClick={() => handleEdit(patient)}
-                        >
-                           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted"><User className="h-5 w-5 text-muted-foreground" /></div>
-                           <div className="font-medium group-hover:underline">{patient.firstName} {patient.lastName}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{patient.mrn}</TableCell>
-                      <TableCell>{calculateAge(patient.dateOfBirth)}</TableCell>
-                      <TableCell>{patient.contactInfo.phone}</TableCell>
-                      <TableCell className="text-right">
-                         <Button asChild size="sm">
-                            <Link href={`/orders?patientId=${patient.id}`}>
-                                <FilePlus className="mr-2 h-4 w-4" />
-                                Create Order
-                            </Link>
-                         </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
-                     {searchTerm ? 'No patients found.' : 'No recent patients found.'}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+        </Card>
     </div>
   );
 }
 
-    
+
+export default function PatientRegistrationPage() {
+    return (
+        <Suspense fallback={<Skeleton className="h-[calc(100vh-8rem)] w-full" />}>
+            <PatientRegistrationPageComponent />
+        </Suspense>
+    )
+}

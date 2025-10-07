@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-
+import Link from 'next/link';
 
 export default function ReceptionistDashboard() {
   const router = useRouter();
@@ -29,9 +29,11 @@ export default function ReceptionistDashboard() {
                     <CardDescription>Search, register, and update patient records.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Button className="w-full" onClick={() => router.push('/patient?new=true')}>
+                    <Button className="w-full" asChild>
+                      <Link href="/patient-registration">
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Create Patient
+                      </Link>
                     </Button>
                 </CardContent>
             </Card>
@@ -41,9 +43,11 @@ export default function ReceptionistDashboard() {
                     <CardDescription>Create new orders for patients.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Button className="w-full" onClick={() => router.push('/orders?new=true')}>
+                    <Button className="w-full" asChild>
+                      <Link href="/order-entry">
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Create Order
+                      </Link>
                     </Button>
                 </CardContent>
             </Card>
