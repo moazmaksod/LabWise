@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { Suspense } from 'react';
@@ -13,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -274,7 +275,7 @@ function OrderForm({
   );
 }
 
-function OrderDialogContent({ onOrderSaved, editingOrder }: { onOrderSaved: () => void, editingOrder?: ClientOrder | null }) {
+function OrderDialogContent({ onOrderSaved, editingOrder, setOpen }: { onOrderSaved: () => void, editingOrder?: ClientOrder | null, setOpen: (open: boolean) => void }) {
   const [patientSearchTerm, setPatientSearchTerm] = useState('');
   const [patientSearchResults, setPatientSearchResults] = useState<ClientPatient[]>([]);
   const [isPatientSearching, setIsPatientSearching] = useState(false);
@@ -322,16 +323,21 @@ function OrderDialogContent({ onOrderSaved, editingOrder }: { onOrderSaved: () =
 
   useEffect(() => {
     const patientIdFromUrl = searchParams.get('patientId');
+    const newFromUrl = searchParams.get('new');
+
     if (isEditing && editingOrder?.patientId) {
         fetchPatientById(editingOrder.patientId);
     } else if (!isEditing && patientIdFromUrl && token && !selectedPatient) {
+        if(newFromUrl) setOpen(true);
         fetchPatientById(patientIdFromUrl);
         // Clean up URL
         const newUrl = new URL(window.location.href);
         newUrl.searchParams.delete('patientId');
+        newUrl.searchParams.delete('new');
         router.replace(newUrl.pathname + newUrl.search, { scroll: false });
     }
-  }, [searchParams, token, isEditing, editingOrder, selectedPatient, router, fetchPatientById]);
+  }, [searchParams, token, isEditing, editingOrder, selectedPatient, router, fetchPatientById, setOpen]);
+
 
   useEffect(() => {
     if (!patientSearchTerm.trim() || !token) {
@@ -464,12 +470,6 @@ function OrdersPageComponent() {
     }
   }, [token, searchTerm, fetchOrders]);
   
-  useEffect(() => {
-    if (searchParams.get('patientId') && !isOrderDialogOpen) {
-      handleOpenDialog();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -523,7 +523,7 @@ function OrdersPageComponent() {
                 </DialogTrigger>
                 <DialogContent className="max-w-4xl" onPointerDownOutside={(e) => e.preventDefault()}>
                   <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-                    <OrderDialogContent onOrderSaved={handleOrderSaved} editingOrder={editingOrder} />
+                    <OrderDialogContent onOrderSaved={handleOrderSaved} editingOrder={editingOrder} setOpen={setIsOrderDialogOpen} />
                   </Suspense>
                 </DialogContent>
             </Dialog>

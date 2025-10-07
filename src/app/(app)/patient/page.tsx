@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { Suspense, useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { Search, PlusCircle, UploadCloud, Loader2, User, ShieldAlert, FilePlus, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/hooks/use-user';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,8 +67,7 @@ const getRandomDateOfBirth = () => {
 };
 const getRandomPolicyNumber = () => `ID${String(Math.random()).substring(2, 12)}`;
 
-
-export default function PatientPage() {
+function PatientPageComponent() {
   const { user, loading: userLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
@@ -84,6 +83,8 @@ export default function PatientPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVerifyingEligibility, setIsVerifyingEligibility] = useState(false);
   
+  const searchParams = useSearchParams();
+
   const form = useForm<PatientFormValues>({
     resolver: zodResolver(patientSchema),
     defaultValues: {
@@ -126,6 +127,17 @@ export default function PatientPage() {
     }
   }, [token, fetchPatients, searchTerm]);
   
+  useEffect(() => {
+    if (searchParams.get('new')) {
+      handleAddNew();
+      // Clean up URL
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('new');
+      router.replace(newUrl.pathname + newUrl.search, { scroll: false });
+    }
+  }, [searchParams, router]);
+
+
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -249,7 +261,7 @@ export default function PatientPage() {
     const savedPatient = await savePatient(data);
     
     if (savedPatient && createOrder) {
-      router.push(`/orders?patientId=${savedPatient.id}`);
+      router.push(`/orders?patientId=${savedPatient.id}&new=true`);
     }
     setIsSubmitting(false);
   }
@@ -400,7 +412,7 @@ export default function PatientPage() {
                       <TableCell>{patient.contactInfo.phone}</TableCell>
                       <TableCell className="text-right">
                          <Button asChild size="sm">
-                            <Link href={`/orders?patientId=${patient.id}`}>
+                            <Link href={`/orders?patientId=${patient.id}&new=true`}>
                                 <FilePlus className="mr-2 h-4 w-4" />
                                 Create Order
                             </Link>
@@ -424,4 +436,11 @@ export default function PatientPage() {
   );
 }
 
+export default function PatientPage() {
+    return (
+        <Suspense fallback={<Skeleton className="h-[calc(100vh-8rem)] w-full" />}>
+            <PatientPageComponent />
+        </Suspense>
+    )
+}
     
