@@ -1,6 +1,6 @@
 
 'use client';
-import { Suspense, useState } from 'react';
+import { Suspense } from 'react';
 import { User, ClipboardPlus, PlusCircle } from 'lucide-react';
 import {
   Card,
@@ -10,8 +10,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
 
 

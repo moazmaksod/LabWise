@@ -330,11 +330,6 @@ function OrderDialogContent({ onOrderSaved, editingOrder, setOpen }: { onOrderSa
     } else if (!isEditing && patientIdFromUrl && token && !selectedPatient) {
         if(newFromUrl) setOpen(true);
         fetchPatientById(patientIdFromUrl);
-        // Clean up URL
-        const newUrl = new URL(window.location.href);
-        newUrl.searchParams.delete('patientId');
-        newUrl.searchParams.delete('new');
-        router.replace(newUrl.pathname + newUrl.search, { scroll: false });
     }
   }, [searchParams, token, isEditing, editingOrder, selectedPatient, router, fetchPatientById, setOpen]);
 
@@ -468,20 +463,14 @@ function OrdersPageComponent() {
 
   useEffect(() => {
     if(token) {
+        const patientIdFromUrl = searchParams.get('patientId');
+        if (patientIdFromUrl && searchParams.get('new')) {
+            handleOpenDialog();
+        }
         fetchOrders(searchTerm);
     }
-  }, [token, searchTerm, fetchOrders]);
+  }, [token, searchTerm, fetchOrders, searchParams]);
   
-  useEffect(() => {
-    if (searchParams.get('new') && !searchParams.get('patientId')) {
-      handleOpenDialog();
-      // Clean up URL
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.delete('new');
-      router.replace(newUrl.pathname + newUrl.search, { scroll: false });
-    }
-  }, [searchParams, router]);
-
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -500,8 +489,25 @@ function OrdersPageComponent() {
   const handleOrderSaved = () => {
     setIsOrderDialogOpen(false);
     setEditingOrder(null);
-    setSearchTerm(''); // Clear search to show the latest list including the new/edited one
-    fetchOrders(); // We could just pass empty string to fetchOrders, but this is clearer
+    const newUrl = new URL(window.location.href);
+    newUrl.searchParams.delete('patientId');
+    newUrl.searchParams.delete('new');
+    router.replace(newUrl.pathname + newUrl.search, { scroll: false });
+    
+    setSearchTerm(''); 
+    fetchOrders(); 
+  }
+  
+  const handleDialogChange = (isOpen: boolean) => {
+      setIsOrderDialogOpen(isOpen);
+      if (!isOpen) {
+        setEditingOrder(null);
+        // Clean up URL params when dialog is closed
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('patientId');
+        newUrl.searchParams.delete('new');
+        router.replace(newUrl.pathname + newUrl.search, { scroll: false });
+      }
   }
 
   return (
@@ -523,17 +529,14 @@ function OrdersPageComponent() {
                   className="pl-10"
                 />
             </div>
-            <Dialog open={isOrderDialogOpen} onOpenChange={(isOpen) => {
-                setIsOrderDialogOpen(isOpen);
-                if (!isOpen) setEditingOrder(null);
-            }}>
+            <Dialog open={isOrderDialogOpen} onOpenChange={handleDialogChange}>
                 <DialogTrigger asChild>
                     <Button variant="outline" onClick={() => handleOpenDialog()}>
                       <PlusCircle className="mr-2 h-4 w-4" />
                       New Order
                     </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-4xl" onPointerDownOutside={(e) => e.preventDefault()}>
+                <DialogContent className="max-w-4xl">
                   <Suspense fallback={<Skeleton className="h-96 w-full" />}>
                     <OrderDialogContent onOrderSaved={handleOrderSaved} editingOrder={editingOrder} setOpen={setIsOrderDialogOpen} />
                   </Suspense>

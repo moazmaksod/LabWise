@@ -122,21 +122,13 @@ function PatientPageComponent() {
 
   useEffect(() => {
     if (token) {
-        // Initial fetch for recent patients
+        if (searchParams.get('new')) {
+            handleAddNew();
+        }
         fetchPatients(searchTerm);
     }
-  }, [token, fetchPatients, searchTerm]);
+  }, [token, fetchPatients, searchTerm, searchParams]);
   
-  useEffect(() => {
-    if (searchParams.get('new')) {
-      handleAddNew();
-      // Clean up URL
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.delete('new');
-      router.replace(newUrl.pathname + newUrl.search, { scroll: false });
-    }
-  }, [searchParams, router]);
-
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -197,6 +189,12 @@ function PatientPageComponent() {
       insuranceInfo: { providerName: 'Mock Insurance', policyNumber: '' },
     });
     setIsFormOpen(true);
+    // Clean up URL if it was opened via query param
+    const newUrl = new URL(window.location.href);
+    if (newUrl.searchParams.has('new')) {
+      newUrl.searchParams.delete('new');
+      router.replace(newUrl.pathname + newUrl.search, { scroll: false });
+    }
   };
 
   const handleEdit = (patient: ClientPatient) => {
@@ -309,13 +307,13 @@ function PatientPageComponent() {
                   New Patient
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl" onPointerDownOutside={(e) => e.preventDefault()}>
+              <DialogContent className="max-w-4xl">
                  <DialogHeader>
                     <DialogTitle>{editingPatient ? 'Edit Patient' : 'Create New Patient'}</DialogTitle>
                     <DialogDescription>{editingPatient ? `Updating information for ${editingPatient.firstName} ${editingPatient.lastName}` : 'Fill out the form below to register a new patient. The MRN will be generated automatically.'}</DialogDescription>
                  </DialogHeader>
                  <Form {...form}>
-                 <form onSubmit={form.handleSubmit((data) => handleFormSubmit(data))} className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4 max-h-[75vh] overflow-y-auto pr-6">
+                 <form onSubmit={form.handleSubmit((data) => handleFormSubmit(data))} className="max-h-[70vh] overflow-y-auto pr-6 space-y-6 py-4">
                     {!editingPatient && (
                       <div className="md:col-span-2 space-y-4">
                           <div className="relative flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-card text-center hover:border-primary">
@@ -327,29 +325,31 @@ function PatientPageComponent() {
                           </div>
                       </div>
                     )}
-                    <FormField control={form.control} name="firstName" render={({ field }) => ( <FormItem><FormLabel>First Name</FormLabel><FormControl><Input placeholder="John" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="lastName" render={({ field }) => ( <FormItem><FormLabel>Last Name</FormLabel><FormControl><Input placeholder="Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="dateOfBirth" render={({ field }) => ( <FormItem><FormLabel>Date of Birth</FormLabel><FormControl><Input type="date" placeholder="YYYY-MM-DD" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="contactInfo.phone" render={({ field }) => ( <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="(555) 123-4567" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="contactInfo.email" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Email Address</FormLabel><FormControl><Input placeholder="john.doe@email.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="contactInfo.address.street" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Street Address</FormLabel><FormControl><Input placeholder="123 Main St" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="contactInfo.address.city" render={({ field }) => ( <FormItem><FormLabel>City</FormLabel><FormControl><Input placeholder="Anytown" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="contactInfo.address.state" render={({ field }) => ( <FormItem><FormLabel>State</FormLabel><FormControl><Input placeholder="CA" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="contactInfo.address.zipCode" render={({ field }) => ( <FormItem><FormLabel>Zip Code</FormLabel><FormControl><Input placeholder="12345" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    
-                    <div className="md:col-span-2">
-                        <FormLabel>Insurance Policy #</FormLabel>
-                        <div className="flex items-center gap-2">
-                            <FormField control={form.control} name="insuranceInfo.policyNumber" render={({ field }) => ( <FormItem className="flex-grow"><FormControl><Input placeholder="XZ987654321" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                             <Button type="button" variant="outline" onClick={handleVerifyEligibility} disabled={isVerifyingEligibility}>
-                                {isVerifyingEligibility ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                                <span className="ml-2">Verify Eligibility</span>
-                             </Button>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField control={form.control} name="firstName" render={({ field }) => ( <FormItem><FormLabel>First Name</FormLabel><FormControl><Input placeholder="John" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="lastName" render={({ field }) => ( <FormItem><FormLabel>Last Name</FormLabel><FormControl><Input placeholder="Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="dateOfBirth" render={({ field }) => ( <FormItem><FormLabel>Date of Birth</FormLabel><FormControl><Input type="date" placeholder="YYYY-MM-DD" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="contactInfo.phone" render={({ field }) => ( <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="(555) 123-4567" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="contactInfo.email" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Email Address</FormLabel><FormControl><Input placeholder="john.doe@email.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="contactInfo.address.street" render={({ field }) => ( <FormItem className="md:col-span-2"><FormLabel>Street Address</FormLabel><FormControl><Input placeholder="123 Main St" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="contactInfo.address.city" render={({ field }) => ( <FormItem><FormLabel>City</FormLabel><FormControl><Input placeholder="Anytown" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="contactInfo.address.state" render={({ field }) => ( <FormItem><FormLabel>State</FormLabel><FormControl><Input placeholder="CA" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="contactInfo.address.zipCode" render={({ field }) => ( <FormItem><FormLabel>Zip Code</FormLabel><FormControl><Input placeholder="12345" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        
+                        <div className="md:col-span-2">
+                            <FormLabel>Insurance Policy #</FormLabel>
+                            <div className="flex items-center gap-2">
+                                <FormField control={form.control} name="insuranceInfo.policyNumber" render={({ field }) => ( <FormItem className="flex-grow"><FormControl><Input placeholder="XZ987654321" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                 <Button type="button" variant="outline" onClick={handleVerifyEligibility} disabled={isVerifyingEligibility}>
+                                    {isVerifyingEligibility ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                                    <span className="ml-2">Verify Eligibility</span>
+                                 </Button>
+                            </div>
                         </div>
                     </div>
 
 
-                    <DialogFooter className="md:col-span-2">
+                    <DialogFooter className="md:col-span-2 pt-4">
                         <Button type="button" variant="ghost" onClick={() => setIsFormOpen(false)}>Cancel</Button>
                         <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
