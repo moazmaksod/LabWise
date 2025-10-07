@@ -375,58 +375,59 @@ function OrderDialogContent({ onOrderSaved, editingOrder, setOpen }: { onOrderSa
         <DialogDescription>{dialogDescription}</DialogDescription>
       </DialogHeader>
       
-      {selectedPatient && (
-         <Card className="bg-secondary my-4">
-            <CardHeader className='py-4'>
-                <CardTitle className="text-lg">Patient Information</CardTitle>
-            </CardHeader>
-            <CardContent className="pb-4">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <p className="font-semibold text-xl">{selectedPatient.firstName} {selectedPatient.lastName}</p>
-                        <p className="text-muted-foreground">MRN: {selectedPatient.mrn}</p>
-                    </div>
-                    <div className="text-right">
-                        <p className="font-semibold text-xl">{calculateAge(selectedPatient.dateOfBirth)} years</p>
-                        <p className="text-muted-foreground">DOB: {format(new Date(selectedPatient.dateOfBirth), 'MM/dd/yyyy')}</p>
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-      )}
+      <div className="max-h-[70vh] overflow-y-auto pr-6 space-y-4 py-4">
+        {selectedPatient && (
+          <Card className="bg-secondary my-4">
+              <CardHeader className='py-4'>
+                  <CardTitle className="text-lg">Patient Information</CardTitle>
+              </CardHeader>
+              <CardContent className="pb-4">
+                  <div className="flex justify-between items-center">
+                      <div>
+                          <p className="font-semibold text-xl">{selectedPatient.firstName} {selectedPatient.lastName}</p>
+                          <p className="text-muted-foreground">MRN: {selectedPatient.mrn}</p>
+                      </div>
+                      <div className="text-right">
+                          <p className="font-semibold text-xl">{calculateAge(selectedPatient.dateOfBirth)} years</p>
+                          <p className="text-muted-foreground">DOB: {format(new Date(selectedPatient.dateOfBirth), 'MM/dd/yyyy')}</p>
+                      </div>
+                  </div>
+              </CardContent>
+          </Card>
+        )}
 
-      {showPatientSearch ? (
-        <div className="space-y-4 py-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input type="search" placeholder="Start typing to search for a patient..." value={patientSearchTerm} onChange={(e) => setPatientSearchTerm(e.target.value)} className="pl-10" />
-            </div>
-            <div className="mt-4 overflow-hidden rounded-md border max-h-60 overflow-y-auto">
-              <Table><TableHeader><TableRow className="bg-secondary hover:bg-secondary"><TableHead>Patient</TableHead><TableHead>Age</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {isPatientSearching ? <TableRow><TableCell colSpan={3}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                  : patientSearchResults.length > 0 ? patientSearchResults.map((patient) => (
-                      <TableRow key={patient.id}>
-                        <TableCell>
-                          <div className="font-medium">{patient.firstName} {patient.lastName}</div>
-                          <div className="text-sm text-muted-foreground">MRN: {patient.mrn}</div>
-                        </TableCell>
-                        <TableCell>{calculateAge(patient.dateOfBirth)}</TableCell>
-                        <TableCell className="text-right"><Button size="sm" onClick={() => setSelectedPatient(patient)}><FilePlus className="mr-2 h-4 w-4" />Select</Button></TableCell>
-                      </TableRow>))
-                  : <TableRow><TableCell colSpan={3} className="h-24 text-center">{patientSearchTerm ? 'No patients found.' : 'Start typing to see results.'}</TableCell></TableRow>}
-                </TableBody>
-              </Table>
-            </div>
-        </div>
-      ) : selectedPatient ? (
-        <OrderForm patient={selectedPatient} onOrderSaved={onOrderSaved} editingOrder={editingOrder} />
-      ) : (
-        <div className="flex h-60 items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      )
-      }
+        {showPatientSearch ? (
+          <div className="space-y-4 py-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input type="search" placeholder="Start typing to search for a patient..." value={patientSearchTerm} onChange={(e) => setPatientSearchTerm(e.target.value)} className="pl-10" />
+              </div>
+              <div className="mt-4 overflow-hidden rounded-md border max-h-60 overflow-y-auto">
+                <Table><TableHeader><TableRow className="bg-secondary hover:bg-secondary"><TableHead>Patient</TableHead><TableHead>Age</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {isPatientSearching ? <TableRow><TableCell colSpan={3}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                    : patientSearchResults.length > 0 ? patientSearchResults.map((patient) => (
+                        <TableRow key={patient.id}>
+                          <TableCell>
+                            <div className="font-medium">{patient.firstName} {patient.lastName}</div>
+                            <div className="text-sm text-muted-foreground">MRN: {patient.mrn}</div>
+                          </TableCell>
+                          <TableCell>{calculateAge(patient.dateOfBirth)}</TableCell>
+                          <TableCell className="text-right"><Button size="sm" onClick={() => setSelectedPatient(patient)}><FilePlus className="mr-2 h-4 w-4" />Select</Button></TableCell>
+                        </TableRow>))
+                    : <TableRow><TableCell colSpan={3} className="h-24 text-center">{patientSearchTerm ? 'No patients found.' : 'Start typing to see results.'}</TableCell></TableRow>}
+                  </TableBody>
+                </Table>
+              </div>
+          </div>
+        ) : selectedPatient ? (
+          <OrderForm patient={selectedPatient} onOrderSaved={onOrderSaved} editingOrder={editingOrder} />
+        ) : (
+          <div className="flex h-60 items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        )}
+      </div>
     </>
   );
 }
