@@ -442,6 +442,7 @@ function OrdersPageComponent() {
   const [editingOrder, setEditingOrder] = useState<ClientOrder | null>(null);
   
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const fetchOrders = useCallback(async (query?: string) => {
       if (!token) return;
@@ -470,6 +471,16 @@ function OrdersPageComponent() {
     }
   }, [token, searchTerm, fetchOrders]);
   
+  useEffect(() => {
+    if (searchParams.get('new') && !searchParams.get('patientId')) {
+      handleOpenDialog();
+      // Clean up URL
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('new');
+      router.replace(newUrl.pathname + newUrl.search, { scroll: false });
+    }
+  }, [searchParams, router]);
+
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -584,5 +595,3 @@ export default function OrdersPage() {
         </Suspense>
     )
 }
-
-    

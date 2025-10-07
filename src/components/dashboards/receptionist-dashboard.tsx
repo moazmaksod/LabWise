@@ -1,7 +1,6 @@
 
 'use client';
 import { Suspense, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { User, ClipboardPlus, PlusCircle } from 'lucide-react';
 import {
   Card,
@@ -12,14 +11,12 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
-import PatientPage from '@/app/(app)/patient/page';
-import OrdersPage from '@/app/(app)/orders/page';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useRouter } from 'next/navigation';
 
 
 export default function ReceptionistDashboard() {
-  const [isPatientDialogOpen, setIsPatientDialogOpen] = useState(false);
-  const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
+  const router = useRouter();
 
   return (
     <div className="space-y-8">
@@ -34,19 +31,10 @@ export default function ReceptionistDashboard() {
                     <CardDescription>Search, register, and update patient records.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Dialog open={isPatientDialogOpen} onOpenChange={setIsPatientDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button className="w-full">
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Create Patient
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-4xl min-h-[80vh]">
-                             <Suspense fallback={<Skeleton className="h-full w-full" />}>
-                               <PatientPage />
-                             </Suspense>
-                        </DialogContent>
-                    </Dialog>
+                    <Button className="w-full" onClick={() => router.push('/patient?new=true')}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Create Patient
+                    </Button>
                 </CardContent>
             </Card>
             <Card className="shadow-lg hover:shadow-primary/20 transition-shadow flex flex-col">
@@ -55,19 +43,10 @@ export default function ReceptionistDashboard() {
                     <CardDescription>Create new orders for patients.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Dialog open={isOrderDialogOpen} onOpenChange={setIsOrderDialogOpen}>
-                         <DialogTrigger asChild>
-                            <Button className="w-full">
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Create Order
-                            </Button>
-                         </DialogTrigger>
-                         <DialogContent className="max-w-4xl min-h-[80vh]">
-                            <Suspense fallback={<Skeleton className="h-full w-full" />}>
-                               <OrdersPage />
-                            </Suspense>
-                         </DialogContent>
-                    </Dialog>
+                    <Button className="w-full" onClick={() => router.push('/orders?new=true')}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Create Order
+                    </Button>
                 </CardContent>
             </Card>
          </div>
