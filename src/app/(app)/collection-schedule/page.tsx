@@ -171,7 +171,7 @@ export default function CollectionSchedulePage() {
         }
     }, [token, selectedDate, fetchAppointments]);
     
-    const getStatusVariant = (status: ClientAppointment['status']) => {
+    const getAppointmentStatusVariant = (status: ClientAppointment['status']) => {
         switch (status) {
             case 'Completed': return 'secondary';
             case 'CheckedIn': return 'default';
@@ -181,6 +181,16 @@ export default function CollectionSchedulePage() {
         }
     };
     
+    const getOrderStatusVariant = (status: ClientOrder['orderStatus']) => {
+        switch (status) {
+            case 'Complete': return 'default';
+            case 'Pending': return 'secondary';
+            case 'Partially Collected': return 'outline';
+            case 'Cancelled': return 'destructive';
+            default: return 'outline';
+        }
+    }
+
     const getSampleStatusVariant = (status: OrderSample['status']) => {
         switch (status) {
             case 'Collected': return 'default';
@@ -276,7 +286,12 @@ export default function CollectionSchedulePage() {
                                                 )}
                                             </div>
                                         </div>
-                                        <Badge variant={getStatusVariant(appt.status)} className="text-base">{appt.status}</Badge>
+                                         <div className="flex items-center gap-2">
+                                            {appt.orderInfo?.orderStatus && appt.orderInfo.orderStatus !== 'Pending' && (
+                                                <Badge variant={getOrderStatusVariant(appt.orderInfo.orderStatus)} className="text-base">{appt.orderInfo.orderStatus}</Badge>
+                                            )}
+                                            <Badge variant={getAppointmentStatusVariant(appt.status)} className="text-base">{appt.status}</Badge>
+                                        </div>
                                     </div>
                                 </AccordionTrigger>
                                  <AccordionContent className="bg-muted/30">
@@ -343,5 +358,7 @@ export default function CollectionSchedulePage() {
         </>
     );
 }
+
+    
 
     
