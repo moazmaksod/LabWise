@@ -55,17 +55,28 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             return NextResponse.json({ message: 'Order found, but failed to update sample status. It might have been collected already.' }, { status: 500 });
         }
         
-        // After updating the sample, check if all samples for THIS order are collected.
-        // If so, update the order's status.
+        // After updating the sample, check the status of all samples for THIS order.
         const updatedOrder = await db.collection<Order>('orders').findOne({ _id: orderContainingSample._id });
-        if (updatedOrder && updatedOrder.samples.every(s => s.status !== 'AwaitingCollection')) {
-            const allSamplesInLabOrBeyond = updatedOrder.samples.every(s => s.status === 'InLab' || s.status === 'Testing' || s.status === 'AwaitingVerification' || s.status === 'Verified');
-            const newOrderStatus = allSamplesInLabOrBeyond ? 'Partially Complete' : 'Pending';
+        if (updatedOrder) {
+            const allSamplesCollected = updatedOrder.samples.every(s => s.status !== 'AwaitingCollection');
+            const someSamplesCollected = updatedOrder.samples.some(s => s.status === 'Collected' || s.status === 'InLab');
 
-            await db.collection<Order>('orders').updateOne(
-                { _id: updatedOrder._id },
-                { $set: { orderStatus: newOrderStatus } }
-            );
+            let newOrderStatus: Order['orderStatus'] = updatedOrder.orderStatus;
+
+            if (allSamplesCollected) {
+                // All samples are collected (or further along), but the order isn't 'Complete' yet. It's 'Pending' lab work.
+                newOrderStatus = 'Pending';
+            } else if (someSamplesCollected) {
+                // Some samples are collected, but not all.
+                newOrderStatus = 'Partially Collected';
+            }
+
+            if (newOrderStatus !== updatedOrder.orderStatus) {
+                await db.collection<Order>('orders').updateOne(
+                    { _id: updatedOrder._id },
+                    { $set: { orderStatus: newOrderStatus } }
+                );
+            }
         }
         
         // Now, check if all orders associated with this appointment are complete (all samples collected).

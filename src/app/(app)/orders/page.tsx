@@ -60,6 +60,7 @@ function OrdersPageComponent() {
     switch (status) {
         case 'Complete': return 'default';
         case 'Pending': return 'secondary';
+        case 'Partially Collected': return 'outline';
         case 'Cancelled': return 'destructive';
         default: return 'outline';
     }
