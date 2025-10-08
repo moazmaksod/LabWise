@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { format, addDays, subDays, addMinutes } from 'date-fns';
-import { Clock, Beaker, Check, User, Microscope, AlertTriangle, ChevronDown, ChevronRight, Droplets, CalendarIcon, ChevronLeft } from 'lucide-react';
+import { Clock, Beaker, Check, User, Microscope, AlertTriangle, ChevronDown, ChevronRight, Droplets, CalendarIcon, ChevronLeft, Edit } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,6 +14,84 @@ import { cn } from '@/lib/utils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+
+function EditAppointmentDialog({ appointment, isOpen, onOpenChange, onSave }: { appointment: ClientAppointment | null, isOpen: boolean, onOpenChange: (open: boolean) => void, onSave: () => void }) {
+    const { toast } = useToast();
+    const [token, setToken] = useState<string | null>(null);
+    const [newDateTime, setNewDateTime] = useState('');
+
+    useEffect(() => {
+        const storedToken = localStorage.getItem('labwise-token');
+        if (storedToken) setToken(storedToken);
+    }, []);
+
+    useEffect(() => {
+        if (appointment) {
+            setNewDateTime(format(new Date(appointment.scheduledTime), "yyyy-MM-dd'T'HH:mm"));
+        }
+    }, [appointment]);
+    
+    const handleSave = async () => {
+        if (!appointment || !token) return;
+
+        try {
+            const response = await fetch(`/api/v1/appointments/${appointment.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({
+                    patientId: appointment.patientId,
+                    scheduledTime: newDateTime,
+                    notes: appointment.notes,
+                    appointmentType: appointment.appointmentType,
+                }),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to update appointment');
+            }
+            toast({ title: 'Appointment Updated', description: 'The schedule has been successfully updated.' });
+            onSave();
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Update Failed', description: error.message });
+        }
+    };
+
+
+    if (!appointment) return null;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Edit Collection Appointment</DialogTitle>
+                    <DialogDescription>
+                        Reschedule the appointment for {appointment.patientInfo?.firstName} {appointment.patientInfo?.lastName}.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="datetime" className="text-right">Date and Time</Label>
+                        <Input
+                            id="datetime"
+                            type="datetime-local"
+                            value={newDateTime}
+                            onChange={(e) => setNewDateTime(e.target.value)}
+                            className="col-span-3"
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button onClick={handleSave}>Save Changes</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 
 export default function CollectionSchedulePage() {
     const [appointments, setAppointments] = useState<ClientAppointment[]>([]);
@@ -21,6 +99,7 @@ export default function CollectionSchedulePage() {
     const [token, setToken] = useState<string | null>(null);
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const { toast } = useToast();
+    const [editingAppointment, setEditingAppointment] = useState<ClientAppointment | null>(null);
 
     const fetchAppointments = useCallback(async (authToken: string, date: Date) => {
         setLoading(true);
@@ -82,13 +161,23 @@ export default function CollectionSchedulePage() {
         }
     }
     
+    const handleEditAppointment = (appointment: ClientAppointment) => {
+        setEditingAppointment(appointment);
+    };
+
+    const handleSave = () => {
+        setEditingAppointment(null);
+        if(token) fetchAppointments(token, selectedDate);
+    }
+    
     return (
+        <>
         <Card className="shadow-lg">
             <CardHeader>
                 <div className='flex items-center justify-between'>
                     <div>
                         <CardTitle>Sample Collection Schedule</CardTitle>
-                        <CardDescription>View scheduled sample collections.</CardDescription>
+                        <CardDescription>View and manage scheduled sample collections.</CardDescription>
                     </div>
                      <div className="flex items-center gap-2">
                         <Button variant="outline" size="icon" onClick={() => handleDateChange(subDays(selectedDate, 1))}>
@@ -155,42 +244,48 @@ export default function CollectionSchedulePage() {
                                     </div>
                                 </AccordionTrigger>
                                  <AccordionContent className="bg-muted/30">
-                                    <div className="p-4">
-                                    {appt.orderInfo ? (
-                                        <div className="space-y-3">
-                                            <div className="space-y-4">
-                                                {appt.orderInfo.samples.map(sample => (
-                                                    <Card key={sample.sampleId}>
-                                                        <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
-                                                            <CardTitle className="text-md flex items-center gap-2">
-                                                                <Droplets className="h-5 w-5 text-primary"/>
-                                                                {sample.sampleType || 'Unknown Tube'}
-                                                            </CardTitle>
-                                                             <Badge variant={getSampleStatusVariant(sample.status)}>
-                                                                {sample.status}
-                                                            </Badge>
-                                                        </CardHeader>
-                                                        <CardContent>
-                                                            <ul className="list-disc list-inside text-muted-foreground space-y-1">
-                                                                {sample.tests.map(test => (
-                                                                    <li key={test.testCode}>{test.name}</li>
-                                                                ))}
-                                                            </ul>
-                                                            {sample.specimenRequirements?.specialHandling && (
-                                                                <div className="mt-3 flex items-center gap-2 text-yellow-400">
-                                                                    <AlertTriangle className="h-4 w-4"/>
-                                                                    <span className="font-semibold">Special Handling:</span>
-                                                                    <span>{sample.specimenRequirements.specialHandling}</span>
-                                                                </div>
-                                                            )}
-                                                        </CardContent>
-                                                    </Card>
-                                                ))}
+                                    <div className="p-4 space-y-4">
+                                        {appt.orderInfo ? (
+                                            <div className="space-y-3">
+                                                <div className="space-y-4">
+                                                    {appt.orderInfo.samples.map(sample => (
+                                                        <Card key={sample.sampleId}>
+                                                            <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
+                                                                <CardTitle className="text-md flex items-center gap-2">
+                                                                    <Droplets className="h-5 w-5 text-primary"/>
+                                                                    {sample.specimenRequirements?.tubeType || 'Unknown Tube'}
+                                                                </CardTitle>
+                                                                <Badge variant={getSampleStatusVariant(sample.status)}>
+                                                                    {sample.status}
+                                                                </Badge>
+                                                            </CardHeader>
+                                                            <CardContent>
+                                                                <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                                                                    {sample.tests.map(test => (
+                                                                        <li key={test.testCode}>{test.name}</li>
+                                                                    ))}
+                                                                </ul>
+                                                                {sample.specimenRequirements?.specialHandling && (
+                                                                    <div className="mt-3 flex items-center gap-2 text-yellow-400">
+                                                                        <AlertTriangle className="h-4 w-4"/>
+                                                                        <span className="font-semibold">Special Handling:</span>
+                                                                        <span>{sample.specimenRequirements.specialHandling}</span>
+                                                                    </div>
+                                                                )}
+                                                            </CardContent>
+                                                        </Card>
+                                                    ))}
+                                                </div>
                                             </div>
+                                        ) : (
+                                            <div className="text-center text-muted-foreground py-4">Order details not found for this appointment.</div>
+                                        )}
+                                        <div className="pt-4 border-t border-border/50 flex justify-end">
+                                            <Button variant="outline" size="sm" onClick={() => handleEditAppointment(appt)}>
+                                                <Edit className="mr-2 h-4 w-4" />
+                                                Reschedule
+                                            </Button>
                                         </div>
-                                    ) : (
-                                        <div className="text-center text-muted-foreground py-4">Order details not found for this appointment.</div>
-                                    )}
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
@@ -203,5 +298,12 @@ export default function CollectionSchedulePage() {
                 </Accordion>
             </CardContent>
         </Card>
+        <EditAppointmentDialog 
+            appointment={editingAppointment} 
+            isOpen={!!editingAppointment}
+            onOpenChange={(isOpen) => !isOpen && setEditingAppointment(null)}
+            onSave={handleSave}
+        />
+        </>
     );
 }
