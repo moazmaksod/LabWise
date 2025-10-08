@@ -5,6 +5,7 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import type { Order, TestCatalogItem, OrderSample, OrderTest, Appointment } from '@/lib/types';
 import { decrypt } from '@/lib/auth';
+import { addMinutes } from 'date-fns';
 
 // GET a single order by ID
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -57,6 +58,29 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         if(testCodes.length === 0) {
              return NextResponse.json({ message: 'At least one test must be selected.' }, { status: 400 });
         }
+        
+        const existingOrder = await db.collection<Order>('orders').findOne({ _id: new ObjectId(params.id) });
+        if (!existingOrder) {
+            return NextResponse.json({ message: 'Order not found' }, { status: 404 });
+        }
+
+        // ---- Check for overlapping appointments ----
+        const newApptStartTime = new Date(appointmentDetails.scheduledTime);
+        const newApptEndTime = addMinutes(newApptStartTime, appointmentDetails.durationMinutes || 15);
+
+        const overlappingAppointment = await db.collection('appointments').findOne({
+            _id: { $ne: existingOrder.appointmentId }, // Exclude the current order's own appointment
+            $or: [
+                { scheduledTime: { $lt: newApptEndTime }, $expr: { $gt: [ { $add: ["$scheduledTime", { $multiply: ["$durationMinutes", 60000] }] }, newApptStartTime ] } },
+                { scheduledTime: { $lt: newApptStartTime }, $expr: { $gt: [ { $add: ["$scheduledTime", { $multiply: ["$durationMinutes", 60000] }] }, newApptStartTime ] } },
+                { scheduledTime: { $gte: newApptStartTime, $lt: newApptEndTime } }
+            ]
+        });
+
+        if (overlappingAppointment) {
+            return NextResponse.json({ message: 'This time slot is already booked or overlaps with another appointment.' }, { status: 409 });
+        }
+        // ---- End overlap check ----
 
         // Fetch all test definitions from the catalog
         const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: testCodes } }).toArray();
@@ -90,19 +114,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
                 tests: testsForSample,
             };
         });
-
-        // Find existing order to get appointmentId
-        const existingOrder = await db.collection<Order>('orders').findOne({ _id: new ObjectId(params.id) });
-        if (!existingOrder) {
-            return NextResponse.json({ message: 'Order not found' }, { status: 404 });
-        }
         
         // Update the associated appointment
         if (existingOrder.appointmentId) {
             await db.collection<Appointment>('appointments').updateOne(
                 { _id: existingOrder.appointmentId },
                 { $set: { 
-                    scheduledTime: new Date(appointmentDetails.scheduledTime),
+                    scheduledTime: newApptStartTime,
+                    durationMinutes: appointmentDetails.durationMinutes || 15,
                     notes: appointmentDetails.notes,
                     updatedAt: new Date(),
                  } }
@@ -131,5 +150,3 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
     }
 }
-
-    

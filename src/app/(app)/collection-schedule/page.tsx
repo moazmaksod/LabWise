@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { format, addDays, subDays } from 'date-fns';
+import { format, addDays, subDays, addMinutes } from 'date-fns';
 import { Clock, Beaker, Check, User, Microscope, AlertTriangle, ChevronDown, ChevronRight, Droplets, CalendarIcon, ChevronLeft } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -141,7 +141,7 @@ export default function CollectionSchedulePage() {
                                         <div className="flex items-center gap-4">
                                              <div className="flex items-center gap-2 font-semibold text-lg">
                                                 <Clock className="h-5 w-5 text-muted-foreground" />
-                                                <span>{format(new Date(appt.scheduledTime), 'p')}</span>
+                                                <span>{format(new Date(appt.scheduledTime), 'p')} - {format(addMinutes(new Date(appt.scheduledTime), appt.durationMinutes), 'p')}</span>
                                             </div>
                                             <div>
                                                 <div className="font-bold text-xl">{appt.patientInfo?.firstName} {appt.patientInfo?.lastName}</div>

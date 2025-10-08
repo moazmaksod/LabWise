@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Search, PlusCircle, X, Loader2, FilePlus, TestTube, ArrowLeft } from 'lucide-react';
+import { Search, PlusCircle, X, Loader2, FilePlus, TestTube, ArrowLeft, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ const orderFormSchema = z.object({
   icd10Code: z.string().min(3, 'A valid ICD-10 code is required.'),
   testIds: z.array(z.string()).min(1, 'At least one test must be added to the order.'),
   appointmentDateTime: z.string().min(1, 'An appointment time for sample collection is required.'),
+  durationMinutes: z.coerce.number().int().min(5, 'Duration must be at least 5 minutes.').default(15),
 });
 
 type OrderFormValues = z.infer<typeof orderFormSchema>;
@@ -53,6 +54,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
       icd10Code: editingOrder?.icd10Code || '',
       testIds: editingOrder?.samples.flatMap(s => s.tests.map(t => t.testCode)) || [],
       appointmentDateTime: editingOrder?.appointmentId ? format(new Date(editingOrder.createdAt), "yyyy-MM-dd'T'HH:mm") : format(addHours(new Date(), 1), "yyyy-MM-dd'T'HH:mm"),
+      durationMinutes: 15,
     },
   });
 
@@ -145,7 +147,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
             testCodes: data.testIds,
             appointmentDetails: {
                 scheduledTime: new Date(data.appointmentDateTime),
-                durationMinutes: 15,
+                durationMinutes: data.durationMinutes,
                 status: 'Scheduled',
                 appointmentType: 'Sample Collection'
             },
@@ -193,7 +195,11 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
         </div>
         <div className="space-y-4 rounded-lg border p-4 bg-secondary/50">
             <h3 className="font-semibold leading-none tracking-tight">Sample Collection Appointment</h3>
-             <FormField control={form.control} name="appointmentDateTime" render={({ field }) => ( <FormItem><FormLabel>Scheduled Date & Time</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormDescription>A collection appointment must be scheduled for every order.</FormDescription><FormMessage /></FormItem> )} />
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField control={form.control} name="appointmentDateTime" render={({ field }) => ( <FormItem><FormLabel>Scheduled Date & Time</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="durationMinutes" render={({ field }) => ( <FormItem><FormLabel>Duration (minutes)</FormLabel><FormControl><Input type="number" min="5" step="5" {...field} /></FormControl><FormMessage /></FormItem> )} />
+             </div>
+             <FormDescription className="flex items-center gap-2"><Clock className="h-4 w-4" /> A collection appointment will be scheduled for this order.</FormDescription>
         </div>
         <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>

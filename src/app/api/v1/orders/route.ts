@@ -6,6 +6,7 @@ import { ObjectId } from 'mongodb';
 import { getNextOrderId } from '@/lib/counters';
 import { decrypt } from '@/lib/auth';
 import type { Order, TestCatalogItem, OrderSample, OrderTest, Role, Appointment } from '@/lib/types';
+import { addMinutes } from 'date-fns';
 
 // POST a new order
 export async function POST(req: NextRequest) {
@@ -39,6 +40,26 @@ export async function POST(req: NextRequest) {
         if(testCodes.length === 0) {
              return NextResponse.json({ message: 'At least one test must be selected.' }, { status: 400 });
         }
+
+        // ---- Check for overlapping appointments ----
+        const newApptStartTime = new Date(appointmentDetails.scheduledTime);
+        const newApptEndTime = addMinutes(newApptStartTime, appointmentDetails.durationMinutes || 15);
+
+        const overlappingAppointment = await db.collection('appointments').findOne({
+            $or: [
+                // New appointment starts during an existing one
+                { scheduledTime: { $lt: newApptEndTime }, $expr: { $gt: [ { $add: ["$scheduledTime", { $multiply: ["$durationMinutes", 60000] }] }, newApptStartTime ] } },
+                // New appointment ends during an existing one
+                { scheduledTime: { $lt: newApptStartTime }, $expr: { $gt: [ { $add: ["$scheduledTime", { $multiply: ["$durationMinutes", 60000] }] }, newApptStartTime ] } },
+                // New appointment envelops an existing one
+                { scheduledTime: { $gte: newApptStartTime, $lt: newApptEndTime } }
+            ]
+        });
+
+        if (overlappingAppointment) {
+            return NextResponse.json({ message: 'This time slot is already booked or overlaps with another appointment.' }, { status: 409 });
+        }
+        // ---- End overlap check ----
         
         // Fetch all test definitions from the catalog
         const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: testCodes } }).toArray();
@@ -66,7 +87,7 @@ export async function POST(req: NextRequest) {
             patientId: new ObjectId(patientId),
             orderId: orderObjectId, // Link appointment to the new order
             appointmentType: 'Sample Collection',
-            scheduledTime: new Date(appointmentDetails.scheduledTime),
+            scheduledTime: newApptStartTime,
             durationMinutes: appointmentDetails.durationMinutes || 15,
             status: appointmentDetails.status || 'Scheduled',
             notes: appointmentDetails.notes || '',
@@ -179,5 +200,3 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
     }
 }
-
-    
