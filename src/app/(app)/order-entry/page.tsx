@@ -19,8 +19,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from '@/components/ui/badge';
-import type { ClientPatient, ClientTestCatalogItem, ClientUser, ClientOrder } from '@/lib/types';
-import { format, addHours } from 'date-fns';
+import type { ClientPatient, ClientTestCatalogItem, ClientUser, ClientOrder, ClientAppointment } from '@/lib/types';
+import { format, addMinutes, startOfToday, setHours, setMinutes } from 'date-fns';
 import { calculateAge } from '@/lib/utils';
 
 const orderFormSchema = z.object({
@@ -34,6 +34,33 @@ const orderFormSchema = z.object({
 });
 
 type OrderFormValues = z.infer<typeof orderFormSchema>;
+
+function findNextAvailableTime(appointments: ClientAppointment[]): Date {
+    const now = new Date();
+    const today = startOfToday();
+    let lastEndTime = setMinutes(setHours(today, 9), 0); // Default to 9:00 AM
+
+    if (appointments && appointments.length > 0) {
+        // Sort appointments by time to find the last one
+        const sortedAppointments = [...appointments].sort((a, b) => new Date(a.scheduledTime).getTime() - new Date(b.scheduledTime).getTime());
+        const lastAppointment = sortedAppointments[sortedAppointments.length - 1];
+        lastEndTime = addMinutes(new Date(lastAppointment.scheduledTime), lastAppointment.durationMinutes);
+    }
+    
+    // If last end time is in the past, start from now
+    if (lastEndTime < now) {
+      lastEndTime = now;
+    }
+
+    // Add a 5 minute buffer and round to the next 5-minute interval
+    let nextTime = addMinutes(lastEndTime, 5);
+    const minutes = nextTime.getMinutes();
+    const roundedMinutes = Math.ceil(minutes / 5) * 5;
+    nextTime.setMinutes(roundedMinutes, 0, 0);
+
+    return nextTime;
+}
+
 
 function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient: ClientPatient; onOrderSaved: () => void; editingOrder?: ClientOrder | null, onCancel: () => void; }) {
   const { toast } = useToast();
@@ -53,7 +80,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
       physicianId: editingOrder?.physicianId || '',
       icd10Code: editingOrder?.icd10Code || '',
       testIds: editingOrder?.samples.flatMap(s => s.tests.map(t => t.testCode)) || [],
-      appointmentDateTime: editingOrder?.appointmentId ? format(new Date(editingOrder.createdAt), "yyyy-MM-dd'T'HH:mm") : format(addHours(new Date(), 1), "yyyy-MM-dd'T'HH:mm"),
+      appointmentDateTime: '', // Will be set by useEffect
       durationMinutes: 15,
     },
   });
@@ -82,6 +109,32 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
         setSelectedTests(tests);
     } catch (error) { console.error(error); toast({ variant: 'destructive', title: 'Error', description: 'Could not load existing tests for this order.' }); }
   }, [token, toast]);
+  
+  // New effect to set default appointment time
+  useEffect(() => {
+    if (token && !editingOrder) {
+        const fetchAppointmentsAndSetTime = async () => {
+            try {
+                const dateString = format(new Date(), 'yyyy-MM-dd');
+                const url = `/api/v1/appointments?date=${dateString}`;
+                const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+                if (!response.ok) throw new Error('Failed to fetch schedule');
+                const appointments: ClientAppointment[] = await response.json();
+                const nextAvailableTime = findNextAvailableTime(appointments);
+                form.setValue('appointmentDateTime', format(nextAvailableTime, "yyyy-MM-dd'T'HH:mm"));
+            } catch (error) {
+                console.error("Failed to get next available time slot, defaulting to 1 hour from now.", error);
+                const nextHour = addMinutes(new Date(), 60);
+                form.setValue('appointmentDateTime', format(nextHour, "yyyy-MM-dd'T'HH:mm"));
+            }
+        };
+        fetchAppointmentsAndSetTime();
+    } else if (editingOrder) {
+        // If editing, use the existing appointment time
+        const appointmentTime = editingOrder.appointmentId ? format(new Date(editingOrder.createdAt), "yyyy-MM-dd'T'HH:mm") : format(new Date(), "yyyy-MM-dd'T'HH:mm");
+        form.setValue('appointmentDateTime', appointmentTime);
+    }
+  }, [token, editingOrder, form]);
 
   useEffect(() => {
     fetchPhysicians();
