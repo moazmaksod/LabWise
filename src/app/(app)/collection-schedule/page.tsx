@@ -287,10 +287,11 @@ export default function CollectionSchedulePage() {
                                             </div>
                                         </div>
                                          <div className="flex items-center gap-2">
-                                            {appt.orderInfo?.orderStatus && appt.orderInfo.orderStatus !== 'Pending' && (
+                                            {appt.orderInfo?.orderStatus && appt.orderInfo.orderStatus !== 'Pending' ? (
                                                 <Badge variant={getOrderStatusVariant(appt.orderInfo.orderStatus)} className="text-base">{appt.orderInfo.orderStatus}</Badge>
+                                            ) : (
+                                                <Badge variant={getAppointmentStatusVariant(appt.status)} className="text-base">{appt.status}</Badge>
                                             )}
-                                            <Badge variant={getAppointmentStatusVariant(appt.status)} className="text-base">{appt.status}</Badge>
                                         </div>
                                     </div>
                                 </AccordionTrigger>

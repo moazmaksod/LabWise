@@ -79,22 +79,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             }
         }
         
-        // Now, check if all orders associated with this appointment are complete (all samples collected).
-        if(appointment.orderId){
-             const ordersForAppointment = await db.collection<Order>('orders').find({ appointmentId: appointment.orderId }).toArray();
-             const allOrdersCompleted = ordersForAppointment.every(order => 
-                order.samples.every(s => s.status !== 'AwaitingCollection')
-             );
-
-             if (allOrdersCompleted) {
-                 await db.collection<Appointment>('appointments').updateOne(
-                    { _id: appointmentObjectId },
-                    { $set: { status: 'Completed' } }
-                );
-            }
-        }
-
-
         // Create an audit log entry
          await db.collection('auditLogs').insertOne({
             timestamp: new Date(),
