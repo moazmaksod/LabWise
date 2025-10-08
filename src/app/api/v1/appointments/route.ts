@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { decrypt } from '@/lib/auth';
-import type { Appointment, TestCatalogItem } from '@/lib/types';
+import type { Appointment, TestCatalogItem, OrderSample } from '@/lib/types';
 import { format, startOfDay, endOfDay } from 'date-fns';
 
 export async function GET(req: NextRequest) {
@@ -111,8 +111,8 @@ export async function GET(req: NextRequest) {
             let clientOrderInfo;
             if (orderInfo) {
                 const { _id: orderInfoId, ...restOrder } = orderInfo;
-                 const samplesWithDetails = orderInfo.samples.map((sample: any) => {
-                    const testsWithDetails = sample.tests.map((test: any) => {
+                 const samplesWithDetails = orderInfo.samples.map((sample: OrderSample) => {
+                    const testsWithDetails = sample.tests.map((test) => {
                         const testDef = testDefMap.get(test.testCode);
                         return {
                             ...test,
@@ -128,10 +128,7 @@ export async function GET(req: NextRequest) {
                         ...sample,
                         sampleId: sample.sampleId.toHexString(),
                         tests: testsWithDetails,
-                        specimenSummary: {
-                            tubeType: firstTestDef?.specimenRequirements?.tubeType,
-                            specialHandling: firstTestDef?.specimenRequirements?.specialHandling,
-                        }
+                        specimenRequirements: firstTestDef?.specimenRequirements,
                     }
                 });
 
