@@ -32,9 +32,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
         const { db } = await connectToDatabase();
         
+        // The value from a datetime-local input is a string that represents the local time.
+        // new Date(string) can be inconsistent across environments.
+        // To ensure the server interprets this as local time, we construct the date explicitly.
+        const localDate = new Date(scheduledTime);
+
         const updatePayload = {
             patientId: new ObjectId(patientId),
-            scheduledTime: new Date(scheduledTime),
+            scheduledTime: localDate,
             notes: notes,
             appointmentType,
             updatedAt: new Date(),
