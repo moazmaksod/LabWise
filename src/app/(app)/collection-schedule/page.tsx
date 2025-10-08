@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { format, addDays, subDays, addMinutes } from 'date-fns';
+import { format, addDays, subDays, addMinutes, parse } from 'date-fns';
 import { Clock, Beaker, Check, User, Microscope, AlertTriangle, ChevronDown, ChevronRight, Droplets, CalendarIcon, ChevronLeft, Edit } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,8 @@ import { Label } from '@/components/ui/label';
 function EditAppointmentDialog({ appointment, isOpen, onOpenChange, onSave }: { appointment: ClientAppointment | null, isOpen: boolean, onOpenChange: (open: boolean) => void, onSave: () => void }) {
     const { toast } = useToast();
     const [token, setToken] = useState<string | null>(null);
-    const [newDateTime, setNewDateTime] = useState('');
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+    const [selectedTime, setSelectedTime] = useState('');
 
     useEffect(() => {
         const storedToken = localStorage.getItem('labwise-token');
@@ -30,20 +31,30 @@ function EditAppointmentDialog({ appointment, isOpen, onOpenChange, onSave }: { 
 
     useEffect(() => {
         if (appointment) {
-            setNewDateTime(format(new Date(appointment.scheduledTime), "yyyy-MM-dd'T'HH:mm"));
+            const scheduled = new Date(appointment.scheduledTime);
+            setSelectedDate(scheduled);
+            setSelectedTime(format(scheduled, "HH:mm"));
         }
     }, [appointment]);
     
     const handleSave = async () => {
-        if (!appointment || !token) return;
+        if (!appointment || !token || !selectedDate || !selectedTime) {
+            toast({ variant: 'destructive', title: 'Incomplete Information', description: 'Please select a date and time.' });
+            return;
+        }
 
         try {
+            const [hours, minutes] = selectedTime.split(':');
+            const newScheduledDate = new Date(selectedDate);
+            newScheduledDate.setHours(parseInt(hours, 10));
+            newScheduledDate.setMinutes(parseInt(minutes, 10));
+            
             const response = await fetch(`/api/v1/appointments/${appointment.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({
                     patientId: appointment.patientId,
-                    scheduledTime: newDateTime,
+                    scheduledTime: newScheduledDate.toISOString(),
                     notes: appointment.notes,
                     appointmentType: appointment.appointmentType,
                 }),
@@ -66,19 +77,44 @@ function EditAppointmentDialog({ appointment, isOpen, onOpenChange, onSave }: { 
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Edit Collection Appointment</DialogTitle>
+                    <DialogTitle>Reschedule Collection Appointment</DialogTitle>
                     <DialogDescription>
-                        Reschedule the appointment for {appointment.patientInfo?.firstName} {appointment.patientInfo?.lastName}.
+                        Select a new date and time for {appointment.patientInfo?.firstName} {appointment.patientInfo?.lastName}.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="datetime" className="text-right">Date and Time</Label>
+                    <div className="grid grid-cols-4 items-start gap-4">
+                        <Label htmlFor="date" className="text-right pt-2">Date</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                variant={"outline"}
+                                className={cn(
+                                    "col-span-3 justify-start text-left font-normal",
+                                    !selectedDate && "text-muted-foreground"
+                                )}
+                                >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                mode="single"
+                                selected={selectedDate}
+                                onSelect={setSelectedDate}
+                                initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="time" className="text-right">Time</Label>
                         <Input
-                            id="datetime"
-                            type="datetime-local"
-                            value={newDateTime}
-                            onChange={(e) => setNewDateTime(e.target.value)}
+                            id="time"
+                            type="time"
+                            value={selectedTime}
+                            onChange={(e) => setSelectedTime(e.target.value)}
                             className="col-span-3"
                         />
                     </div>
@@ -307,3 +343,5 @@ export default function CollectionSchedulePage() {
         </>
     );
 }
+
+    
