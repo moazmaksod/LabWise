@@ -24,20 +24,20 @@ import type { Sample } from '@/lib/types';
 
 const statusStyles: Record<Sample['status'], { row: string; badge: string }> = {
   STAT: {
-    row: 'bg-red-900/20 hover:bg-red-900/30',
-    badge: 'bg-red-500/80 text-white border-red-400',
+    row: 'bg-red-500/10 border-l-4 border-red-500 hover:bg-red-500/20',
+    badge: 'bg-red-500/20 text-red-100 border-red-500/50',
   },
   Overdue: {
-    row: 'bg-yellow-900/20 hover:bg-yellow-900/30',
-    badge: 'bg-yellow-500/80 text-yellow-950 border-yellow-400',
+    row: 'bg-yellow-500/10 border-l-4 border-yellow-500 hover:bg-yellow-500/20',
+    badge: 'bg-yellow-500/20 text-yellow-100 border-yellow-500/50',
   },
   Routine: {
     row: 'hover:bg-muted/50', // Default hover
-    badge: 'bg-blue-500/80 text-white border-blue-400',
+    badge: 'border-transparent bg-secondary text-secondary-foreground',
   },
   Complete: {
-    row: 'bg-green-900/20 hover:bg-green-900/30 opacity-70',
-    badge: 'bg-green-500/80 text-white border-green-400',
+    row: 'opacity-60 hover:bg-muted/50',
+    badge: 'border-transparent bg-green-500/20 text-green-200',
   },
 };
 
@@ -79,16 +79,16 @@ export default function TechnicianDashboard() {
               {sortedSamples.map((sample) => (
                 <TableRow
                   key={sample.id}
-                  className={cn('cursor-pointer', statusStyles[sample.status].row)}
+                  className={cn('cursor-pointer font-medium', statusStyles[sample.status].row)}
                 >
-                  <TableCell className="font-medium">{sample.id}</TableCell>
+                  <TableCell className="font-mono">{sample.id}</TableCell>
                   <TableCell>
-                    <div className="font-medium">{sample.patientName}</div>
+                    <div>{sample.patientName}</div>
                     <div className="text-sm text-muted-foreground">{`ID: ${sample.patientId}`}</div>
                   </TableCell>
                   <TableCell>{sample.test}</TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={cn('gap-1 font-semibold', statusStyles[sample.status].badge)}>
+                    <Badge variant="outline" className={cn('gap-1.5 font-semibold', statusStyles[sample.status].badge)}>
                       {statusIcons[sample.status]}
                       {sample.status}
                     </Badge>
