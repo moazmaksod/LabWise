@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Badge } from '@/components/ui/badge';
@@ -21,11 +22,23 @@ import { MOCK_WORKLIST_SAMPLES } from '@/lib/constants';
 import { Flame, Clock, CheckCircle } from 'lucide-react';
 import type { Sample } from '@/lib/types';
 
-const statusStyles: Record<Sample['status'], string> = {
-  STAT: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200 hover:bg-red-200/80',
-  Overdue: 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200 hover:bg-amber-200/80',
-  Routine: 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 hover:bg-blue-200/80',
-  Complete: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200 hover:bg-green-200/80',
+const statusStyles: Record<Sample['status'], { row: string; badge: string }> = {
+  STAT: {
+    row: 'bg-red-900/20 hover:bg-red-900/30',
+    badge: 'bg-red-500/80 text-white border-red-400',
+  },
+  Overdue: {
+    row: 'bg-yellow-900/20 hover:bg-yellow-900/30',
+    badge: 'bg-yellow-500/80 text-yellow-950 border-yellow-400',
+  },
+  Routine: {
+    row: 'hover:bg-muted/50', // Default hover
+    badge: 'bg-blue-500/80 text-white border-blue-400',
+  },
+  Complete: {
+    row: 'bg-green-900/20 hover:bg-green-900/30 opacity-70',
+    badge: 'bg-green-500/80 text-white border-green-400',
+  },
 };
 
 const statusIcons: Record<Sample['status'], React.ReactNode> = {
@@ -66,7 +79,7 @@ export default function TechnicianDashboard() {
               {sortedSamples.map((sample) => (
                 <TableRow
                   key={sample.id}
-                  className={cn('cursor-pointer', statusStyles[sample.status].split(' ')[0])}
+                  className={cn('cursor-pointer', statusStyles[sample.status].row)}
                 >
                   <TableCell className="font-medium">{sample.id}</TableCell>
                   <TableCell>
@@ -75,7 +88,7 @@ export default function TechnicianDashboard() {
                   </TableCell>
                   <TableCell>{sample.test}</TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={cn('gap-1 border-transparent font-semibold', statusStyles[sample.status])}>
+                    <Badge variant="outline" className={cn('gap-1 font-semibold', statusStyles[sample.status].badge)}>
                       {statusIcons[sample.status]}
                       {sample.status}
                     </Badge>
