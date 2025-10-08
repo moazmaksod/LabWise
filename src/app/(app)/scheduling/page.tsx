@@ -218,13 +218,15 @@ function AppointmentForm({ onSave, selectedDate, editingAppointment, onDelete }:
               )
             }
           />
-          <DialogFooter className="sm:justify-between">
-            {editingAppointment && (
-                <Button type="button" variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                </Button>
-            )}
+          <DialogFooter className="sm:justify-between pt-4">
+            <div>
+              {editingAppointment && (
+                  <Button type="button" variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                  </Button>
+              )}
+            </div>
             <div className="flex gap-2">
                 <Button type="submit" disabled={form.formState.isSubmitting || !selectedPatient}>
                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -422,12 +424,12 @@ export default function SchedulingPage() {
                 if (!isOpen) setEditingAppointment(null);
               }}>
                   <DialogTrigger asChild>
-                      <Button variant="outline" onClick={() => handleOpenDialog()}>
+                      <Button onClick={() => handleOpenDialog()}>
                           <PlusCircle className="mr-2 h-4 w-4" />
                           New Appointment
                       </Button>
                   </DialogTrigger>
-                  <DialogContent onPointerDownOutside={(e) => e.preventDefault()}>
+                  <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col" onPointerDownOutside={(e) => e.preventDefault()}>
                       <DialogHeader>
                           <DialogTitle>{editingAppointment ? 'Edit Appointment' : 'New Consultation'}</DialogTitle>
                           <DialogDescription>
@@ -436,7 +438,9 @@ export default function SchedulingPage() {
                                 : "Schedule a new consultation or registration appointment."}
                           </DialogDescription>
                       </DialogHeader>
-                      <AppointmentForm onSave={handleSave} selectedDate={selectedDate} editingAppointment={editingAppointment} onDelete={handleDelete} />
+                      <div className="flex-grow overflow-y-auto pr-6">
+                        <AppointmentForm onSave={handleSave} selectedDate={selectedDate} editingAppointment={editingAppointment} onDelete={handleDelete} />
+                      </div>
                   </DialogContent>
               </Dialog>
           </div>
