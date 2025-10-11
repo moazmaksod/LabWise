@@ -64,10 +64,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             let newOrderStatus: Order['orderStatus'] = updatedOrder.orderStatus;
 
             if (allSamplesCollectedOrProcessed) {
-                // All samples are collected (or further along), so the order is ready for lab work.
                 newOrderStatus = 'In Progress';
             } else if (someSamplesCollected) {
-                // Some samples are collected, but not all.
                 newOrderStatus = 'Partially Collected';
             }
 
