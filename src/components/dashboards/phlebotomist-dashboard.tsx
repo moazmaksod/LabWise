@@ -127,7 +127,7 @@ export default function PhlebotomistDashboard() {
                     ) : appointments.length > 0 ? (
                         appointments.map((appt) => (
                             <Link 
-                                href={`/collection-schedule?date=${format(new Date(appt.scheduledTime), 'yyyy-MM-dd')}#${appt.id}`} 
+                                href={`/collection-schedule?id=${appt.id}`} 
                                 key={appt.id}
                                 className={cn(
                                     "flex justify-between items-center w-full p-4 border-b last:border-b-0 hover:bg-muted/50 transition-colors cursor-pointer",
