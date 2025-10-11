@@ -131,7 +131,7 @@ export default function PhlebotomistDashboard() {
                                 key={appt.id}
                                 className={cn(
                                     "flex justify-between items-center w-full p-4 border-b last:border-b-0 hover:bg-muted/50 transition-colors cursor-pointer",
-                                    appt.orderInfo?.orderStatus === 'Pending' && 'bg-secondary/50 opacity-70'
+                                    (appt.orderInfo?.orderStatus === 'Pending' || appt.orderInfo?.orderStatus === 'Complete') && 'bg-secondary/50 opacity-70'
                                 )}
                             >
                                 <div className="flex items-center gap-4">
