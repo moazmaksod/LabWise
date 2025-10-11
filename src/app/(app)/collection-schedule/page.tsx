@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { format, addDays, subDays, addMinutes, parse } from 'date-fns';
-import { Clock, Beaker, Check, User, Microscope, AlertTriangle, ChevronDown, ChevronRight, Droplets, CalendarIcon, ChevronLeft, Edit } from 'lucide-react';
+import { Clock, Beaker, Check, User, Microscope, AlertTriangle, ChevronDown, ChevronRight, Droplets, CalendarIcon, ChevronLeft, Edit, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -136,6 +136,7 @@ export default function CollectionSchedulePage() {
     const [token, setToken] = useState<string | null>(null);
     const { toast } = useToast();
     const [editingAppointment, setEditingAppointment] = useState<ClientAppointment | null>(null);
+    const [collectingSampleId, setCollectingSampleId] = useState<string | null>(null);
 
     const searchParams = useSearchParams();
     const initialDate = searchParams.get('date') ? new Date(searchParams.get('date') + 'T00:00:00') : new Date();
@@ -189,6 +190,48 @@ export default function CollectionSchedulePage() {
             }
         }
     }, [loading]);
+    
+    const handleConfirmCollection = async (appointmentId: string, sampleId: string) => {
+        if (!token) return;
+        setCollectingSampleId(sampleId);
+        try {
+            const response = await fetch(`/api/v1/appointments/${appointmentId}/collect`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ sampleId }),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to confirm collection');
+            }
+            toast({ title: 'Collection Confirmed', description: 'Sample status has been updated to Collected.' });
+            
+            // Optimistically update UI
+            setAppointments(prev => prev.map(appt => {
+                if (appt.id === appointmentId && appt.orderInfo) {
+                    const newSamples = appt.orderInfo.samples.map(s => s.sampleId === sampleId ? { ...s, status: 'Collected' } : s);
+                    
+                    const allSamplesCollected = newSamples.every(s => s.status !== 'AwaitingCollection');
+                    const someSamplesCollected = newSamples.some(s => s.status === 'Collected' || s.status === 'InLab');
+
+                    let newOrderStatus: ClientOrder['orderStatus'] = appt.orderInfo.orderStatus;
+                    if (allSamplesCollected) {
+                        newOrderStatus = 'Pending';
+                    } else if (someSamplesCollected) {
+                        newOrderStatus = 'Partially Collected';
+                    }
+
+                    return { ...appt, orderInfo: { ...appt.orderInfo, samples: newSamples, orderStatus: newOrderStatus } };
+                }
+                return appt;
+            }));
+
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Collection Failed', description: error.message });
+        } finally {
+            setCollectingSampleId(null);
+        }
+    };
     
     const getOrderStatusVariant = (status: ClientOrder['orderStatus']) => {
         switch (status) {
@@ -335,6 +378,20 @@ export default function CollectionSchedulePage() {
                                                                                 <span>{sample.specimenRequirements.specialHandling}</span>
                                                                             </div>
                                                                         )}
+                                                                        <div className="mt-4 flex justify-end">
+                                                                            <Button 
+                                                                                size="sm" 
+                                                                                onClick={() => handleConfirmCollection(appt.id, sample.sampleId)}
+                                                                                disabled={sample.status !== 'AwaitingCollection' || !!collectingSampleId}
+                                                                            >
+                                                                                {collectingSampleId === sample.sampleId ? (
+                                                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                                ) : (
+                                                                                    <Check className="mr-2 h-4 w-4" />
+                                                                                )}
+                                                                                {sample.status === 'AwaitingCollection' ? 'Confirm Collection' : 'Collected'}
+                                                                            </Button>
+                                                                        </div>
                                                                     </CardContent>
                                                                 </Card>
                                                             ))}
@@ -372,3 +429,4 @@ export default function CollectionSchedulePage() {
         </>
     );
 }
+
