@@ -27,27 +27,20 @@ function CollectionDetailPageComponent() {
 
     const fetchAppointment = useCallback(async (authToken: string, id: string) => {
         setLoading(true);
-        console.log(`[DEBUG] fetchAppointment called with id: ${id}`);
         try {
             const url = `/api/v1/appointments/${id}`;
-            console.log(`[DEBUG] Fetching from URL: ${url}`);
             const response = await fetch(url, {
                 headers: { 'Authorization': `Bearer ${authToken}` }
             });
-
-            console.log(`[DEBUG] API response status: ${response.status}`);
             
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('[DEBUG] API response not OK. Body:', errorText);
                 throw new Error('Failed to fetch appointment details. Server responded with status ' + response.status);
             }
             
             const data = await response.json();
-            console.log('[DEBUG] Fetched appointment data:', data);
             setAppointment(data);
         } catch (error: any) {
-            console.error('[DEBUG] CATCH BLOCK - Error fetching appointment:', error);
             toast({ variant: 'destructive', title: 'Error', description: error.message });
             router.push('/dashboard'); // Redirect if appointment can't be loaded
         } finally {
@@ -66,7 +59,6 @@ function CollectionDetailPageComponent() {
     }, [router]);
     
     useEffect(() => {
-        console.log(`[DEBUG] useEffect for fetching triggered. Token: ${!!token}, appointmentId: ${appointmentId}`);
         if(token && appointmentId) {
             fetchAppointment(token, appointmentId);
         } else if (!appointmentId) {
