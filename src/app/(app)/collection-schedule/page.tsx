@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { format, addDays, subDays, addMinutes, parse } from 'date-fns';
 import { Clock, Beaker, Check, User, Microscope, AlertTriangle, ChevronDown, ChevronRight, Droplets, CalendarIcon, ChevronLeft, Edit } from 'lucide-react';
@@ -17,6 +17,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useSearchParams } from 'next/navigation';
 
 function EditAppointmentDialog({ appointment, isOpen, onOpenChange, onSave }: { appointment: ClientAppointment | null, isOpen: boolean, onOpenChange: (open: boolean) => void, onSave: () => void }) {
     const { toast } = useToast();
@@ -133,9 +134,13 @@ export default function CollectionSchedulePage() {
     const [appointments, setAppointments] = useState<ClientAppointment[]>([]);
     const [loading, setLoading] = useState(true);
     const [token, setToken] = useState<string | null>(null);
-    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const { toast } = useToast();
     const [editingAppointment, setEditingAppointment] = useState<ClientAppointment | null>(null);
+
+    const searchParams = useSearchParams();
+    const initialDate = searchParams.get('date') ? new Date(searchParams.get('date') + 'T00:00:00') : new Date();
+    const [selectedDate, setSelectedDate] = useState<Date>(initialDate);
+    const itemRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
 
     const fetchAppointments = useCallback(async (authToken: string, date: Date) => {
         setLoading(true);
@@ -170,16 +175,20 @@ export default function CollectionSchedulePage() {
             fetchAppointments(token, selectedDate);
         }
     }, [token, selectedDate, fetchAppointments]);
-    
-    const getAppointmentStatusVariant = (status: ClientAppointment['status']) => {
-        switch (status) {
-            case 'Completed': return 'secondary';
-            case 'CheckedIn': return 'default';
-            case 'NoShow': return 'destructive';
-            case 'Scheduled': 
-            default: return 'outline';
+
+    useEffect(() => {
+        if (loading) return; // Wait for data to load
+        const hash = window.location.hash.substring(1);
+        if (hash) {
+            const element = itemRefs.current.get(hash);
+            if (element) {
+                setTimeout(() => {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    element.focus();
+                }, 100); // Small delay to ensure rendering
+            }
         }
-    };
+    }, [loading]);
     
     const getOrderStatusVariant = (status: ClientOrder['orderStatus']) => {
         switch (status) {
@@ -259,95 +268,99 @@ export default function CollectionSchedulePage() {
                 </div>
             </CardHeader>
             <CardContent>
-                <Accordion type="single" collapsible className="w-full">
+                <div className="w-full space-y-2">
                     {loading ? (
                         Array.from({ length: 5 }).map((_, i) => (
-                            <div key={i} className="flex items-center space-x-4 p-4 border-b">
-                                <Skeleton className="h-10 w-24" />
-                                <Skeleton className="h-6 w-48" />
-                                <Skeleton className="h-6 w-24 ml-auto" />
-                            </div>
+                            <Card key={i} className="p-4">
+                                <Skeleton className="h-24 w-full" />
+                            </Card>
                         ))
                     ) : appointments.length > 0 ? (
                         appointments.map((appt) => (
-                            <AccordionItem value={appt.id} key={appt.id}>
-                                <AccordionTrigger className={cn("hover:no-underline px-4 cursor-default", appt.status === 'Completed' && 'bg-secondary/50 opacity-70')}>
-                                    <div className="flex justify-between items-center w-full">
-                                        <div className="flex items-center gap-4">
-                                             <div className="flex items-center gap-2 font-semibold text-lg">
-                                                <Clock className="h-5 w-5 text-muted-foreground" />
-                                                <span>{format(new Date(appt.scheduledTime), 'p')} - {format(addMinutes(new Date(appt.scheduledTime), appt.durationMinutes), 'p')}</span>
-                                            </div>
-                                            <div>
-                                                <div className="font-bold text-xl">{appt.patientInfo?.firstName} {appt.patientInfo?.lastName}</div>
-                                                <div className="text-sm text-muted-foreground">MRN: {appt.patientInfo?.mrn}</div>
-                                                {appt.orderInfo?.orderId && (
-                                                    <div className="text-sm text-muted-foreground font-mono">Order: {appt.orderInfo.orderId}</div>
+                            <div 
+                                key={appt.id} 
+                                id={appt.id} 
+                                ref={(el) => itemRefs.current.set(appt.id, el)} 
+                                tabIndex={-1} 
+                                className="outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background rounded-lg"
+                            >
+                                <Accordion type="single" collapsible defaultValue={window.location.hash.substring(1) === appt.id ? appt.id : undefined}>
+                                    <AccordionItem value={appt.id}>
+                                        <AccordionTrigger className={cn("hover:no-underline px-4 rounded-t-lg bg-card", appt.status === 'Completed' && 'bg-secondary/50 opacity-70')}>
+                                            <div className="flex justify-between items-center w-full">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="flex items-center gap-2 font-semibold text-lg">
+                                                        <Clock className="h-5 w-5 text-muted-foreground" />
+                                                        <span>{format(new Date(appt.scheduledTime), 'p')} - {format(addMinutes(new Date(appt.scheduledTime), appt.durationMinutes), 'p')}</span>
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-bold text-xl">{appt.patientInfo?.firstName} {appt.patientInfo?.lastName}</div>
+                                                        <div className="text-sm text-muted-foreground">MRN: {appt.patientInfo?.mrn}</div>
+                                                        {appt.orderInfo?.orderId && (
+                                                            <div className="text-sm text-muted-foreground font-mono">Order: {appt.orderInfo.orderId}</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                {appt.orderInfo?.orderStatus && appt.orderInfo?.orderStatus !== 'Pending' && (
+                                                    <Badge variant={getOrderStatusVariant(appt.orderInfo.orderStatus)} className="text-base">{appt.orderInfo.orderStatus}</Badge>
                                                 )}
                                             </div>
-                                        </div>
-                                         <div className="flex items-center gap-2">
-                                            {appt.orderInfo?.orderStatus && appt.orderInfo.orderStatus !== 'Pending' ? (
-                                                <Badge variant={getOrderStatusVariant(appt.orderInfo.orderStatus)} className="text-base">{appt.orderInfo.orderStatus}</Badge>
-                                            ) : (
-                                                <Badge variant={getAppointmentStatusVariant(appt.status)} className="text-base">{appt.status}</Badge>
-                                            )}
-                                        </div>
-                                    </div>
-                                </AccordionTrigger>
-                                 <AccordionContent className="bg-muted/30">
-                                    <div className="p-4 space-y-4">
-                                        {appt.orderInfo ? (
-                                            <div className="space-y-3">
-                                                <div className="space-y-4">
-                                                    {appt.orderInfo.samples.map(sample => (
-                                                        <Card key={sample.sampleId}>
-                                                            <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
-                                                                <CardTitle className="text-md flex items-center gap-2">
-                                                                    <Droplets className="h-5 w-5 text-primary"/>
-                                                                    {sample.specimenRequirements?.tubeType || 'Unknown Tube'}
-                                                                </CardTitle>
-                                                                <Badge variant={getSampleStatusVariant(sample.status)}>
-                                                                    {sample.status}
-                                                                </Badge>
-                                                            </CardHeader>
-                                                            <CardContent>
-                                                                <ul className="list-disc list-inside text-muted-foreground space-y-1">
-                                                                    {sample.tests.map(test => (
-                                                                        <li key={test.testCode}>{test.name}</li>
-                                                                    ))}
-                                                                </ul>
-                                                                {sample.specimenRequirements?.specialHandling && (
-                                                                    <div className="mt-3 flex items-center gap-2 text-yellow-400">
-                                                                        <AlertTriangle className="h-4 w-4"/>
-                                                                        <span className="font-semibold">Special Handling:</span>
-                                                                        <span>{sample.specimenRequirements.specialHandling}</span>
-                                                                    </div>
-                                                                )}
-                                                            </CardContent>
-                                                        </Card>
-                                                    ))}
+                                        </AccordionTrigger>
+                                        <AccordionContent className="bg-muted/30 rounded-b-lg">
+                                            <div className="p-4 space-y-4">
+                                                {appt.orderInfo ? (
+                                                    <div className="space-y-3">
+                                                        <div className="space-y-4">
+                                                            {appt.orderInfo.samples.map(sample => (
+                                                                <Card key={sample.sampleId}>
+                                                                    <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
+                                                                        <CardTitle className="text-md flex items-center gap-2">
+                                                                            <Droplets className="h-5 w-5 text-primary"/>
+                                                                            {sample.specimenRequirements?.tubeType || 'Unknown Tube'}
+                                                                        </CardTitle>
+                                                                        <Badge variant={getSampleStatusVariant(sample.status)}>
+                                                                            {sample.status}
+                                                                        </Badge>
+                                                                    </CardHeader>
+                                                                    <CardContent>
+                                                                        <ul className="list-disc list-inside text-muted-foreground space-y-1">
+                                                                            {sample.tests.map(test => (
+                                                                                <li key={test.testCode}>{test.name}</li>
+                                                                            ))}
+                                                                        </ul>
+                                                                        {sample.specimenRequirements?.specialHandling && (
+                                                                            <div className="mt-3 flex items-center gap-2 text-yellow-400">
+                                                                                <AlertTriangle className="h-4 w-4"/>
+                                                                                <span className="font-semibold">Special Handling:</span>
+                                                                                <span>{sample.specimenRequirements.specialHandling}</span>
+                                                                            </div>
+                                                                        )}
+                                                                    </CardContent>
+                                                                </Card>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center text-muted-foreground py-4">Order details not found for this appointment.</div>
+                                                )}
+                                                <div className="pt-4 border-t border-border/50 flex justify-end">
+                                                    <Button variant="outline" size="sm" onClick={() => handleEditAppointment(appt)}>
+                                                        <Edit className="mr-2 h-4 w-4" />
+                                                        Reschedule
+                                                    </Button>
                                                 </div>
                                             </div>
-                                        ) : (
-                                            <div className="text-center text-muted-foreground py-4">Order details not found for this appointment.</div>
-                                        )}
-                                        <div className="pt-4 border-t border-border/50 flex justify-end">
-                                            <Button variant="outline" size="sm" onClick={() => handleEditAppointment(appt)}>
-                                                <Edit className="mr-2 h-4 w-4" />
-                                                Reschedule
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                </Accordion>
+                             </div>
                         ))
                     ) : (
-                        <div className="text-center text-muted-foreground py-10 h-48 flex items-center justify-center">
+                        <div className="text-center text-muted-foreground py-10 h-48 flex items-center justify-center border rounded-lg">
                             No sample collections scheduled for this day.
                         </div>
                     )}
-                </Accordion>
+                </div>
             </CardContent>
         </Card>
         <EditAppointmentDialog 
@@ -359,7 +372,3 @@ export default function CollectionSchedulePage() {
         </>
     );
 }
-
-    
-
-    
