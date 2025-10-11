@@ -59,7 +59,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
              return NextResponse.json({ message: 'At least one test must be selected.' }, { status: 400 });
         }
         
-        const existingOrder = await db.collection<Order>('orders').findOne({ _id: new ObjectId(params.id) });
+        const orderObjectId = new ObjectId(params.id);
+        const existingOrder = await db.collection<Order>('orders').findOne({ _id: orderObjectId });
         if (!existingOrder) {
             return NextResponse.json({ message: 'Order not found' }, { status: 404 });
         }
@@ -137,12 +138,30 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         };
 
         const result = await db.collection('orders').updateOne(
-            { _id: new ObjectId(params.id) },
+            { _id: orderObjectId },
             { $set: updatePayload }
         );
 
+        // --- Audit Log Entry ---
+        await db.collection('auditLogs').insertOne({
+            timestamp: new Date(),
+            userId: new ObjectId(userPayload.userId as string),
+            action: 'ORDER_UPDATE',
+            entity: {
+                collectionName: 'orders',
+                documentId: orderObjectId,
+            },
+            details: {
+                orderId: existingOrder.orderId,
+                message: `Order ${existingOrder.orderId} updated.`,
+                before: existingOrder,
+                after: { ...existingOrder, ...updatePayload },
+            },
+            ipAddress: req.ip || req.headers.get('x-forwarded-for'),
+        });
+        // --- End Audit Log ---
 
-        const updatedOrder = await db.collection('orders').findOne({ _id: new ObjectId(params.id) });
+        const updatedOrder = await db.collection('orders').findOne({ _id: orderObjectId });
 
         return NextResponse.json(updatedOrder, { status: 200 });
     } catch (error) {

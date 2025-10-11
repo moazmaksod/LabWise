@@ -5,6 +5,7 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import type { Patient } from '@/lib/types';
 import { getNextMrn } from '@/lib/counters';
+import { decrypt } from '@/lib/auth';
 
 // GET patients (search)
 export async function GET(req: NextRequest) {
@@ -45,6 +46,11 @@ export async function GET(req: NextRequest) {
 // POST a new patient
 export async function POST(req: NextRequest) {
     try {
+        const token = req.headers.get('authorization')?.split(' ')[1];
+        if (!token) return NextResponse.json({ message: 'Authorization token missing.' }, { status: 401 });
+        const userPayload = await decrypt(token);
+        if (!userPayload?.userId) return NextResponse.json({ message: 'Invalid or expired token.' }, { status: 401 });
+        
         const body = await req.json();
 
         // Basic validation
@@ -68,6 +74,24 @@ export async function POST(req: NextRequest) {
         const result = await db.collection('patients').insertOne(newPatientDocument);
         const createdPatient = { ...newPatientDocument, _id: result.insertedId };
         
+        // --- Audit Log Entry ---
+        await db.collection('auditLogs').insertOne({
+            timestamp: new Date(),
+            userId: new ObjectId(userPayload.userId as string),
+            action: 'PATIENT_CREATE',
+            entity: {
+                collectionName: 'patients',
+                documentId: result.insertedId,
+            },
+            details: {
+                mrn: newMrn,
+                patientName: `${body.firstName} ${body.lastName}`,
+                message: `New patient record created.`
+            },
+            ipAddress: req.ip || req.headers.get('x-forwarded-for'),
+        });
+        // --- End Audit Log ---
+
         const clientPatient = { ...createdPatient, id: createdPatient._id.toHexString() };
         // Don't need the full object with ObjectId here for the client
         delete (clientPatient as any)._id;
@@ -83,9 +107,12 @@ export async function POST(req: NextRequest) {
 // PUT (update) a patient
 export async function PUT(req: NextRequest) {
     try {
-        const body = await req.json();
-        console.log('DEBUG: PUT /api/v1/patients request body:', JSON.stringify(body, null, 2));
+        const token = req.headers.get('authorization')?.split(' ')[1];
+        if (!token) return NextResponse.json({ message: 'Authorization token missing.' }, { status: 401 });
+        const userPayload = await decrypt(token);
+        if (!userPayload?.userId) return NextResponse.json({ message: 'Invalid or expired token.' }, { status: 401 });
 
+        const body = await req.json();
         const { id, ...updateData } = body;
 
         if (!id) {
@@ -97,6 +124,12 @@ export async function PUT(req: NextRequest) {
         }
 
         const { db } = await connectToDatabase();
+        
+        const patientObjectId = new ObjectId(id);
+        const beforeUpdate = await db.collection('patients').findOne({ _id: patientObjectId });
+        if (!beforeUpdate) {
+            return NextResponse.json({ message: 'Patient not found' }, { status: 404 });
+        }
         
         // Prevent MRN from being updated
         delete updateData.mrn;
@@ -112,13 +145,34 @@ export async function PUT(req: NextRequest) {
         }
         
         const result = await db.collection('patients').updateOne(
-            { _id: new ObjectId(id) },
+            { _id: patientObjectId },
             { $set: updatePayload }
         );
 
         if (result.matchedCount === 0) {
             return NextResponse.json({ message: 'Patient not found' }, { status: 404 });
         }
+        
+        const afterUpdate = { ...beforeUpdate, ...updatePayload };
+
+        // --- Audit Log Entry ---
+        await db.collection('auditLogs').insertOne({
+            timestamp: new Date(),
+            userId: new ObjectId(userPayload.userId as string),
+            action: 'PATIENT_UPDATE',
+            entity: {
+                collectionName: 'patients',
+                documentId: patientObjectId,
+            },
+            details: {
+                mrn: beforeUpdate.mrn,
+                message: `Patient record updated.`,
+                before: beforeUpdate,
+                after: afterUpdate,
+            },
+            ipAddress: req.ip || req.headers.get('x-forwarded-for'),
+        });
+        // --- End Audit Log ---
 
         return NextResponse.json({ message: 'Patient updated successfully' }, { status: 200 });
     } catch (error) {

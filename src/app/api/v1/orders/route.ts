@@ -127,6 +127,25 @@ export async function POST(req: NextRequest) {
 
         const result = await db.collection('orders').insertOne({ ...newOrder, _id: orderObjectId });
 
+        // --- Audit Log Entry ---
+        await db.collection('auditLogs').insertOne({
+            timestamp: new Date(),
+            userId: new ObjectId(userPayload.userId as string),
+            action: 'ORDER_CREATE',
+            entity: {
+                collectionName: 'orders',
+                documentId: orderObjectId,
+            },
+            details: {
+                orderId: newOrderId,
+                patientId: patientId,
+                tests: testCodes,
+                message: `New order ${newOrderId} created.`
+            },
+            ipAddress: req.ip || req.headers.get('x-forwarded-for'),
+        });
+        // --- End Audit Log ---
+
         const createdOrder = { ...newOrder, _id: orderObjectId };
         
         return NextResponse.json({ ...createdOrder, id: orderObjectId.toHexString(), orderId: newOrderId }, { status: 201 });

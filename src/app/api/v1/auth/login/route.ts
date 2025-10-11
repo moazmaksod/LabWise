@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { encrypt } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
@@ -30,6 +31,23 @@ export async function POST(req: NextRequest) {
     if (!user.isActive) {
       return NextResponse.json({ message: 'This account has been deactivated.' }, { status: 403 });
     }
+
+    // --- Audit Log Entry ---
+    await db.collection('auditLogs').insertOne({
+        timestamp: new Date(),
+        userId: user._id,
+        action: 'USER_LOGIN',
+        entity: {
+            collectionName: 'users',
+            documentId: user._id,
+        },
+        details: {
+            email: user.email,
+            message: `User ${user.firstName} ${user.lastName} logged in successfully.`,
+        },
+        ipAddress: req.ip || req.headers.get('x-forwarded-for'),
+    });
+    // --- End Audit Log ---
 
     const accessToken = await encrypt({ userId: user._id.toHexString(), role: user.role });
 
