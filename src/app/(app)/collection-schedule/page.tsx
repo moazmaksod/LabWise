@@ -198,12 +198,6 @@ function CollectionDetailPageComponent() {
                                                 Confirm Collection
                                             </Button>
                                         )}
-                                        {sample.status === 'Collected' && (
-                                             <div className="flex items-center gap-2 text-sm text-green-400 font-semibold">
-                                                <Check className="h-4 w-4" />
-                                                Collected
-                                            </div>
-                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
