@@ -3,8 +3,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
-import { Clock, Beaker, Check, User, Microscope, AlertTriangle, ChevronDown, ChevronRight, Droplets } from 'lucide-react';
+import { format, addDays, subDays } from 'date-fns';
+import { Clock, Beaker, Check, User, Microscope, AlertTriangle, ChevronDown, ChevronRight, Droplets, CalendarIcon, ChevronLeft } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,17 +12,21 @@ import { Badge } from '@/components/ui/badge';
 import type { ClientAppointment, ClientOrder, OrderSample } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+
 
 export default function PhlebotomistDashboard() {
     const [appointments, setAppointments] = useState<ClientAppointment[]>([]);
     const [loading, setLoading] = useState(true);
     const [token, setToken] = useState<string | null>(null);
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const { toast } = useToast();
 
-    const fetchAppointments = useCallback(async (authToken: string) => {
+    const fetchAppointments = useCallback(async (authToken: string, date: Date) => {
         setLoading(true);
         try {
-            const dateString = format(new Date(), 'yyyy-MM-dd');
+            const dateString = format(date, 'yyyy-MM-dd');
             const url = `/api/v1/appointments?date=${dateString}&type=Sample Collection`;
             const response = await fetch(url, {
                 headers: { 'Authorization': `Bearer ${authToken}` }
@@ -42,11 +46,16 @@ export default function PhlebotomistDashboard() {
         const storedToken = localStorage.getItem('labwise-token');
         if (storedToken) {
             setToken(storedToken);
-            fetchAppointments(storedToken);
         } else {
             setLoading(false);
         }
-    }, [fetchAppointments]);
+    }, []);
+
+    useEffect(() => {
+        if(token) {
+            fetchAppointments(token, selectedDate);
+        }
+    }, [token, selectedDate, fetchAppointments]);
     
     const handleConfirmCollection = async (appointmentId: string, sampleId: string) => {
         if (!token) return;
@@ -71,20 +80,10 @@ export default function PhlebotomistDashboard() {
                 description: 'The sample status has been updated.',
             });
             
-            fetchAppointments(token);
+            if (token) fetchAppointments(token, selectedDate);
 
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Collection Failed', description: error.message });
-        }
-    };
-
-    const getAppointmentStatusVariant = (status: ClientAppointment['status']) => {
-        switch (status) {
-            case 'Completed': return 'secondary';
-            case 'CheckedIn': return 'default';
-            case 'NoShow': return 'destructive';
-            case 'Scheduled': 
-            default: return 'outline';
         }
     };
 
@@ -98,11 +97,52 @@ export default function PhlebotomistDashboard() {
         }
     }
     
+    const handleDateChange = (date: Date | undefined) => {
+        if (date) {
+            setSelectedDate(date);
+        }
+    }
+
     return (
         <Card className="shadow-lg">
             <CardHeader>
-                <CardTitle>Phlebotomy Collection List</CardTitle>
-                <CardDescription>Appointments for sample collection scheduled for today, {format(new Date(), 'PPP')}.</CardDescription>
+                <div className='flex items-center justify-between'>
+                    <div>
+                        <CardTitle>Phlebotomy Collection List</CardTitle>
+                        <CardDescription>Appointments for sample collection scheduled for {format(selectedDate, 'PPP')}.</CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="icon" onClick={() => handleDateChange(subDays(selectedDate, 1))}>
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                variant={"outline"}
+                                className={cn(
+                                    "w-[180px] justify-start text-left font-normal",
+                                    !selectedDate && "text-muted-foreground"
+                                )}
+                                >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" onPointerDownOutside={(e) => e.preventDefault()}>
+                                <Calendar
+                                mode="single"
+                                selected={selectedDate}
+                                onSelect={handleDateChange}
+                                initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
+                        <Button variant="outline" onClick={() => handleDateChange(new Date())}>Today</Button>
+                        <Button variant="outline" size="icon" onClick={() => handleDateChange(addDays(selectedDate, 1))}>
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
             </CardHeader>
             <CardContent>
                 <Accordion type="single" collapsible className="w-full">
@@ -117,7 +157,7 @@ export default function PhlebotomistDashboard() {
                     ) : appointments.length > 0 ? (
                         appointments.map((appt) => (
                             <AccordionItem value={appt.id} key={appt.id}>
-                                <AccordionTrigger className={cn("hover:no-underline px-4 cursor-default", appt.status === 'Completed' && 'bg-secondary/50 opacity-70')}>
+                                <AccordionTrigger className={cn("hover:no-underline px-4 cursor-default", appt.orderInfo?.orderStatus === 'Pending' && 'bg-secondary/50 opacity-70')}>
                                     <div className="flex justify-between items-center w-full">
                                         <div className="flex items-center gap-4">
                                              <div className="flex items-center gap-2 font-semibold text-lg">
@@ -129,13 +169,11 @@ export default function PhlebotomistDashboard() {
                                                 <div className="text-sm text-muted-foreground">MRN: {appt.patientInfo?.mrn}</div>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            {appt.orderInfo?.orderStatus && appt.orderInfo.orderStatus !== 'Pending' ? (
-                                                <Badge variant={getOrderStatusVariant(appt.orderInfo.orderStatus)} className="text-base">{appt.orderInfo.orderStatus}</Badge>
-                                            ) : (
-                                                <Badge variant={getAppointmentStatusVariant(appt.status)} className="text-base">{appt.status}</Badge>
-                                            )}
-                                        </div>
+                                        {appt.orderInfo?.orderStatus && (
+                                            <Badge variant={getOrderStatusVariant(appt.orderInfo.orderStatus)} className="text-base">
+                                                {appt.orderInfo.orderStatus}
+                                            </Badge>
+                                        )}
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="bg-muted/30">
@@ -149,7 +187,7 @@ export default function PhlebotomistDashboard() {
                                                         <CardHeader className="flex flex-row items-center justify-between pb-2 pt-4">
                                                             <CardTitle className="text-md flex items-center gap-2">
                                                                 <Droplets className="h-5 w-5 text-primary"/>
-                                                                {sample.sampleType || 'Unknown Tube'}
+                                                                {sample.specimenRequirements?.tubeType || 'Unknown Tube'}
                                                             </CardTitle>
                                                              <Button 
                                                                 size="sm" 
@@ -187,7 +225,7 @@ export default function PhlebotomistDashboard() {
                         ))
                     ) : (
                         <div className="text-center text-muted-foreground py-10 h-48 flex items-center justify-center">
-                            No sample collections scheduled for today.
+                            No sample collections scheduled for this day.
                         </div>
                     )}
                 </Accordion>
