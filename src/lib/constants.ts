@@ -103,7 +103,7 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
     { href: '/patient', label: 'Patients', icon: Users },
     { href: '/orders', label: 'Orders', icon: ClipboardPlus },
     { href: '/scheduling', label: 'Consultations', icon: CalendarDays },
-    { href: '/collection-schedule', label: 'Collection Schedule', icon: Droplets },
+    { href: '/collection-list', label: 'Collection List', icon: Droplets },
   ],
   technician: [
     { href: '/dashboard', label: 'Worklist', icon: ClipboardList },

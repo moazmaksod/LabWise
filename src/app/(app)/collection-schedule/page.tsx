@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { Suspense, useState, useEffect, useCallback } from 'react';
@@ -13,7 +14,7 @@ import type { ClientAppointment, OrderSample, ClientOrder } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useSearchParams, useRouter } from 'next/navigation';
 
-function CollectionSchedulePageComponent() {
+function CollectionDetailPageComponent() {
     const [appointment, setAppointment] = useState<ClientAppointment | null>(null);
     const [loading, setLoading] = useState(true);
     const [token, setToken] = useState<string | null>(null);
@@ -205,10 +206,10 @@ function CollectionSchedulePageComponent() {
     );
 }
 
-export default function CollectionSchedulePageWrapper() {
+export default function CollectionDetailPage() {
     return (
         <Suspense fallback={<Skeleton className="h-[calc(100vh-8rem)] w-full" />}>
-            <CollectionSchedulePageComponent />
+            <CollectionDetailPageComponent />
         </Suspense>
     )
 }

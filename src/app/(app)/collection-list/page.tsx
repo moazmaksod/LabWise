@@ -5,19 +5,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { format, addDays, subDays } from 'date-fns';
-import { Clock, Beaker, Check, User, Microscope, AlertTriangle, ChevronDown, ChevronRight, Droplets, CalendarIcon, ChevronLeft } from 'lucide-react';
+import { Clock, CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import type { ClientAppointment, ClientOrder, OrderSample } from '@/lib/types';
+import type { ClientAppointment, ClientOrder } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import Link from 'next/link';
 
 
-export default function PhlebotomistDashboard() {
+export default function CollectionListPage() {
     const [appointments, setAppointments] = useState<ClientAppointment[]>([]);
     const [loading, setLoading] = useState(true);
     const [token, setToken] = useState<string | null>(null);
@@ -79,7 +79,7 @@ export default function PhlebotomistDashboard() {
             <CardHeader>
                 <div className='flex items-center justify-between'>
                     <div>
-                        <CardTitle>Phlebotomy Collection List</CardTitle>
+                        <CardTitle>Sample Collection List</CardTitle>
                         <CardDescription>Appointments for sample collection scheduled for {format(selectedDate, 'PPP')}.</CardDescription>
                     </div>
                     <div className="flex items-center gap-2">

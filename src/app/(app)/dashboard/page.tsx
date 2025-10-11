@@ -4,7 +4,7 @@ import { useUser } from '@/hooks/use-user';
 import ManagerDashboard from '@/components/dashboards/manager-dashboard';
 import ReceptionistDashboard from '@/components/dashboards/receptionist-dashboard';
 import TechnicianDashboard from '@/components/dashboards/technician-dashboard';
-import PhlebotomistDashboard from '@/components/dashboards/phlebotomist-dashboard';
+import CollectionListPage from '../collection-list/page';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
 
@@ -29,9 +29,9 @@ export default function DashboardPage() {
 
   if (!user) return null;
 
-  // The Phlebotomist role will now show the Collection List dashboard
+  // The Phlebotomist role will now show the Collection List page directly
   if (user.role === 'phlebotomist') {
-    return <PhlebotomistDashboard />;
+    return <CollectionListPage />;
   }
 
   switch (user.role) {
