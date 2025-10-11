@@ -42,8 +42,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
             return NextResponse.json({ message: 'Appointment not found.' }, { status: 404 });
         }
         
-        // Fetch test details for the order if it exists
-        if (appointment.orderInfo) {
+        // Fetch test details for the order if it exists and has samples
+        if (appointment.orderInfo && appointment.orderInfo.samples) {
             const allTestCodes = appointment.orderInfo.samples.flatMap((sample: any) => 
                 sample.tests.map((test: any) => test.testCode)
             );
