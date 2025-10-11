@@ -125,7 +125,6 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
   ],
   phlebotomist: [
     { href: '/dashboard', label: 'Collection List', icon: Droplets },
-    { href: '/patient', label: 'Search Patient', icon: Users },
   ],
   physician: [],
   patient: [],
