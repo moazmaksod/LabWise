@@ -20,7 +20,9 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from '@/components/ui/badge';
 import type { ClientPatient, ClientTestCatalogItem, ClientUser, ClientOrder, ClientAppointment } from '@/lib/types';
-import { format, addMinutes, startOfToday, setHours, setMinutes } from 'date-fns';
+import { format } from 'date-fns';
+import { utcToZonedTime, zonedTimeToUtc, formatInTimeZone } from 'date-fns-tz';
+import { addMinutes, startOfToday, setHours, setMinutes } from 'date-fns';
 import { calculateAge } from '@/lib/utils';
 
 const orderFormSchema = z.object({
@@ -35,24 +37,25 @@ const orderFormSchema = z.object({
 
 type OrderFormValues = z.infer<typeof orderFormSchema>;
 
+const TIME_ZONE = 'Africa/Cairo';
+
 function findNextAvailableTime(appointments: ClientAppointment[]): Date {
-    const now = new Date();
-    const today = startOfToday();
-    let lastEndTime = setMinutes(setHours(today, 9), 0); // Default to 9:00 AM
+    const nowInCairo = utcToZonedTime(new Date(), TIME_ZONE);
+    const todayInCairo = startOfToday();
+    let lastEndTime = setMinutes(setHours(todayInCairo, 9), 0); // Default to 9:00 AM Cairo time
 
     if (appointments && appointments.length > 0) {
-        // Sort appointments by time to find the last one
         const sortedAppointments = [...appointments].sort((a, b) => new Date(a.scheduledTime).getTime() - new Date(b.scheduledTime).getTime());
         const lastAppointment = sortedAppointments[sortedAppointments.length - 1];
         lastEndTime = addMinutes(new Date(lastAppointment.scheduledTime), lastAppointment.durationMinutes);
     }
     
-    // If last end time is in the past, start from now
-    if (lastEndTime < now) {
-      lastEndTime = now;
+    const lastEndTimeInCairo = utcToZonedTime(lastEndTime, TIME_ZONE);
+
+    if (lastEndTimeInCairo < nowInCairo) {
+      lastEndTime = nowInCairo;
     }
 
-    // Add a 5 minute buffer and round to the next 5-minute interval
     let nextTime = addMinutes(lastEndTime, 5);
     const minutes = nextTime.getMinutes();
     const roundedMinutes = Math.ceil(minutes / 5) * 5;
@@ -110,29 +113,42 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
     } catch (error) { console.error(error); toast({ variant: 'destructive', title: 'Error', description: 'Could not load existing tests for this order.' }); }
   }, [token, toast]);
   
-  // New effect to set default appointment time
   useEffect(() => {
     if (token && !editingOrder) {
         const fetchAppointmentsAndSetTime = async () => {
             try {
-                const dateString = format(new Date(), 'yyyy-MM-dd');
+                const dateString = format(utcToZonedTime(new Date(), TIME_ZONE), 'yyyy-MM-dd');
                 const url = `/api/v1/appointments?date=${dateString}`;
                 const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
                 if (!response.ok) throw new Error('Failed to fetch schedule');
                 const appointments: ClientAppointment[] = await response.json();
                 const nextAvailableTime = findNextAvailableTime(appointments);
-                form.setValue('appointmentDateTime', format(nextAvailableTime, "yyyy-MM-dd'T'HH:mm"));
+                const localTimeString = format(nextAvailableTime, "yyyy-MM-dd'T'HH:mm");
+                form.setValue('appointmentDateTime', localTimeString);
             } catch (error) {
                 console.error("Failed to get next available time slot, defaulting to 1 hour from now.", error);
-                const nextHour = addMinutes(new Date(), 60);
+                const nextHour = addMinutes(utcToZonedTime(new Date(), TIME_ZONE), 60);
                 form.setValue('appointmentDateTime', format(nextHour, "yyyy-MM-dd'T'HH:mm"));
             }
         };
         fetchAppointmentsAndSetTime();
-    } else if (editingOrder) {
-        // If editing, use the existing appointment time
-        const appointmentTime = editingOrder.appointmentId ? format(new Date(editingOrder.createdAt), "yyyy-MM-dd'T'HH:mm") : format(new Date(), "yyyy-MM-dd'T'HH:mm");
-        form.setValue('appointmentDateTime', appointmentTime);
+    } else if (editingOrder && editingOrder.appointmentId) {
+        const fetchExistingAppointment = async () => {
+             if (!token) return;
+             try {
+                const apptRes = await fetch(`/api/v1/appointments/${editingOrder.appointmentId}`, { headers: { 'Authorization': `Bearer ${token}` }});
+                if (!apptRes.ok) throw new Error('Could not fetch appointment time.');
+                const apptData = await apptRes.json();
+                const localTimeString = formatInTimeZone(new Date(apptData.scheduledTime), TIME_ZONE, "yyyy-MM-dd'T'HH:mm");
+                form.setValue('appointmentDateTime', localTimeString);
+             } catch (e: any) {
+                 console.error(e.message);
+                 // Fallback
+                 const localTimeString = format(new Date(), "yyyy-MM-dd'T'HH:mm");
+                 form.setValue('appointmentDateTime', localTimeString);
+             }
+        }
+        fetchExistingAppointment();
     }
   }, [token, editingOrder, form]);
 
@@ -191,6 +207,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
     if (!token) return;
     const isEditing = !!data.id;
     try {
+        const scheduledTimeUtc = zonedTimeToUtc(data.appointmentDateTime, TIME_ZONE);
         const payload = {
             id: data.id,
             patientId: data.patientId,
@@ -199,7 +216,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
             priority: 'Routine',
             testCodes: data.testIds,
             appointmentDetails: {
-                scheduledTime: new Date(data.appointmentDateTime),
+                scheduledTime: scheduledTimeUtc,
                 durationMinutes: data.durationMinutes,
                 status: 'Scheduled',
                 appointmentType: 'Sample Collection'
@@ -249,7 +266,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
         <div className="space-y-4 rounded-lg border p-4 bg-secondary/50">
             <h3 className="font-semibold leading-none tracking-tight">Sample Collection Appointment</h3>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField control={form.control} name="appointmentDateTime" render={({ field }) => ( <FormItem><FormLabel>Scheduled Date & Time</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="appointmentDateTime" render={({ field }) => ( <FormItem><FormLabel>Scheduled Date & Time (Cairo)</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="durationMinutes" render={({ field }) => ( <FormItem><FormLabel>Duration (minutes)</FormLabel><FormControl><Input type="number" min="5" step="5" {...field} /></FormControl><FormMessage /></FormItem> )} />
              </div>
              <FormDescription className="flex items-center gap-2"><Clock className="h-4 w-4" /> A collection appointment will be scheduled for this order.</FormDescription>
@@ -320,6 +337,7 @@ function OrderEntryPageComponent() {
   useEffect(() => {
     const storedToken = localStorage.getItem('labwise-token');
     if (storedToken) setToken(storedToken);
+    else setPageIsLoading(false);
   }, []);
 
   useEffect(() => {

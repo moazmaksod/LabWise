@@ -4,6 +4,9 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { decrypt } from '@/lib/auth';
 import type { Appointment, TestCatalogItem, OrderSample } from '@/lib/types';
+import { formatInTimeZone, zonedTimeToUtc } from 'date-fns-tz';
+
+const TIME_ZONE = 'Africa/Cairo';
 
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -123,11 +126,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
         const { db } = await connectToDatabase();
         
-        const localDate = new Date(scheduledTime);
+        const utcDate = new Date(scheduledTime);
 
         const updatePayload = {
             patientId: new ObjectId(patientId),
-            scheduledTime: localDate,
+            scheduledTime: utcDate,
             notes: notes,
             appointmentType,
             updatedAt: new Date(),
