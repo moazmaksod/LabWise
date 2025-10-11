@@ -1,11 +1,10 @@
 
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { format, addDays, subDays } from 'date-fns';
-import { Clock, CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, CalendarIcon, ChevronLeft, ChevronRight, Beaker, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -121,7 +120,10 @@ export default function CollectionListPage() {
                         Array.from({ length: 5 }).map((_, i) => (
                             <div key={i} className="flex items-center space-x-4 p-4 border-b">
                                 <Skeleton className="h-10 w-24" />
-                                <Skeleton className="h-6 w-48" />
+                                <div className="space-y-2 flex-grow">
+                                    <Skeleton className="h-6 w-1/2" />
+                                    <Skeleton className="h-4 w-1/4" />
+                                </div>
                                 <Skeleton className="h-6 w-24 ml-auto" />
                             </div>
                         ))
@@ -131,24 +133,42 @@ export default function CollectionListPage() {
                                 href={`/collection-schedule?id=${appt.id}`} 
                                 key={appt.id}
                                 className={cn(
-                                    "flex justify-between items-center w-full p-4 border-b last:border-b-0 hover:bg-muted/50 transition-colors cursor-pointer",
-                                    (appt.orderInfo?.orderStatus === 'Pending' || appt.orderInfo?.orderStatus === 'Complete') && 'bg-secondary/50 opacity-70'
+                                    "block w-full p-4 border-b last:border-b-0 hover:bg-muted/50 transition-colors cursor-pointer",
+                                    (appt.orderInfo?.orderStatus === 'Pending' || appt.orderInfo?.orderStatus === 'Complete') && 'opacity-60'
                                 )}
                             >
-                                <div className="flex items-center gap-4">
-                                    <div className="flex items-center gap-2 font-semibold text-lg">
-                                        <Clock className="h-5 w-5 text-muted-foreground" />
-                                        <span>{format(new Date(appt.scheduledTime), 'p')}</span>
+                                <div className="flex justify-between items-start">
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-2 font-semibold text-lg min-w-[8rem]">
+                                            <Clock className="h-5 w-5 text-muted-foreground" />
+                                            <span>{format(new Date(appt.scheduledTime), 'p')}</span>
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-xl">{appt.patientInfo?.firstName} {appt.patientInfo?.lastName}</div>
+                                            <div className="text-sm text-muted-foreground">MRN: {appt.patientInfo?.mrn}</div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <div className="font-bold text-xl">{appt.patientInfo?.firstName} {appt.patientInfo?.lastName}</div>
-                                        <div className="text-sm text-muted-foreground">MRN: {appt.patientInfo?.mrn}</div>
-                                    </div>
+                                    {appt.orderInfo?.orderStatus && (
+                                        <Badge variant={getOrderStatusVariant(appt.orderInfo.orderStatus)} className="text-base whitespace-nowrap">
+                                            {appt.orderInfo.orderStatus}
+                                        </Badge>
+                                    )}
                                 </div>
-                                {appt.orderInfo?.orderStatus && (
-                                    <Badge variant={getOrderStatusVariant(appt.orderInfo.orderStatus)} className="text-base">
-                                        {appt.orderInfo.orderStatus}
-                                    </Badge>
+                                {appt.orderInfo?.samples && appt.orderInfo.samples.length > 0 && (
+                                    <div className="mt-3 pl-[9.5rem] flex flex-wrap items-center gap-2">
+                                        {appt.orderInfo.samples.map(sample => (
+                                            <Badge key={sample.sampleId} variant="secondary" className="gap-1.5">
+                                                <Beaker className="h-3 w-3" />
+                                                {sample.specimenRequirements?.tubeType || 'Unknown Tube'}
+                                            </Badge>
+                                        ))}
+                                        {appt.orderInfo.samples.some(s => s.specimenRequirements?.specialHandling) && (
+                                            <Badge variant="destructive" className="gap-1.5">
+                                                <AlertTriangle className="h-3 w-3" />
+                                                Special Handling
+                                            </Badge>
+                                        )}
+                                    </div>
                                 )}
                             </Link>
                         ))
