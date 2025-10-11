@@ -184,19 +184,25 @@ function CollectionDetailPageComponent() {
                                         </div>
                                     )}
                                     <div className="mt-4 flex justify-end">
-                                        {user?.role === 'phlebotomist' && (
+                                        {user?.role === 'phlebotomist' && sample.status === 'AwaitingCollection' && (
                                             <Button 
                                                 size="sm" 
                                                 onClick={() => handleConfirmCollection(sample.sampleId)}
-                                                disabled={sample.status !== 'AwaitingCollection' || !!collectingSampleId}
+                                                disabled={!!collectingSampleId}
                                             >
                                                 {collectingSampleId === sample.sampleId ? (
                                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                                 ) : (
                                                     <Check className="mr-2 h-4 w-4" />
                                                 )}
-                                                {sample.status === 'AwaitingCollection' ? 'Confirm Collection' : 'Collected'}
+                                                Confirm Collection
                                             </Button>
+                                        )}
+                                        {sample.status === 'Collected' && (
+                                             <div className="flex items-center gap-2 text-sm text-green-400 font-semibold">
+                                                <Check className="h-4 w-4" />
+                                                Collected
+                                            </div>
                                         )}
                                     </div>
                                 </CardContent>
