@@ -6,9 +6,11 @@ import ReceptionistDashboard from '@/components/dashboards/receptionist-dashboar
 import TechnicianDashboard from '@/components/dashboards/technician-dashboard';
 import PhlebotomistDashboard from '@/components/dashboards/phlebotomist-dashboard';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
   const { user, loading } = useUser();
+  const router = useRouter();
 
   if (loading) {
     return (

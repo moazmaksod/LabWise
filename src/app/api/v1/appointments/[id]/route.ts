@@ -3,6 +3,97 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { decrypt } from '@/lib/auth';
+import type { Appointment, TestCatalogItem, OrderSample } from '@/lib/types';
+
+
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+    try {
+        if (!ObjectId.isValid(params.id)) {
+            return NextResponse.json({ message: 'Invalid appointment ID format.' }, { status: 400 });
+        }
+
+        const { db } = await connectToDatabase();
+        
+        const aggregationPipeline: any[] = [
+            { $match: { _id: new ObjectId(params.id) } },
+            {
+                $lookup: {
+                    from: 'patients',
+                    localField: 'patientId',
+                    foreignField: '_id',
+                    as: 'patientInfo'
+                }
+            },
+            { $unwind: { path: '$patientInfo', preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: 'orders',
+                    localField: 'orderId',
+                    foreignField: '_id',
+                    as: 'orderInfo'
+                }
+            },
+            { $unwind: { path: '$orderInfo', preserveNullAndEmptyArrays: true } },
+        ];
+
+        const appointment = await db.collection('appointments').aggregate(aggregationPipeline).next();
+
+        if (!appointment) {
+            return NextResponse.json({ message: 'Appointment not found.' }, { status: 404 });
+        }
+        
+        // Fetch test details for the order if it exists
+        if (appointment.orderInfo) {
+            const allTestCodes = appointment.orderInfo.samples.flatMap((sample: any) => 
+                sample.tests.map((test: any) => test.testCode)
+            );
+            const uniqueTestCodes = [...new Set(allTestCodes)];
+            
+            const testDefs = await db.collection<TestCatalogItem>('testCatalog').find(
+                { testCode: { $in: uniqueTestCodes } },
+                { projection: { testCode: 1, name: 1, specimenRequirements: 1 } }
+            ).toArray();
+            const testDefMap = new Map(testDefs.map(t => [t.testCode, t]));
+            
+            const samplesWithDetails = appointment.orderInfo.samples.map((sample: OrderSample) => {
+                const testsWithDetails = sample.tests.map((test) => ({
+                    ...test,
+                    name: testDefMap.get(test.testCode)?.name || test.name,
+                }));
+
+                const firstTestDef = testsWithDetails.length > 0 ? testDefMap.get(testsWithDetails[0].testCode) : undefined;
+                
+                return {
+                    ...sample,
+                    sampleId: sample.sampleId.toHexString(),
+                    tests: testsWithDetails,
+                    specimenRequirements: firstTestDef?.specimenRequirements,
+                };
+            });
+
+            appointment.orderInfo.samples = samplesWithDetails;
+            appointment.orderInfo.id = appointment.orderInfo._id.toHexString();
+            delete appointment.orderInfo._id;
+        }
+
+        const { _id, patientId, orderId, patientInfo, ...rest } = appointment;
+        
+        const clientAppointment = {
+            ...rest,
+            id: _id.toHexString(),
+            patientId: patientId?.toHexString(),
+            orderId: orderId?.toHexString(),
+            patientInfo: patientInfo ? { ...patientInfo, id: patientInfo._id.toHexString(), _id: undefined } : undefined,
+        };
+
+        return NextResponse.json(clientAppointment, { status: 200 });
+
+    } catch (error) {
+        console.error('Failed to fetch appointment:', error);
+        return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
+    }
+}
+
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
     try {
@@ -32,9 +123,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
         const { db } = await connectToDatabase();
         
-        // The value from a datetime-local input is a string that represents the local time.
-        // new Date(string) can be inconsistent across environments.
-        // To ensure the server interprets this as local time, we construct the date explicitly.
         const localDate = new Date(scheduledTime);
 
         const updatePayload = {
