@@ -7,10 +7,8 @@ import type { Appointment, TestCatalogItem, OrderSample } from '@/lib/types';
 
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-    console.log(`DEBUG: GET /api/v1/appointments/[id] called with ID: ${params.id}`);
     try {
         if (!ObjectId.isValid(params.id)) {
-            console.error(`DEBUG: Invalid ObjectId format: ${params.id}`);
             return NextResponse.json({ message: 'Invalid appointment ID format.' }, { status: 400 });
         }
 
@@ -39,16 +37,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         ];
 
         const appointment = await db.collection('appointments').aggregate(aggregationPipeline).next();
-        console.log('DEBUG: Raw appointment data from DB:', JSON.stringify(appointment, null, 2));
 
         if (!appointment) {
-            console.error(`DEBUG: Appointment not found for ID: ${params.id}`);
             return NextResponse.json({ message: 'Appointment not found.' }, { status: 404 });
         }
         
-        // Fetch test details for the order if it exists and has samples
-        if (appointment.orderInfo && appointment.orderInfo.samples) {
-            console.log('DEBUG: orderInfo and samples found, processing test details...');
+        // Safely process orderInfo only if it exists
+        if (appointment.orderInfo && Array.isArray(appointment.orderInfo.samples)) {
             const allTestCodes = appointment.orderInfo.samples.flatMap((sample: any) => 
                 sample.tests.map((test: any) => test.testCode)
             );
@@ -79,8 +74,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
             appointment.orderInfo.samples = samplesWithDetails;
             appointment.orderInfo.id = appointment.orderInfo._id.toHexString();
             delete appointment.orderInfo._id;
-        } else {
-             console.log('DEBUG: No orderInfo or no samples found. Skipping test detail processing.');
         }
 
         const { _id, patientId, orderId, patientInfo, ...rest } = appointment;
@@ -93,7 +86,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
             patientInfo: patientInfo ? { ...patientInfo, id: patientInfo._id.toHexString(), _id: undefined } : undefined,
         };
 
-        console.log('DEBUG: Final clientAppointment object being sent:', JSON.stringify(clientAppointment, null, 2));
         return NextResponse.json(clientAppointment, { status: 200 });
 
     } catch (error) {
