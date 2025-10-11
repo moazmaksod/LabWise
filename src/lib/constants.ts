@@ -100,7 +100,7 @@ type NavItem = {
 export const NAV_ITEMS: Record<Role, NavItem[]> = {
   receptionist: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/patient', label: 'Patients', icon: Users },
+    { href: '/patient-management', label: 'Patients', icon: Users },
     { href: '/orders', label: 'Orders', icon: ClipboardPlus },
     { href: '/scheduling', label: 'Consultations', icon: CalendarDays },
     { href: '/collection-list', label: 'Collection List', icon: Droplets },
@@ -115,7 +115,7 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
   manager: [
     { href: '/dashboard', label: 'KPI Dashboard', icon: AreaChart },
     { href: '/user-management', label: 'User Management', icon: Users },
-    { href: '/patient', label: 'Patients', icon: Users },
+    { href: '/patient-management', label: 'Patients', icon: Users },
     { href: '/orders', label: 'Orders', icon: ClipboardPlus },
     { href: '/test-catalog', label: 'Test Catalog', icon: FlaskConical },
     { href: '/reports', label: 'Reports & Analytics', icon: BarChart },

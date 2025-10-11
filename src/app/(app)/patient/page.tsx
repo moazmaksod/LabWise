@@ -18,7 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { ClientPatient } from '@/lib/types';
 import { calculateAge } from '@/lib/utils';
 
-function PatientPageComponent() {
+function PatientManagementPageComponent() {
   const { user, loading: userLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
@@ -167,10 +167,10 @@ function PatientPageComponent() {
   );
 }
 
-export default function PatientPage() {
+export default function PatientManagementPage() {
     return (
         <Suspense fallback={<Skeleton className="h-[calc(100vh-8rem)] w-full" />}>
-            <PatientPageComponent />
+            <PatientManagementPageComponent />
         </Suspense>
     )
 }

@@ -83,7 +83,10 @@ export async function POST(req: NextRequest) {
 // PUT (update) a patient
 export async function PUT(req: NextRequest) {
     try {
-        const { id, ...updateData } = await req.json();
+        const body = await req.json();
+        console.log('DEBUG: PUT /api/v1/patients request body:', JSON.stringify(body, null, 2));
+
+        const { id, ...updateData } = body;
 
         if (!id) {
             return NextResponse.json({ message: 'Patient ID is required for updates' }, { status: 400 });
