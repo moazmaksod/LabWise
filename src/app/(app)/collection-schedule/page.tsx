@@ -5,7 +5,7 @@
 import { Suspense, useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { format, addMinutes } from 'date-fns';
-import { Clock, Check, AlertTriangle, Loader2, ArrowLeft } from 'lucide-react';
+import { Clock, Check, AlertTriangle, Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -94,7 +94,7 @@ function CollectionDetailPageComponent() {
                     orderInfo: {
                         ...prev.orderInfo,
                         samples: newSamples,
-                        orderStatus: allCollected ? 'Pending' : 'Partially Collected'
+                        orderStatus: allCollected ? 'In Progress' : 'Partially Collected'
                     }
                 };
             });
@@ -197,6 +197,12 @@ function CollectionDetailPageComponent() {
                                                 )}
                                                 Confirm Collection
                                             </Button>
+                                        )}
+                                        {sample.status === 'Collected' && (
+                                           <div className="flex items-center gap-2 text-sm text-green-400 font-semibold">
+                                                <CheckCircle className="h-4 w-4" />
+                                                <span>Collected at {format(new Date(sample.collectionTimestamp!), 'p')}</span>
+                                            </div>
                                         )}
                                     </div>
                                 </CardContent>

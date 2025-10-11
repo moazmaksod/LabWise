@@ -59,8 +59,9 @@ function OrdersPageComponent() {
   const getStatusVariant = (status: string) => {
     switch (status) {
         case 'Complete': return 'default';
-        case 'Pending': return 'secondary';
+        case 'In Progress': return 'secondary';
         case 'Partially Collected': return 'outline';
+        case 'Pending': return 'outline';
         case 'Cancelled': return 'destructive';
         default: return 'outline';
     }

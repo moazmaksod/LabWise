@@ -163,7 +163,7 @@ export type Order = {
     physicianId: ObjectId;
     appointmentId?: ObjectId; // Link to a specific appointment
     icd10Code: string;
-    orderStatus: 'Pending' | 'Partially Collected' | 'Partially Complete' | 'Complete' | 'Cancelled';
+    orderStatus: 'Pending' | 'Partially Collected' | 'In Progress' | 'Partially Complete' | 'Complete' | 'Cancelled';
     priority: 'Routine' | 'STAT';
     samples: OrderSample[];
     createdAt: Date;

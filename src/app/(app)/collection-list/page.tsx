@@ -60,8 +60,9 @@ export default function CollectionListPage() {
     const getOrderStatusVariant = (status: ClientOrder['orderStatus']) => {
         switch (status) {
             case 'Complete': return 'default';
-            case 'Pending': return 'secondary';
+            case 'In Progress': return 'secondary';
             case 'Partially Collected': return 'outline';
+            case 'Pending': return 'outline';
             case 'Cancelled': return 'destructive';
             default: return 'outline';
         }
@@ -134,7 +135,7 @@ export default function CollectionListPage() {
                                 key={appt.id}
                                 className={cn(
                                     "block w-full p-4 border-b last:border-b-0 hover:bg-muted/50 transition-colors cursor-pointer",
-                                    (appt.orderInfo?.orderStatus === 'Pending' || appt.orderInfo?.orderStatus === 'Complete') && 'opacity-60'
+                                    (appt.orderInfo?.orderStatus === 'In Progress' || appt.orderInfo?.orderStatus === 'Complete') && 'opacity-60'
                                 )}
                             >
                                 <div className="flex justify-between items-start">

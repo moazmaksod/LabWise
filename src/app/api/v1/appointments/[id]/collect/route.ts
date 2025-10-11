@@ -58,14 +58,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         // After updating the sample, check the status of all samples for THIS order.
         const updatedOrder = await db.collection<Order>('orders').findOne({ _id: orderContainingSample._id });
         if (updatedOrder) {
-            const allSamplesCollected = updatedOrder.samples.every(s => s.status !== 'AwaitingCollection');
+            const allSamplesCollectedOrProcessed = updatedOrder.samples.every(s => s.status !== 'AwaitingCollection');
             const someSamplesCollected = updatedOrder.samples.some(s => s.status === 'Collected' || s.status === 'InLab');
 
             let newOrderStatus: Order['orderStatus'] = updatedOrder.orderStatus;
 
-            if (allSamplesCollected) {
-                // All samples are collected (or further along), but the order isn't 'Complete' yet. It's 'Pending' lab work.
-                newOrderStatus = 'Pending';
+            if (allSamplesCollectedOrProcessed) {
+                // All samples are collected (or further along), so the order is ready for lab work.
+                newOrderStatus = 'In Progress';
             } else if (someSamplesCollected) {
                 // Some samples are collected, but not all.
                 newOrderStatus = 'Partially Collected';
