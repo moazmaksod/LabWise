@@ -10,11 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import type { ClientAppointment, OrderSample, ClientOrder } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import type { ClientAppointment, OrderSample } from '@/lib/types';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useUser } from '@/hooks/use-user';
 
 function CollectionDetailPageComponent() {
+    const { user } = useUser();
     const [appointment, setAppointment] = useState<ClientAppointment | null>(null);
     const [loading, setLoading] = useState(true);
     const [token, setToken] = useState<string | null>(null);
@@ -136,7 +137,7 @@ function CollectionDetailPageComponent() {
         <div className="space-y-4 max-w-4xl mx-auto">
             <Button variant="outline" onClick={() => router.back()}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Collection List
+                Back to List
             </Button>
             <Card>
                 <CardHeader>
@@ -183,18 +184,20 @@ function CollectionDetailPageComponent() {
                                         </div>
                                     )}
                                     <div className="mt-4 flex justify-end">
-                                        <Button 
-                                            size="sm" 
-                                            onClick={() => handleConfirmCollection(sample.sampleId)}
-                                            disabled={sample.status !== 'AwaitingCollection' || !!collectingSampleId}
-                                        >
-                                            {collectingSampleId === sample.sampleId ? (
-                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            ) : (
-                                                <Check className="mr-2 h-4 w-4" />
-                                            )}
-                                            {sample.status === 'AwaitingCollection' ? 'Confirm Collection' : 'Collected'}
-                                        </Button>
+                                        {user?.role === 'phlebotomist' && (
+                                            <Button 
+                                                size="sm" 
+                                                onClick={() => handleConfirmCollection(sample.sampleId)}
+                                                disabled={sample.status !== 'AwaitingCollection' || !!collectingSampleId}
+                                            >
+                                                {collectingSampleId === sample.sampleId ? (
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <Check className="mr-2 h-4 w-4" />
+                                                )}
+                                                {sample.status === 'AwaitingCollection' ? 'Confirm Collection' : 'Collected'}
+                                            </Button>
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
