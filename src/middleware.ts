@@ -13,7 +13,7 @@ const rbacMatrix: Record<string, { methods: string[], roles: Role[] }[]> = {
         { methods: ['GET'], roles: ['receptionist', 'technician', 'manager', 'physician', 'patient', 'phlebotomist'] }
     ],
     '/api/v1/users': [
-        { methods: ['GET'], roles: ['manager'] },
+        { methods: ['GET'], roles: ['manager', 'receptionist'] }, // Receptionists can GET if role=physician
         { methods: ['POST', 'PUT'], roles: ['manager'] }
     ],
     '/api/v1/users/.*': [
@@ -85,7 +85,7 @@ const rbacMatrix: Record<string, { methods: string[], roles: Role[] }[]> = {
 
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, searchParams } = request.nextUrl;
 
   // 2. Define public paths that don't require authentication
   const publicPaths = [
@@ -123,6 +123,16 @@ export async function middleware(request: NextRequest) {
         // Default to deny if no specific rule is found for an API path
         return new NextResponse(JSON.stringify({ message: 'Access denied. No rule for this endpoint.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
     }
+    
+    // --- SPECIAL CASE for Receptionist fetching physicians ---
+    if (pathname === '/api/v1/users' && requestMethod === 'GET' && userRole === 'receptionist') {
+        if (searchParams.get('role') === 'physician') {
+            return NextResponse.next(); // Allow if they are specifically asking for physicians
+        }
+        // Otherwise, deny access to the general user list
+        return new NextResponse(JSON.stringify({ message: 'Forbidden. Receptionists can only fetch physician lists.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+    }
+    // --- END SPECIAL CASE ---
     
     const rulesForPath = rbacMatrix[pathRuleKey];
     const ruleForMethod = rulesForPath.find(r => r.methods.includes(requestMethod));
