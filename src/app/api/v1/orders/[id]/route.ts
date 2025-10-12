@@ -34,8 +34,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 // PUT (update) an order
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+    console.log(`[DEBUG] PUT /api/v1/orders/${params.id} - Request received.`);
     try {
         if (!ObjectId.isValid(params.id)) {
+            console.log('[DEBUG] Invalid order ID format.');
             return NextResponse.json({ message: 'Invalid order ID format.' }, { status: 400 });
         }
 
@@ -45,11 +47,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         if (!userPayload?.userId) return NextResponse.json({ message: 'Invalid or expired token.' }, { status: 401 });
 
         const body = await req.json();
+        console.log('[DEBUG] 1. Received body:', JSON.stringify(body, null, 2));
         
         const { physicianId, icd10Code, priority, testCodes, appointmentDetails } = body;
+        console.log('[DEBUG] 2. Extracted variables:', { physicianId, icd10Code, priority, testCodes, appointmentDetails });
         
         // Validation
         if (!physicianId || !icd10Code || !priority || !testCodes || !Array.isArray(testCodes) || testCodes.length === 0 || !appointmentDetails || !appointmentDetails.scheduledTime) {
+            console.log('[DEBUG] Validation failed: Missing required fields.');
             return NextResponse.json({ message: 'Missing or invalid required fields for order update.', status: 400 });
         }
 
@@ -58,15 +63,19 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         const orderObjectId = new ObjectId(params.id);
         const existingOrder = await db.collection<Order>('orders').findOne({ _id: orderObjectId });
         if (!existingOrder) {
+            console.log('[DEBUG] Order not found in database.');
             return NextResponse.json({ message: 'Order not found' }, { status: 404 });
         }
+        console.log('[DEBUG] 3. Found existing order:', JSON.stringify(existingOrder, null, 2));
+
 
         // ---- Check for overlapping appointments ----
         const newApptStartTime = new Date(appointmentDetails.scheduledTime);
         const newApptEndTime = addMinutes(newApptStartTime, appointmentDetails.durationMinutes || 15);
+        console.log('[DEBUG] 4. Appointment time window:', { start: newApptStartTime, end: newApptEndTime });
 
         if (existingOrder.appointmentId) {
-             const overlappingAppointment = await db.collection('appointments').findOne({
+             const overlapQuery = {
                 _id: { $ne: existingOrder.appointmentId }, // Exclude the current order's own appointment
                  $or: [
                     // New appointment starts during an existing one
@@ -79,9 +88,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
                         ]
                     },
                 ]
-            });
+            };
+            console.log('[DEBUG] 5. Overlap query:', JSON.stringify(overlapQuery, null, 2));
+            const overlappingAppointment = await db.collection('appointments').findOne(overlapQuery);
+            console.log('[DEBUG] 6. Overlapping appointment result:', JSON.stringify(overlappingAppointment, null, 2));
 
             if (overlappingAppointment) {
+                console.log('[DEBUG] Overlap found. Returning 409 Conflict.');
                 return NextResponse.json({ message: 'This time slot is already booked or overlaps with another appointment.' }, { status: 409 });
             }
         }
@@ -90,6 +103,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         // Fetch all test definitions from the catalog
         const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: testCodes } }).toArray();
         if (testDefs.length !== testCodes.length) {
+            console.log('[DEBUG] One or more test codes were invalid.');
             return NextResponse.json({ message: 'One or more invalid test codes provided.' }, { status: 400 });
         }
         
@@ -127,6 +141,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         
         // Update the associated appointment
         if (existingOrder.appointmentId) {
+            console.log('[DEBUG] 7. Updating associated appointment:', existingOrder.appointmentId);
             await db.collection<Appointment>('appointments').updateOne(
                 { _id: existingOrder.appointmentId },
                 { $set: { 
@@ -145,11 +160,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             samples: orderSamples,
             updatedAt: new Date(),
         };
+        console.log('[DEBUG] 8. Final update payload for order:', JSON.stringify(updatePayload, null, 2));
 
         const result = await db.collection('orders').updateOne(
             { _id: orderObjectId },
             { $set: updatePayload }
         );
+        console.log('[DEBUG] 9. MongoDB update result:', JSON.stringify(result, null, 2));
+
 
         // --- Audit Log Entry ---
         await db.collection('auditLogs').insertOne({
@@ -171,11 +189,12 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
         const updatedOrder = await db.collection('orders').findOne({ _id: orderObjectId });
         const clientResponse = { ...updatedOrder, id: updatedOrder?._id.toHexString() };
+        console.log('[DEBUG] 10. Update successful. Returning 200.');
 
 
         return NextResponse.json(clientResponse, { status: 200 });
     } catch (error) {
-        console.error('Failed to update order:', error);
+        console.error('[FATAL] Failed to update order:', error);
         return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
     }
 }
