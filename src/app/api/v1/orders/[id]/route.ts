@@ -64,39 +64,22 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             return NextResponse.json({ message: 'Order not found' }, { status: 404 });
         }
 
-
         // ---- Check for overlapping appointments ----
         const newApptStartTime = new Date(appointmentDetails.scheduledTime);
         const newApptEndTime = addMinutes(newApptStartTime, appointmentDetails.durationMinutes || 15);
         
         if (existingOrder.appointmentId && ObjectId.isValid(existingOrder.appointmentId)) {
              const overlapQuery = {
-                _id: { $ne: existingOrder.appointmentId },
-                 $expr: {
-                    $or: [
-                        // New appointment starts during an existing one
-                        {
-                            $and: [
-                                { $gte: ["$scheduledTime", newApptStartTime] },
-                                { $lt: ["$scheduledTime", newApptEndTime] }
-                            ]
-                        },
-                        // New appointment ends during an existing one
-                        {
-                            $and: [
-                                { $lt: ["$scheduledTime", newApptStartTime] },
-                                { $gt: [ { $add: ["$scheduledTime", { $multiply: [ { $toLong: "$durationMinutes" }, 60000] }] }, newApptStartTime ] }
-                            ]
-                        },
-                         // Existing appointment envelops new one
-                        {
-                            $and: [
-                                { $lte: ["$scheduledTime", newApptStartTime] },
-                                { $gt: [ { $add: ["$scheduledTime", { $multiply: [ { $toLong: "$durationMinutes" }, 60000] }] }, newApptEndTime ] }
-                            ]
-                        }
-                    ]
-                }
+                // IMPORTANT: Exclude the current order's own appointment from the check
+                _id: { $ne: existingOrder.appointmentId }, 
+                $or: [
+                    // New appointment starts during an existing one
+                    { scheduledTime: { $lt: newApptEndTime }, $expr: { $gt: [ { $add: ["$scheduledTime", { $multiply: [ { $toLong: "$durationMinutes" }, 60000] }] }, newApptStartTime ] } },
+                    // New appointment ends during an existing one
+                    { scheduledTime: { $lt: newApptStartTime }, $expr: { $gt: [ { $add: ["$scheduledTime", { $multiply: [ { $toLong: "$durationMinutes" }, 60000] }] }, newApptStartTime ] } },
+                    // New appointment envelops an existing one
+                    { scheduledTime: { $gte: newApptStartTime, $lt: newApptEndTime } }
+                ]
             };
             const overlappingAppointment = await db.collection('appointments').findOne(overlapQuery);
 
