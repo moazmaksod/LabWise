@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MOCK_WORKLIST_SAMPLES } from '@/lib/constants';
 import { Flame, Clock, CheckCircle, ArrowDown, ArrowUp, Search } from 'lucide-react';
