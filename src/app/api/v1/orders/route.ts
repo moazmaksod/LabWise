@@ -6,7 +6,7 @@ import { ObjectId } from 'mongodb';
 import { getNextOrderId } from '@/lib/counters';
 import { decrypt } from '@/lib/auth';
 import type { Order, TestCatalogItem, OrderSample, OrderTest, Role, Appointment } from '@/lib/types';
-import { addMinutes } from 'date-fns';
+import { addMinutes, startOfDay, endOfDay } from 'date-fns';
 
 // POST a new order
 export async function POST(req: NextRequest) {
@@ -159,45 +159,77 @@ export async function POST(req: NextRequest) {
     }
 }
 
-// GET orders with search
+// GET orders with search and filtering
 export async function GET(req: NextRequest) {
     try {
         const { searchParams } = new URL(req.url);
         const query = searchParams.get('q');
+        const collectedDate = searchParams.get('collectedDate');
+        const sampleStatus = searchParams.get('sampleStatus');
         
         const { db } = await connectToDatabase();
 
         let aggregationPipeline: any[] = [];
         
-        aggregationPipeline.push({
-            $lookup: {
-                from: 'patients',
-                localField: 'patientId',
-                foreignField: '_id',
-                as: 'patientInfo'
-            }
-        });
-        
-        aggregationPipeline.push({ 
-            $unwind: {
-                path: "$patientInfo",
-                preserveNullAndEmptyArrays: true
-            }
-        });
+        let matchStage: any = { $match: {} };
 
-        if (query) {
-             const searchRegex = new RegExp(query, 'i');
-            aggregationPipeline.push({
-                $match: {
-                    $or: [
-                        { orderId: searchRegex },
-                        { 'samples.accessionNumber': searchRegex },
-                        { 'patientInfo.mrn': searchRegex },
-                        { 'patientInfo.firstName': searchRegex },
-                        { 'patientInfo.lastName': searchRegex },
-                        { 'patientInfo.contactInfo.phone': searchRegex },
-                    ]
+        // Date and Status based filtering for Accessioning page
+        if (collectedDate && sampleStatus) {
+            const targetDate = new Date(collectedDate + 'T00:00:00');
+            const dayStart = startOfDay(targetDate);
+            const dayEnd = endOfDay(targetDate);
+            matchStage.$match['samples'] = {
+                $elemMatch: {
+                    status: sampleStatus,
+                    collectionTimestamp: {
+                        $gte: dayStart,
+                        $lte: dayEnd,
+                    }
                 }
+            };
+        }
+        // General query based searching
+        else if (query) {
+             const searchRegex = new RegExp(query, 'i');
+            matchStage.$match['$or'] = [
+                { orderId: searchRegex },
+                { 'samples.accessionNumber': searchRegex },
+                { 'patientInfo.mrn': searchRegex },
+                { 'patientInfo.firstName': searchRegex },
+                { 'patientInfo.lastName': searchRegex },
+                { 'patientInfo.contactInfo.phone': searchRegex },
+            ];
+        }
+
+        // Add patient info lookup before matching if search query involves patient
+        if (query) {
+            aggregationPipeline.push({
+                $lookup: {
+                    from: 'patients',
+                    localField: 'patientId',
+                    foreignField: '_id',
+                    as: 'patientInfo'
+                }
+            }, { 
+                $unwind: { path: "$patientInfo", preserveNullAndEmptyArrays: true }
+            });
+        }
+        
+        if (Object.keys(matchStage.$match).length > 0) {
+            aggregationPipeline.push(matchStage);
+        }
+        
+        // Add patient info lookup if it wasn't added before
+        if (!query) {
+             aggregationPipeline.push({
+                $lookup: {
+                    from: 'patients',
+                    localField: 'patientId',
+                    foreignField: '_id',
+                    as: 'patientInfo'
+                }
+            }, { 
+                $unwind: { path: "$patientInfo", preserveNullAndEmptyArrays: true }
             });
         }
 
@@ -209,7 +241,13 @@ export async function GET(req: NextRequest) {
         const clientOrders = orders.map(order => {
           const { _id, ...rest } = order;
           const patientInfo = rest.patientInfo ? { ...rest.patientInfo, id: rest.patientInfo._id.toHexString(), _id: undefined } : undefined;
-          return { ...rest, id: _id.toHexString(), patientInfo, appointmentId: rest.appointmentId?.toHexString() };
+          
+          const samples = order.samples.map((s: any) => ({
+              ...s,
+              sampleId: s.sampleId.toHexString()
+          }));
+
+          return { ...rest, id: _id.toHexString(), patientInfo, samples, appointmentId: rest.appointmentId?.toHexString() };
         });
 
         return NextResponse.json(clientOrders, { status: 200 });

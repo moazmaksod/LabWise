@@ -3,8 +3,9 @@
 
 import { Suspense, useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, Loader2, Info, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Search, Loader2, Info, CheckCircle, AlertTriangle, CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { format, subDays, addDays } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import type { ClientOrder, OrderSample } from '@/lib/types';
-import { format } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
+import { Calendar } from '@/components/ui/calendar';
 
 function AccessioningPageComponent() {
   const { toast } = useToast();
@@ -20,17 +23,51 @@ function AccessioningPageComponent() {
   
   const [orderSearchTerm, setOrderSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [foundOrder, setFoundOrder] = useState<ClientOrder | null>(null);
+  const [foundOrders, setFoundOrders] = useState<ClientOrder[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   useEffect(() => {
     const storedToken = localStorage.getItem('labwise-token');
     if (storedToken) setToken(storedToken);
   }, []);
 
-  const handleSearch = useCallback(async () => {
-    if (!orderSearchTerm.trim() || !token) return;
+  const fetchCollectedOrders = useCallback(async (date: Date, authToken: string) => {
     setIsSearching(true);
-    setFoundOrder(null);
+    setFoundOrders([]);
+    try {
+        const dateString = format(date, 'yyyy-MM-dd');
+        const response = await fetch(`/api/v1/orders?collectedDate=${dateString}&sampleStatus=Collected`, { headers: { 'Authorization': `Bearer ${authToken}` }});
+        if (!response.ok) {
+            throw new Error('Failed to fetch orders waiting for accession.');
+        }
+        const data = await response.json();
+        setFoundOrders(data);
+        if (data.length === 0) {
+           toast({ title: 'No Orders Found', description: `No collected samples waiting for accession on ${format(date, 'PPP')}.` });
+        }
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Error', description: error.message });
+    } finally {
+        setIsSearching(false);
+    }
+  }, [toast]);
+  
+  useEffect(() => {
+    if (token && !orderSearchTerm) {
+      fetchCollectedOrders(selectedDate, token);
+    }
+  }, [token, selectedDate, fetchCollectedOrders, orderSearchTerm]);
+
+  const handleSearch = useCallback(async () => {
+    if (!orderSearchTerm.trim() || !token) {
+        if (!orderSearchTerm.trim()) {
+            // If search is cleared, fetch default list for the date
+            fetchCollectedOrders(selectedDate, token);
+        }
+        return;
+    };
+    setIsSearching(true);
+    setFoundOrders([]);
     try {
         const response = await fetch(`/api/v1/orders?q=${orderSearchTerm}`, { headers: { 'Authorization': `Bearer ${token}` }});
         if (!response.ok) {
@@ -38,9 +75,8 @@ function AccessioningPageComponent() {
             throw new Error(errorData.message || 'Order search failed.');
         }
         const data = await response.json();
-        if (data.length > 0) {
-            setFoundOrder(data[0]); // Assume the first result is the most relevant
-        } else {
+        setFoundOrders(data);
+        if (data.length === 0) {
             toast({ variant: 'destructive', title: 'Not Found', description: 'No order found with that ID or patient info.' });
         }
     } catch (error: any) {
@@ -48,16 +84,16 @@ function AccessioningPageComponent() {
     } finally {
         setIsSearching(false);
     }
-  }, [orderSearchTerm, token, toast]);
+  }, [orderSearchTerm, token, toast, fetchCollectedOrders, selectedDate]);
 
-  const handleAccessionSample = useCallback(async (sampleId: string) => {
-    if (!foundOrder || !token) return;
+  const handleAccessionSample = useCallback(async (orderId: string, sampleId: string) => {
+    if (!token) return;
 
     try {
         const response = await fetch('/api/v1/samples/accession', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
-            body: JSON.stringify({ orderId: foundOrder.id, sampleId }),
+            body: JSON.stringify({ orderId, sampleId }),
         });
         
         const resData = await response.json();
@@ -65,22 +101,23 @@ function AccessioningPageComponent() {
         
         toast({ title: 'Success', description: `Sample ${resData.accessionNumber} accessioned.` });
         
-        // Refresh order data
-        setFoundOrder(prevOrder => {
-            if (!prevOrder) return null;
-            const newSamples = prevOrder.samples.map(s => {
+        // Refresh order data by locally updating the state
+        setFoundOrders(prevOrders => prevOrders.map(order => {
+            if (order.id !== orderId) return order;
+            
+            const newSamples = order.samples.map(s => {
                 if (s.sampleId === sampleId) {
-                    return { ...s, status: 'InLab', accessionNumber: resData.accessionNumber, receivedTimestamp: new Date() };
+                    return { ...s, status: 'InLab' as const, accessionNumber: resData.accessionNumber, receivedTimestamp: new Date() };
                 }
                 return s;
             });
-            return { ...prevOrder, samples: newSamples };
-        });
+            return { ...order, samples: newSamples };
+        }));
 
     } catch (error: any) {
         toast({ variant: 'destructive', title: 'Accession Failed', description: error.message });
     }
-  }, [foundOrder, token, toast]);
+  }, [token, toast]);
 
   const getStatusVariant = (status: OrderSample['status']) => {
     switch (status) {
@@ -92,51 +129,94 @@ function AccessioningPageComponent() {
     }
   };
   
+  const handleDateChange = (date: Date | undefined) => {
+    if (date) {
+        setSelectedDate(date);
+    }
+  }
+  
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-5xl mx-auto">
         <Card>
             <CardHeader>
                 <CardTitle>Sample Accessioning</CardTitle>
-                <CardDescription>Scan or enter an Order ID to receive samples into the lab.</CardDescription>
+                <CardDescription>Search for an order or view collected samples waiting to be received into the lab.</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col md:flex-row gap-4">
                     <div className="relative flex-grow">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Enter Order ID (e.g., ORD-2024-00001)"
+                            placeholder="Enter Order ID, Patient Name/MRN to override list..."
                             value={orderSearchTerm}
                             onChange={(e) => setOrderSearchTerm(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                             className="pl-10"
                         />
                     </div>
-                    <Button onClick={handleSearch} disabled={isSearching}>
-                        {isSearching && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Search
-                    </Button>
+                     <div className="flex items-center gap-2 justify-between">
+                         <div className="flex items-center gap-2">
+                            <Button variant="outline" size="icon" onClick={() => handleDateChange(subDays(selectedDate, 1))}>
+                                <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                        "w-[180px] justify-start text-left font-normal",
+                                        !selectedDate && "text-muted-foreground"
+                                    )}
+                                    >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" onPointerDownOutside={(e) => e.preventDefault()}>
+                                    <Calendar mode="single" selected={selectedDate} onSelect={handleDateChange} initialFocus />
+                                </PopoverContent>
+                            </Popover>
+                             <Button variant="outline" size="icon" onClick={() => handleDateChange(addDays(selectedDate, 1))}>
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
+                         </div>
+                        <Button onClick={handleSearch} disabled={isSearching || !orderSearchTerm}>
+                            {isSearching && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Search
+                        </Button>
+                    </div>
                 </div>
             </CardContent>
         </Card>
         
-        {isSearching && <Skeleton className="h-64 w-full" />}
+        {isSearching && <div className="space-y-4">
+            <Skeleton className="h-48 w-full" />
+            <Skeleton className="h-48 w-full" />
+        </div>}
         
-        {foundOrder && (
-             <Card>
+        {!isSearching && foundOrders.length === 0 && (
+            <div className="text-center text-muted-foreground py-16">
+                <p className="text-lg">No orders found.</p>
+                <p>{orderSearchTerm ? `No results for "${orderSearchTerm}".` : `No samples waiting for accession on ${format(selectedDate, 'PPP')}.`}</p>
+            </div>
+        )}
+
+        {!isSearching && foundOrders.map(order => (
+             <Card key={order.id}>
                 <CardHeader>
                     <div className="flex justify-between items-start">
                         <div>
-                            <CardTitle>Order Details: {foundOrder.orderId}</CardTitle>
+                            <CardTitle>Order Details: {order.orderId}</CardTitle>
                             <CardDescription>
-                                Patient: {foundOrder.patientInfo?.firstName} {foundOrder.patientInfo?.lastName} (MRN: {foundOrder.patientInfo?.mrn})
+                                Patient: {order.patientInfo?.firstName} {order.patientInfo?.lastName} (MRN: {order.patientInfo?.mrn})
                             </CardDescription>
                         </div>
-                         <Badge variant={foundOrder.priority === 'STAT' ? 'destructive' : 'outline'} className="text-base">{foundOrder.priority}</Badge>
+                         <Badge variant={order.priority === 'STAT' ? 'destructive' : 'outline'} className="text-base">{order.priority}</Badge>
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    {foundOrder.samples.map(sample => (
-                        <Card key={sample.sampleId} className="bg-secondary/50">
+                    {order.samples.map(sample => (
+                        <Card key={sample.sampleId} className={cn("bg-secondary/50", sample.status !== 'Collected' && 'hidden')}>
                              <CardHeader className="flex flex-row items-center justify-between pb-4">
                                 <CardTitle className="text-lg">{sample.sampleType}</CardTitle>
                                 <Badge variant={getStatusVariant(sample.status)}>{sample.status}</Badge>
@@ -157,7 +237,7 @@ function AccessioningPageComponent() {
                                             </div>
                                         )}
                                         <Button
-                                          onClick={() => handleAccessionSample(sample.sampleId)}
+                                          onClick={() => handleAccessionSample(order.id, sample.sampleId)}
                                           disabled={sample.status !== 'Collected'}
                                         >
                                           {sample.status === 'InLab' ? (
@@ -181,7 +261,7 @@ function AccessioningPageComponent() {
                     ))}
                 </CardContent>
              </Card>
-        )}
+        ))}
     </div>
   );
 }
