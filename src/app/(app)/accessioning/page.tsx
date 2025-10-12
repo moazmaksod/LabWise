@@ -3,7 +3,7 @@
 
 import { Suspense, useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, Loader2, Info, CheckCircle, AlertTriangle, CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Loader2, Info, CheckCircle, AlertTriangle, CalendarIcon, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, subDays, addDays } from 'date-fns';
 
@@ -107,7 +107,7 @@ function AccessioningPageComponent() {
             
             const newSamples = order.samples.map(s => {
                 if (s.sampleId === sampleId) {
-                    return { ...s, status: 'InLab' as const, accessionNumber: resData.accessionNumber, receivedTimestamp: new Date() };
+                    return { ...s, status: 'InLab' as const, accessionNumber: resData.accessionNumber, receivedTimestamp: new Date().toISOString() };
                 }
                 return s;
             });
@@ -217,7 +217,7 @@ function AccessioningPageComponent() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {order.samples.map(sample => (
-                        <Card key={sample.sampleId} className={cn("bg-secondary/50", sample.status !== 'Collected' && 'hidden')}>
+                        <Card key={sample.sampleId} className={cn("bg-secondary/50", sample.status === 'InLab' && 'bg-green-900/20')}>
                              <CardHeader className="flex flex-row items-center justify-between pb-4">
                                 <CardTitle className="text-lg">{sample.sampleType}</CardTitle>
                                 <Badge variant={getStatusVariant(sample.status)}>{sample.status}</Badge>
@@ -231,30 +231,36 @@ function AccessioningPageComponent() {
                                         </ul>
                                     </div>
                                     <div className="flex items-center gap-4">
-                                        {sample.collectionTimestamp && (
-                                            <div className="text-sm text-muted-foreground">
-                                                <p>Collected:</p>
-                                                <p>{format(new Date(sample.collectionTimestamp), 'PPpp')}</p>
-                                            </div>
+                                        {sample.status === 'InLab' ? (
+                                            <>
+                                                <div className="text-sm text-right">
+                                                    <p className='font-semibold'>{sample.accessionNumber}</p>
+                                                    <p className='text-muted-foreground'>{format(new Date(sample.receivedTimestamp!), 'PPpp')}</p>
+                                                </div>
+                                                <Button variant="ghost" disabled className="text-green-400">
+                                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                                    Accessioned
+                                                </Button>
+                                            </>
+                                        ) : sample.status === 'Collected' ? (
+                                            <>
+                                                {sample.collectionTimestamp && (
+                                                    <div className="text-sm text-muted-foreground">
+                                                        <p>Collected:</p>
+                                                        <p>{format(new Date(sample.collectionTimestamp), 'PPpp')}</p>
+                                                    </div>
+                                                )}
+                                                <Button onClick={() => handleAccessionSample(order.id, sample.sampleId)}>
+                                                    <Check className="mr-2 h-4 w-4" />
+                                                    Receive & Accession
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <Button variant="outline" disabled>
+                                                <AlertTriangle className="mr-2 h-4 w-4" />
+                                                Cannot Accession
+                                            </Button>
                                         )}
-                                        <Button
-                                          onClick={() => handleAccessionSample(order.id, sample.sampleId)}
-                                          disabled={sample.status !== 'Collected'}
-                                        >
-                                          {sample.status === 'InLab' ? (
-                                            <>
-                                              <CheckCircle className="mr-2 h-4 w-4" />
-                                              Accessioned
-                                            </>
-                                          ) : sample.status === 'Collected' ? (
-                                            'Receive & Accession'
-                                          ) : (
-                                            <>
-                                              <AlertTriangle className="mr-2 h-4 w-4" />
-                                              Cannot Accession
-                                            </>
-                                          )}
-                                        </Button>
                                     </div>
                                 </div>
                             </CardContent>
@@ -274,5 +280,3 @@ export default function AccessioningPage() {
         </Suspense>
     )
 }
-
-    
