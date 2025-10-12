@@ -144,6 +144,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
                 const apptData = await apptRes.json();
                 const localTimeString = formatInTimeZone(new Date(apptData.scheduledTime), TIME_ZONE, "yyyy-MM-dd'T'HH:mm");
                 form.setValue('appointmentDateTime', localTimeString);
+                form.setValue('durationMinutes', apptData.durationMinutes);
              } catch (e: any) {
                  console.error(e.message);
                  // Fallback
@@ -221,8 +222,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
             priority: data.priority,
             testCodes: data.testIds,
             appointmentDetails: {
-                // Send the actual UTC time to the server
-                scheduledTime: scheduledTimeInCairo,
+                scheduledTime: scheduledTimeInCairo.toISOString(),
                 durationMinutes: data.durationMinutes,
                 status: 'Scheduled',
                 appointmentType: 'Sample Collection'
@@ -305,7 +305,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
                 <FormField control={form.control} name="appointmentDateTime" render={({ field }) => ( <FormItem><FormLabel>Scheduled Date & Time (Cairo)</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="durationMinutes" render={({ field }) => ( <FormItem><FormLabel>Duration (minutes)</FormLabel><FormControl><Input type="number" min="5" step="5" {...field} /></FormControl><FormMessage /></FormItem> )} />
              </div>
-             <FormDescription className="flex items-center gap-2"><Clock className="h-4 w-4" /> A collection appointment will be scheduled for this order.</FormDescription>
+             <FormDescription className="flex items-center gap-2"><Clock className="h-4 w-4" /> An appointment will be created or updated for this order.</FormDescription>
         </div>
         <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
@@ -492,3 +492,5 @@ export default function OrderEntryPage() {
         </Suspense>
     )
 }
+
+    
