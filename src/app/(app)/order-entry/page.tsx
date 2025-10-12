@@ -24,12 +24,14 @@ import { format } from 'date-fns';
 import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { addMinutes, startOfToday, setHours, setMinutes } from 'date-fns';
 import { calculateAge } from '@/lib/utils';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const orderFormSchema = z.object({
   id: z.string().optional(),
   patientId: z.string().min(1, 'A patient must be selected.'),
   physicianId: z.string().min(1, 'An ordering physician must be selected.'),
   icd10Code: z.string().min(3, 'A valid ICD-10 code is required.'),
+  priority: z.enum(['Routine', 'STAT']).default('Routine'),
   testIds: z.array(z.string()).min(1, 'At least one test must be added to the order.'),
   appointmentDateTime: z.string().min(1, 'An appointment time for sample collection is required.'),
   durationMinutes: z.coerce.number().int().min(5, 'Duration must be at least 5 minutes.').default(15),
@@ -82,6 +84,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
       patientId: patient.id,
       physicianId: editingOrder?.physicianId || '',
       icd10Code: editingOrder?.icd10Code || '',
+      priority: editingOrder?.priority || 'Routine',
       testIds: editingOrder?.samples.flatMap(s => s.tests.map(t => t.testCode)) || [],
       appointmentDateTime: '', // Will be set by useEffect
       durationMinutes: 15,
@@ -215,7 +218,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
             patientId: data.patientId,
             physicianId: data.physicianId,
             icd10Code: data.icd10Code,
-            priority: 'Routine',
+            priority: data.priority,
             testCodes: data.testIds,
             appointmentDetails: {
                 // Send the actual UTC time to the server
@@ -247,6 +250,36 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
             <FormField control={form.control} name="physicianId" render={({ field }) => ( <FormItem><FormLabel>Ordering Physician</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a physician" /></SelectTrigger></FormControl><SelectContent>{physicians.map(p => (<SelectItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
             <FormField control={form.control} name="icd10Code" render={({ field }) => ( <FormItem><FormLabel>ICD-10 Diagnosis Code</FormLabel><FormControl><Input placeholder="e.g., R53.83" {...field} /></FormControl><FormMessage /></FormItem>)} />
         </div>
+         <FormField
+          control={form.control}
+          name="priority"
+          render={({ field }) => (
+            <FormItem className="space-y-3">
+              <FormLabel>Priority</FormLabel>
+              <FormControl>
+                <RadioGroup
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                  className="flex items-center space-x-4"
+                >
+                  <FormItem className="flex items-center space-x-2 space-y-0">
+                    <FormControl>
+                      <RadioGroupItem value="Routine" />
+                    </FormControl>
+                    <FormLabel className="font-normal">Routine</FormLabel>
+                  </FormItem>
+                  <FormItem className="flex items-center space-x-2 space-y-0">
+                    <FormControl>
+                      <RadioGroupItem value="STAT" />
+                    </FormControl>
+                    <FormLabel className="font-normal">STAT (Urgent)</FormLabel>
+                  </FormItem>
+                </RadioGroup>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <div className="space-y-2">
             <FormLabel>Add Tests</FormLabel>
             <Popover open={isTestPopoverOpen} onOpenChange={handleTestPopoverOpenChange}>
@@ -459,3 +492,5 @@ export default function OrderEntryPage() {
         </Suspense>
     )
 }
+
+    
