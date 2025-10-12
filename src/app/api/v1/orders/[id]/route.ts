@@ -52,7 +52,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         const { physicianId, icd10Code, priority, testCodes, appointmentDetails } = body;
         console.log('[DEBUG] 2. Extracted variables:', { physicianId, icd10Code, priority, testCodes, appointmentDetails });
         
-        // Validation
         if (!physicianId || !icd10Code || !priority || !testCodes || !Array.isArray(testCodes) || testCodes.length === 0 || !appointmentDetails || !appointmentDetails.scheduledTime) {
             console.log('[DEBUG] Validation failed: Missing required fields.');
             return NextResponse.json({ message: 'Missing or invalid required fields for order update.', status: 400 });
@@ -74,13 +73,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         const newApptEndTime = addMinutes(newApptStartTime, appointmentDetails.durationMinutes || 15);
         console.log('[DEBUG] 4. Appointment time window:', { start: newApptStartTime, end: newApptEndTime });
 
-        if (existingOrder.appointmentId) {
+        if (existingOrder.appointmentId && ObjectId.isValid(existingOrder.appointmentId)) {
              const overlapQuery = {
-                _id: { $ne: existingOrder.appointmentId }, // Exclude the current order's own appointment
+                _id: { $ne: existingOrder.appointmentId },
                  $or: [
-                    // New appointment starts during an existing one
                     { scheduledTime: { $lt: newApptEndTime, $gte: newApptStartTime } },
-                    // New appointment ends during an existing one
                     { 
                         $and: [
                             { scheduledTime: { $lt: newApptStartTime } },
@@ -97,17 +94,17 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
                 console.log('[DEBUG] Overlap found. Returning 409 Conflict.');
                 return NextResponse.json({ message: 'This time slot is already booked or overlaps with another appointment.' }, { status: 409 });
             }
+        } else {
+            console.log('[DEBUG] 5. Skipping overlap check because order has no valid appointmentId.');
         }
         // ---- End overlap check ----
 
-        // Fetch all test definitions from the catalog
         const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: testCodes } }).toArray();
         if (testDefs.length !== testCodes.length) {
             console.log('[DEBUG] One or more test codes were invalid.');
             return NextResponse.json({ message: 'One or more invalid test codes provided.' }, { status: 400 });
         }
         
-        // Group tests by required sample type (tube type)
         const samplesByTubeType = new Map<string, TestCatalogItem[]>();
         for (const testDef of testDefs) {
             const tubeType = testDef.specimenRequirements.tubeType;
@@ -121,12 +118,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             const testsForSample: OrderTest[] = tests.map((testDef) => ({
                 testCode: testDef.testCode,
                 name: testDef.name,
-                status: 'Pending', // Reset status on test change
+                status: 'Pending',
                 referenceRange: testDef.referenceRanges?.length > 0 ? `${testDef.referenceRanges[0].rangeLow} - ${testDef.referenceRanges[0].rangeHigh}` : 'N/A',
                 resultUnits: testDef.referenceRanges?.length > 0 ? testDef.referenceRanges[0].units : '',
             }));
             
-            // Try to find an existing sample to preserve its ID and Timestamps if possible
             const existingSample = existingOrder.samples.find(s => s.sampleType === tubeType);
             
             return {
@@ -139,15 +135,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             };
         });
         
-        // Update the associated appointment
-        if (existingOrder.appointmentId) {
+        if (existingOrder.appointmentId && ObjectId.isValid(existingOrder.appointmentId)) {
             console.log('[DEBUG] 7. Updating associated appointment:', existingOrder.appointmentId);
             await db.collection<Appointment>('appointments').updateOne(
                 { _id: existingOrder.appointmentId },
                 { $set: { 
                     scheduledTime: newApptStartTime,
                     durationMinutes: appointmentDetails.durationMinutes || 15,
-                    notes: appointmentDetails.notes || existingOrder.notes || '',
+                    notes: appointmentDetails.notes || '', // Keep existing notes if new ones aren't provided
                     updatedAt: new Date(),
                  } }
             );
@@ -168,29 +163,18 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         );
         console.log('[DEBUG] 9. MongoDB update result:', JSON.stringify(result, null, 2));
 
-
-        // --- Audit Log Entry ---
         await db.collection('auditLogs').insertOne({
             timestamp: new Date(),
             userId: new ObjectId(userPayload.userId as string),
             action: 'ORDER_UPDATE',
-            entity: {
-                collectionName: 'orders',
-                documentId: orderObjectId,
-            },
-            details: {
-                orderId: existingOrder.orderId,
-                message: `Order ${existingOrder.orderId} updated.`,
-                changes: updatePayload,
-            },
+            entity: { collectionName: 'orders', documentId: orderObjectId },
+            details: { orderId: existingOrder.orderId, message: `Order ${existingOrder.orderId} updated.`, changes: updatePayload },
             ipAddress: req.ip || req.headers.get('x-forwarded-for'),
         });
-        // --- End Audit Log ---
 
         const updatedOrder = await db.collection('orders').findOne({ _id: orderObjectId });
         const clientResponse = { ...updatedOrder, id: updatedOrder?._id.toHexString() };
         console.log('[DEBUG] 10. Update successful. Returning 200.');
-
 
         return NextResponse.json(clientResponse, { status: 200 });
     } catch (error) {
