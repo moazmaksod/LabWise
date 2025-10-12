@@ -90,7 +90,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             const newApptEndTime = addMinutes(newApptStartTime, newApptDuration);
 
             const overlapQuery = {
-                _id: { $ne: existingOrder.appointmentId }, 
+                _id: { $ne: existingOrder.appointmentId }, // Exclude the order's own appointment
                 $or: [
                     { scheduledTime: { $lt: newApptEndTime, $gt: newApptStartTime } },
                     { $expr: { $let: {
