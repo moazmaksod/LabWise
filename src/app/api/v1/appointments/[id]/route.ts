@@ -11,14 +11,15 @@ const TIME_ZONE = 'Africa/Cairo';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
     try {
-        if (!ObjectId.isValid(params.id)) {
+        const id = params.id;
+        if (!ObjectId.isValid(id)) {
             return NextResponse.json({ message: 'Invalid appointment ID format.' }, { status: 400 });
         }
 
         const { db } = await connectToDatabase();
         
         const aggregationPipeline: any[] = [
-            { $match: { _id: new ObjectId(params.id) } },
+            { $match: { _id: new ObjectId(id) } },
             {
                 $lookup: {
                     from: 'patients',
@@ -100,7 +101,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
     try {
-        if (!ObjectId.isValid(params.id)) {
+        const id = params.id;
+        if (!ObjectId.isValid(id)) {
             return NextResponse.json({ message: 'Invalid appointment ID format.' }, { status: 400 });
         }
 
@@ -137,7 +139,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         };
 
         const result = await db.collection('appointments').updateOne(
-            { _id: new ObjectId(params.id) },
+            { _id: new ObjectId(id) },
             { $set: updatePayload }
         );
 
@@ -145,7 +147,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             return NextResponse.json({ message: 'Appointment not found.' }, { status: 404 });
         }
 
-        const updatedAppointment = await db.collection('appointments').findOne({ _id: new ObjectId(params.id) });
+        const updatedAppointment = await db.collection('appointments').findOne({ _id: new ObjectId(id) });
 
         return NextResponse.json(updatedAppointment, { status: 200 });
 
@@ -157,7 +159,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
     try {
-        if (!ObjectId.isValid(params.id)) {
+        const id = params.id;
+        if (!ObjectId.isValid(id)) {
             return NextResponse.json({ message: 'Invalid appointment ID format.' }, { status: 400 });
         }
 
@@ -171,7 +174,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
         }
 
         const { db } = await connectToDatabase();
-        const result = await db.collection('appointments').deleteOne({ _id: new ObjectId(params.id) });
+        const result = await db.collection('appointments').deleteOne({ _id: new ObjectId(id) });
 
         if (result.deletedCount === 0) {
             return NextResponse.json({ message: 'Appointment not found.' }, { status: 404 });
@@ -184,3 +187,5 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
         return NextResponse.json({ message: 'Internal Server Error', error: (error as Error).message }, { status: 500 });
     }
 }
+
+    

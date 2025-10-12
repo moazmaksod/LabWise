@@ -8,12 +8,13 @@ import type { Patient } from '@/lib/types';
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
     try {
         const { db } = await connectToDatabase();
+        const id = params.id;
         
-        if (!ObjectId.isValid(params.id)) {
+        if (!ObjectId.isValid(id)) {
             return NextResponse.json({ message: 'Invalid patient ID format.' }, { status: 400 });
         }
 
-        const patient = await db.collection('patients').findOne({ _id: new ObjectId(params.id) });
+        const patient = await db.collection('patients').findOne({ _id: new ObjectId(id) });
 
         if (!patient) {
             return NextResponse.json({ message: 'Patient not found.' }, { status: 404 });
@@ -28,3 +29,5 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
     }
 }
+
+    

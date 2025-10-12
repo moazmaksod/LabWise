@@ -10,12 +10,13 @@ import { addMinutes } from 'date-fns';
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
     try {
         const { db } = await connectToDatabase();
+        const id = params.id;
         
-        if (!ObjectId.isValid(params.id)) {
+        if (!ObjectId.isValid(id)) {
             return NextResponse.json({ message: 'Invalid order ID format.' }, { status: 400 });
         }
 
-        const order = await db.collection('orders').findOne({ _id: new ObjectId(params.id) });
+        const order = await db.collection('orders').findOne({ _id: new ObjectId(id) });
 
         if (!order) {
             return NextResponse.json({ message: 'Order not found.' }, { status: 404 });
@@ -35,14 +36,17 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 // PUT (update) an order
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
     try {
-        if (!ObjectId.isValid(params.id)) {
+        const id = params.id;
+        if (!ObjectId.isValid(id)) {
             return NextResponse.json({ message: 'Invalid order ID format.' }, { status: 400 });
         }
 
         const token = req.headers.get('authorization')?.split(' ')[1];
         if (!token) return NextResponse.json({ message: 'Authorization token missing.' }, { status: 401 });
         const userPayload = await decrypt(token);
-        if (!userPayload?.userId) return NextResponse.json({ message: 'Invalid or expired token.' }, { status: 401 });
+        if (!userPayload?.userId || userPayload.role !== 'manager') {
+            return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+        }
 
         const body = await req.json();
         
@@ -54,7 +58,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
         const { db } = await connectToDatabase();
         
-        const orderObjectId = new ObjectId(params.id);
+        const orderObjectId = new ObjectId(id);
         const existingOrder = await db.collection<Order>('orders').findOne({ _id: orderObjectId });
         if (!existingOrder) {
             return NextResponse.json({ message: 'Order not found' }, { status: 404 });
@@ -170,5 +174,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
     }
 }
+    
 
     
