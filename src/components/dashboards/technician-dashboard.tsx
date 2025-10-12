@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -22,11 +22,24 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { MOCK_WORKLIST_SAMPLES } from '@/lib/constants';
-import { Flame, Clock, CheckCircle, ArrowDown, ArrowUp, Search } from 'lucide-react';
-import type { Sample } from '@/lib/types';
+import { Flame, Clock, CheckCircle, ArrowDown, ArrowUp, Search, Loader2 } from 'lucide-react';
+import type { OrderSample } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
+import { format, parseISO } from 'date-fns';
 
-const statusStyles: Record<Sample['status'], { row: string; badge: string }> = {
+type WorklistItem = {
+    sampleId: string;
+    accessionNumber: string;
+    patientName: string;
+    patientMrn: string;
+    tests: { name: string, testCode: string }[];
+    status: OrderSample['status'];
+    priority: 'STAT' | 'Routine';
+    receivedTimestamp: string;
+    dueTimestamp: string;
+};
+
+const statusStyles: Record<string, { row: string; badge: string }> = {
   STAT: {
     row: 'bg-red-900/40 border-l-4 border-red-500 hover:bg-red-900/60',
     badge: 'bg-red-500/20 text-red-100 border-red-500/50',
@@ -35,9 +48,13 @@ const statusStyles: Record<Sample['status'], { row: string; badge: string }> = {
     row: 'bg-yellow-900/40 border-l-4 border-yellow-500 hover:bg-yellow-900/60',
     badge: 'bg-yellow-500/20 text-yellow-100 border-yellow-500/50',
   },
-  Routine: {
-    row: 'hover:bg-muted/50', // Default hover
-    badge: 'border-transparent bg-secondary text-secondary-foreground',
+  InLab: {
+    row: 'hover:bg-muted/50',
+    badge: 'border-transparent bg-blue-500/20 text-blue-200 border-blue-500/50',
+  },
+  Testing: {
+    row: 'hover:bg-muted/50',
+    badge: 'border-transparent bg-purple-500/20 text-purple-200 border-purple-500/50',
   },
   Complete: {
     row: 'opacity-60 hover:bg-muted/50',
@@ -45,56 +62,89 @@ const statusStyles: Record<Sample['status'], { row: string; badge: string }> = {
   },
 };
 
-const statusIcons: Record<Sample['status'], React.ReactNode> = {
+const statusIcons: Record<string, React.ReactNode> = {
     STAT: <Flame className="h-4 w-4" />,
     Overdue: <Clock className="h-4 w-4" />,
-    Routine: null,
+    InLab: null,
+    Testing: null,
     Complete: <CheckCircle className="h-4 w-4" />,
 }
 
-type SortKey = keyof Sample | '';
+type SortKey = keyof WorklistItem | '';
 
 export default function TechnicianDashboard() {
+  const [worklist, setWorklist] = useState<WorklistItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'ascending' | 'descending' }>({ key: '', direction: 'ascending' });
+  const { toast } = useToast();
+  const [token, setToken] = useState<string|null>(null);
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem('labwise-token');
+    if (storedToken) setToken(storedToken);
+  }, []);
+
+  const fetchWorklist = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+        const response = await fetch('/api/v1/worklist', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Failed to fetch worklist');
+        const data = await response.json();
+        setWorklist(data);
+    } catch(e: any) {
+        toast({ variant: 'destructive', title: 'Error', description: e.message || "Could not fetch worklist."});
+    } finally {
+        setLoading(false);
+    }
+  }, [token, toast]);
+
+  useEffect(() => {
+      if(token) fetchWorklist();
+  }, [token, fetchWorklist]);
 
   const sortedAndFilteredSamples = useMemo(() => {
-    let filterableSamples = [...MOCK_WORKLIST_SAMPLES];
+    let filterableSamples = [...worklist];
 
     // Filter by search term
     if (searchTerm) {
         filterableSamples = filterableSamples.filter(sample =>
             sample.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            sample.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            sample.test.toLowerCase().includes(searchTerm.toLowerCase())
+            sample.accessionNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            sample.tests.some(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()))
         );
     }
     
     // Filter by status
     if (statusFilter !== 'All') {
-        filterableSamples = filterableSamples.filter(sample => sample.status === statusFilter);
+        if (statusFilter === 'STAT' || statusFilter === 'Overdue') {
+            filterableSamples = filterableSamples.filter(sample => sample.priority === statusFilter);
+        } else {
+            filterableSamples = filterableSamples.filter(sample => sample.status === statusFilter);
+        }
     }
 
     // Sort data
     if (sortConfig.key) {
         filterableSamples.sort((a, b) => {
-            if (a[sortConfig.key] < b[sortConfig.key]) {
+            const aVal = a[sortConfig.key as keyof WorklistItem];
+            const bVal = b[sortConfig.key as keyof WorklistItem];
+            if (aVal < bVal) {
                 return sortConfig.direction === 'ascending' ? -1 : 1;
             }
-            if (a[sortConfig.key] > b[sortConfig.key]) {
+            if (aVal > bVal) {
                 return sortConfig.direction === 'ascending' ? 1 : -1;
             }
             return 0;
         });
-    } else {
-         // Default sort
-        const statusOrder = { STAT: 1, Overdue: 2, Routine: 3, Complete: 4 };
-        filterableSamples.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
     }
 
     return filterableSamples;
-  }, [searchTerm, statusFilter, sortConfig]);
+  }, [searchTerm, statusFilter, sortConfig, worklist]);
   
   const requestSort = (key: SortKey) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -113,12 +163,12 @@ export default function TechnicianDashboard() {
   
   type HeaderKey = { label: string, key: SortKey };
   const headers: HeaderKey[] = [
-      { label: 'Accession #', key: 'id' },
+      { label: 'Accession #', key: 'accessionNumber' },
       { label: 'Patient', key: 'patientName' },
-      { label: 'Test(s)', key: 'test' },
+      { label: 'Test(s)', key: 'tests' },
       { label: 'Status', key: 'status' },
-      { label: 'Received', key: 'received' },
-      { label: 'Due', key: 'due' },
+      { label: 'Received', key: 'receivedTimestamp' },
+      { label: 'Due', key: 'dueTimestamp' },
   ];
 
   return (
@@ -148,7 +198,8 @@ export default function TechnicianDashboard() {
                     <SelectItem value="All">All Statuses</SelectItem>
                     <SelectItem value="STAT">STAT</SelectItem>
                     <SelectItem value="Overdue">Overdue</SelectItem>
-                    <SelectItem value="Routine">Routine</SelectItem>
+                    <SelectItem value="InLab">In Lab</SelectItem>
+                    <SelectItem value="Testing">Testing</SelectItem>
                     <SelectItem value="Complete">Complete</SelectItem>
                 </SelectContent>
             </Select>
@@ -168,27 +219,38 @@ export default function TechnicianDashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedAndFilteredSamples.map((sample) => (
-                <TableRow
-                  key={sample.id}
-                  className={cn('cursor-pointer font-medium', statusStyles[sample.status].row)}
-                >
-                  <TableCell className="font-mono">{sample.id}</TableCell>
-                  <TableCell>
-                    <div>{sample.patientName}</div>
-                    <div className="text-sm text-muted-foreground">{`ID: ${sample.patientId}`}</div>
-                  </TableCell>
-                  <TableCell>{sample.test}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={cn('gap-1.5 font-semibold', statusStyles[sample.status].badge)}>
-                      {statusIcons[sample.status]}
-                      {sample.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{sample.received}</TableCell>
-                  <TableCell>{sample.due}</TableCell>
-                </TableRow>
-              ))}
+              {loading ? (
+                Array.from({length: 5}).map((_, i) => (
+                  <TableRow key={i}><TableCell colSpan={6}><div className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin"/> <span>Loading worklist...</span></div></TableCell></TableRow>
+                ))
+              ) : sortedAndFilteredSamples.length > 0 ? (
+                sortedAndFilteredSamples.map((sample) => {
+                  const displayStatus = sample.priority === 'STAT' ? 'STAT' : new Date(sample.dueTimestamp) < new Date() ? 'Overdue' : sample.status;
+                  return (
+                    <TableRow
+                      key={sample.sampleId}
+                      className={cn('cursor-pointer font-medium', (statusStyles as any)[displayStatus]?.row)}
+                    >
+                      <TableCell className="font-mono">{sample.accessionNumber}</TableCell>
+                      <TableCell>
+                        <div>{sample.patientName}</div>
+                        <div className="text-sm text-muted-foreground">{`MRN: ${sample.patientMrn}`}</div>
+                      </TableCell>
+                      <TableCell>{sample.tests.map(t => t.name).join(', ')}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={cn('gap-1.5 font-semibold', (statusStyles as any)[displayStatus]?.badge)}>
+                          {(statusIcons as any)[displayStatus]}
+                          {displayStatus}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{format(parseISO(sample.receivedTimestamp), 'p')}</TableCell>
+                      <TableCell>{format(parseISO(sample.dueTimestamp), 'p')}</TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow><TableCell colSpan={6} className="text-center h-24">No samples in the worklist match your criteria.</TableCell></TableRow>
+              )}
             </TableBody>
           </Table>
         </div>
@@ -196,3 +258,5 @@ export default function TechnicianDashboard() {
     </Card>
   );
 }
+
+  
