@@ -72,20 +72,31 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         if (existingOrder.appointmentId && ObjectId.isValid(existingOrder.appointmentId)) {
              const overlapQuery = {
                 _id: { $ne: existingOrder.appointmentId },
-                 $or: [
-                    // An existing appointment starts during the new appointment
-                    { scheduledTime: { $lt: newApptEndTime, $gte: newApptStartTime } },
-                    // An existing appointment ends during the new appointment
-                    { 
-                        $expr: { 
-                            $gt: [ 
-                                { $add: ["$scheduledTime", { $multiply: ["$durationMinutes", 60000] }] }, 
-                                newApptStartTime 
-                            ] 
+                 $expr: {
+                    $or: [
+                        // New appointment starts during an existing one
+                        {
+                            $and: [
+                                { $gte: ["$scheduledTime", newApptStartTime] },
+                                { $lt: ["$scheduledTime", newApptEndTime] }
+                            ]
                         },
-                        scheduledTime: { $lt: newApptStartTime }
-                    },
-                ]
+                        // New appointment ends during an existing one
+                        {
+                            $and: [
+                                { $lt: ["$scheduledTime", newApptStartTime] },
+                                { $gt: [ { $add: ["$scheduledTime", { $multiply: [ { $toLong: "$durationMinutes" }, 60000] }] }, newApptStartTime ] }
+                            ]
+                        },
+                         // Existing appointment envelops new one
+                        {
+                            $and: [
+                                { $lte: ["$scheduledTime", newApptStartTime] },
+                                { $gt: [ { $add: ["$scheduledTime", { $multiply: [ { $toLong: "$durationMinutes" }, 60000] }] }, newApptEndTime ] }
+                            ]
+                        }
+                    ]
+                }
             };
             const overlappingAppointment = await db.collection('appointments').findOne(overlapQuery);
 
@@ -174,6 +185,4 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
     }
 }
-    
-
     
