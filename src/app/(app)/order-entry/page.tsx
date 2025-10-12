@@ -214,7 +214,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
         // Interpret the local time string as a date in the Cairo timezone
         const scheduledTimeInCairo = toZonedTime(data.appointmentDateTime, TIME_ZONE);
 
-        const payload = {
+        const payload: any = {
             id: data.id,
             patientId: data.patientId,
             physicianId: data.physicianId,
@@ -228,6 +228,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
                 appointmentType: 'Sample Collection'
             },
         };
+        
         const response = await fetch(isEditing ? `/api/v1/orders/${data.id}` : '/api/v1/orders', {
             method: isEditing ? 'PUT' : 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -492,5 +493,7 @@ export default function OrderEntryPage() {
         </Suspense>
     )
 }
+
+    
 
     
