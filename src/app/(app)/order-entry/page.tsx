@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from '@/components/ui/badge';
 import type { ClientPatient, ClientTestCatalogItem, ClientUser, ClientOrder, ClientAppointment } from '@/lib/types';
 import { format } from 'date-fns';
-import { utcToZonedTime, zonedTimeToUtc, formatInTimeZone } from 'date-fns-tz';
+import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { addMinutes, startOfToday, setHours, setMinutes } from 'date-fns';
 import { calculateAge } from '@/lib/utils';
 
@@ -40,7 +40,7 @@ type OrderFormValues = z.infer<typeof orderFormSchema>;
 const TIME_ZONE = 'Africa/Cairo';
 
 function findNextAvailableTime(appointments: ClientAppointment[]): Date {
-    const nowInCairo = utcToZonedTime(new Date(), TIME_ZONE);
+    const nowInCairo = toZonedTime(new Date(), TIME_ZONE);
     const todayInCairo = startOfToday();
     let lastEndTime = setMinutes(setHours(todayInCairo, 9), 0); // Default to 9:00 AM Cairo time
 
@@ -50,7 +50,7 @@ function findNextAvailableTime(appointments: ClientAppointment[]): Date {
         lastEndTime = addMinutes(new Date(lastAppointment.scheduledTime), lastAppointment.durationMinutes);
     }
     
-    const lastEndTimeInCairo = utcToZonedTime(lastEndTime, TIME_ZONE);
+    const lastEndTimeInCairo = toZonedTime(lastEndTime, TIME_ZONE);
 
     if (lastEndTimeInCairo < nowInCairo) {
       lastEndTime = nowInCairo;
@@ -117,7 +117,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
     if (token && !editingOrder) {
         const fetchAppointmentsAndSetTime = async () => {
             try {
-                const dateString = format(utcToZonedTime(new Date(), TIME_ZONE), 'yyyy-MM-dd');
+                const dateString = format(toZonedTime(new Date(), TIME_ZONE), 'yyyy-MM-dd');
                 const url = `/api/v1/appointments?date=${dateString}`;
                 const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
                 if (!response.ok) throw new Error('Failed to fetch schedule');
@@ -127,7 +127,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
                 form.setValue('appointmentDateTime', localTimeString);
             } catch (error) {
                 console.error("Failed to get next available time slot, defaulting to 1 hour from now.", error);
-                const nextHour = addMinutes(utcToZonedTime(new Date(), TIME_ZONE), 60);
+                const nextHour = addMinutes(toZonedTime(new Date(), TIME_ZONE), 60);
                 form.setValue('appointmentDateTime', format(nextHour, "yyyy-MM-dd'T'HH:mm"));
             }
         };
@@ -207,7 +207,9 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
     if (!token) return;
     const isEditing = !!data.id;
     try {
-        const scheduledTimeUtc = zonedTimeToUtc(data.appointmentDateTime, TIME_ZONE);
+        // Interpret the local time string as a date in the Cairo timezone
+        const scheduledTimeInCairo = toZonedTime(data.appointmentDateTime, TIME_ZONE);
+
         const payload = {
             id: data.id,
             patientId: data.patientId,
@@ -216,7 +218,8 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
             priority: 'Routine',
             testCodes: data.testIds,
             appointmentDetails: {
-                scheduledTime: scheduledTimeUtc,
+                // Send the actual UTC time to the server
+                scheduledTime: scheduledTimeInCairo,
                 durationMinutes: data.durationMinutes,
                 status: 'Scheduled',
                 appointmentType: 'Sample Collection'
