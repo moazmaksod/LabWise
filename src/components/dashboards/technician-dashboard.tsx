@@ -24,11 +24,11 @@ import type { Sample } from '@/lib/types';
 
 const statusStyles: Record<Sample['status'], { row: string; badge: string }> = {
   STAT: {
-    row: 'bg-red-500/10 border-l-4 border-red-500 hover:bg-red-500/20',
+    row: 'bg-red-900/40 border-l-4 border-red-500 hover:bg-red-900/60',
     badge: 'bg-red-500/20 text-red-100 border-red-500/50',
   },
   Overdue: {
-    row: 'bg-yellow-500/10 border-l-4 border-yellow-500 hover:bg-yellow-500/20',
+    row: 'bg-yellow-900/40 border-l-4 border-yellow-500 hover:bg-yellow-900/60',
     badge: 'bg-yellow-500/20 text-yellow-100 border-yellow-500/50',
   },
   Routine: {
