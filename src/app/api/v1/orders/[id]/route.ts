@@ -45,12 +45,12 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         if (!userPayload?.userId) return NextResponse.json({ message: 'Invalid or expired token.' }, { status: 401 });
 
         const body = await req.json();
-
+        
         const { physicianId, icd10Code, priority, testCodes, appointmentDetails } = body;
         
         // Validation
-        if (!physicianId || !icd10Code || !priority || !testCodes || !Array.isArray(testCodes) || testCodes.length === 0 || !appointmentDetails) {
-            return NextResponse.json({ message: 'Missing or invalid required fields.' }, { status: 400 });
+        if (!physicianId || !icd10Code || !priority || !testCodes || !Array.isArray(testCodes) || testCodes.length === 0 || !appointmentDetails || !appointmentDetails.scheduledTime) {
+            return NextResponse.json({ message: 'Missing or invalid required fields for order update.', status: 400 });
         }
 
         const { db } = await connectToDatabase();
@@ -65,16 +65,18 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         const newApptStartTime = new Date(appointmentDetails.scheduledTime);
         const newApptEndTime = addMinutes(newApptStartTime, appointmentDetails.durationMinutes || 15);
 
-        const overlappingAppointment = await db.collection('appointments').findOne({
-            _id: { $ne: existingOrder.appointmentId }, // Exclude the current order's own appointment
-            $or: [
-                { scheduledTime: { $lt: newApptEndTime, $gte: newApptStartTime } },
-                { $expr: { $gt: [ { $add: ["$scheduledTime", { $multiply: ["$durationMinutes", 60000] }] }, newApptStartTime ] }, scheduledTime: { $lt: newApptStartTime } }
-            ]
-        });
+        if (existingOrder.appointmentId) {
+            const overlappingAppointment = await db.collection('appointments').findOne({
+                _id: { $ne: existingOrder.appointmentId }, // Exclude the current order's own appointment
+                $or: [
+                    { scheduledTime: { $lt: newApptEndTime, $gte: newApptStartTime } },
+                    { $expr: { $gt: [ { $add: ["$scheduledTime", { $multiply: ["$durationMinutes", 60000] }] }, newApptStartTime ] }, scheduledTime: { $lt: newApptStartTime } }
+                ]
+            });
 
-        if (overlappingAppointment) {
-            return NextResponse.json({ message: 'This time slot is already booked or overlaps with another appointment.' }, { status: 409 });
+            if (overlappingAppointment) {
+                return NextResponse.json({ message: 'This time slot is already booked or overlaps with another appointment.' }, { status: 409 });
+            }
         }
         // ---- End overlap check ----
 
