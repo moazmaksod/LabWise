@@ -33,7 +33,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 
-// PUT (update) an order
+// PUT (update) an order - REWRITTEN
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
     try {
         const id = params.id;
@@ -41,44 +41,46 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             return NextResponse.json({ message: 'Invalid order ID format.' }, { status: 400 });
         }
 
+        // 1. Authentication & Authorization
         const token = req.headers.get('authorization')?.split(' ')[1];
         if (!token) return NextResponse.json({ message: 'Authorization token missing.' }, { status: 401 });
         const userPayload = await decrypt(token);
         if (!userPayload?.userId || userPayload.role !== 'manager') {
-            return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ message: 'Forbidden: You do not have permission to update orders.' }, { status: 403 });
         }
-
-        const body = await req.json();
         
+        // 2. Body Validation
+        const body = await req.json();
         const { physicianId, icd10Code, priority, testCodes, appointmentDetails } = body;
         
         if (!physicianId || !icd10Code || !priority || !testCodes || !Array.isArray(testCodes) || testCodes.length === 0 || !appointmentDetails || !appointmentDetails.scheduledTime) {
             return NextResponse.json({ message: 'Missing or invalid required fields for order update.', status: 400 });
         }
-
-        const { db } = await connectToDatabase();
         
+        const { db } = await connectToDatabase();
         const orderObjectId = new ObjectId(id);
+
+        // 3. Fetch existing order
         const existingOrder = await db.collection<Order>('orders').findOne({ _id: orderObjectId });
         if (!existingOrder) {
             return NextResponse.json({ message: 'Order not found' }, { status: 404 });
         }
 
-        // ---- Check for overlapping appointments ----
+        // 4. Appointment Logic
         const newApptStartTime = new Date(appointmentDetails.scheduledTime);
-        const newApptEndTime = addMinutes(newApptStartTime, appointmentDetails.durationMinutes || 15);
-        
+        const newApptDuration = parseInt(appointmentDetails.durationMinutes, 10) || 15;
+        const newApptEndTime = addMinutes(newApptStartTime, newApptDuration);
+
         if (existingOrder.appointmentId && ObjectId.isValid(existingOrder.appointmentId)) {
-             const overlapQuery = {
+            const overlapQuery = {
                 // IMPORTANT: Exclude the current order's own appointment from the check
                 _id: { $ne: existingOrder.appointmentId }, 
                 $or: [
-                    // New appointment starts during an existing one
-                    { scheduledTime: { $lt: newApptEndTime }, $expr: { $gt: [ { $add: ["$scheduledTime", { $multiply: [ { $toLong: "$durationMinutes" }, 60000] }] }, newApptStartTime ] } },
-                    // New appointment ends during an existing one
-                    { scheduledTime: { $lt: newApptStartTime }, $expr: { $gt: [ { $add: ["$scheduledTime", { $multiply: [ { $toLong: "$durationMinutes" }, 60000] }] }, newApptStartTime ] } },
-                    // New appointment envelops an existing one
-                    { scheduledTime: { $gte: newApptStartTime, $lt: newApptEndTime } }
+                    { scheduledTime: { $lt: newApptEndTime, $gt: newApptStartTime } },
+                    { $expr: { $let: {
+                        vars: { endTime: { $add: ["$scheduledTime", { $multiply: [{ $ifNull: [ { $toLong: "$durationMinutes" }, 15 ] }, 60000] }] } },
+                        in: { $and: [ { $lte: ["$scheduledTime", newApptStartTime] }, { $gt: [ "$$endTime", newApptStartTime ] } ] }
+                    }}},
                 ]
             };
             const overlappingAppointment = await db.collection('appointments').findOne(overlapQuery);
@@ -86,62 +88,63 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             if (overlappingAppointment) {
                 return NextResponse.json({ message: 'This time slot is already booked or overlaps with another appointment.' }, { status: 409 });
             }
-        }
-        // ---- End overlap check ----
-
-        const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: testCodes } }).toArray();
-        if (testDefs.length !== testCodes.length) {
-            return NextResponse.json({ message: 'One or more invalid test codes provided.' }, { status: 400 });
-        }
-        
-        const samplesByTubeType = new Map<string, TestCatalogItem[]>();
-        for (const testDef of testDefs) {
-            const tubeType = testDef.specimenRequirements.tubeType;
-            if (!samplesByTubeType.has(tubeType)) {
-                samplesByTubeType.set(tubeType, []);
-            }
-            samplesByTubeType.get(tubeType)!.push(testDef);
-        }
-
-        const orderSamples: OrderSample[] = Array.from(samplesByTubeType.entries()).map(([tubeType, tests]) => {
-            const testsForSample: OrderTest[] = tests.map((testDef) => ({
-                testCode: testDef.testCode,
-                name: testDef.name,
-                status: 'Pending',
-                referenceRange: testDef.referenceRanges?.length > 0 ? `${testDef.referenceRanges[0].rangeLow} - ${testDef.referenceRanges[0].rangeHigh}` : 'N/A',
-                resultUnits: testDef.referenceRanges?.length > 0 ? testDef.referenceRanges[0].units : '',
-            }));
             
-            const existingSample = existingOrder.samples.find(s => s.sampleType === tubeType);
-            
-            return {
-                sampleId: existingSample?.sampleId || new ObjectId(),
-                sampleType: tubeType,
-                status: existingSample?.status || 'AwaitingCollection',
-                collectionTimestamp: existingSample?.collectionTimestamp,
-                receivedTimestamp: existingSample?.receivedTimestamp,
-                tests: testsForSample,
-            };
-        });
-        
-        // Update the associated appointment if it exists
-        if (existingOrder.appointmentId && ObjectId.isValid(existingOrder.appointmentId)) {
+            // Update the associated appointment
             await db.collection<Appointment>('appointments').updateOne(
                 { _id: existingOrder.appointmentId },
                 { $set: { 
                     scheduledTime: newApptStartTime,
-                    durationMinutes: appointmentDetails.durationMinutes || 15,
+                    durationMinutes: newApptDuration,
                     notes: appointmentDetails.notes || existingOrder.notes || '',
                     updatedAt: new Date(),
                  } }
             );
         }
 
+        // 5. Rebuild Samples while preserving state
+        const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: testCodes } }).toArray();
+        if (testDefs.length !== testCodes.length) {
+            return NextResponse.json({ message: 'One or more invalid test codes provided.' }, { status: 400 });
+        }
+        
+        const samplesByTubeType = new Map<string, TestCatalogItem[]>();
+        testDefs.forEach(testDef => {
+            const tubeType = testDef.specimenRequirements.tubeType;
+            if (!samplesByTubeType.has(tubeType)) {
+                samplesByTubeType.set(tubeType, []);
+            }
+            samplesByTubeType.get(tubeType)!.push(testDef);
+        });
+
+        const newOrderSamples: OrderSample[] = Array.from(samplesByTubeType.entries()).map(([tubeType, tests]) => {
+            const existingSample = existingOrder.samples.find(s => s.sampleType === tubeType);
+            
+            const newTests: OrderTest[] = tests.map(testDef => ({
+                testCode: testDef.testCode,
+                name: testDef.name,
+                status: 'Pending', // New tests are always pending
+                referenceRange: testDef.referenceRanges?.length > 0 ? `${testDef.referenceRanges[0].rangeLow} - ${testDef.referenceRanges[0].rangeHigh}` : 'N/A',
+                resultUnits: testDef.referenceRanges?.length > 0 ? testDef.referenceRanges[0].units : '',
+            }));
+
+            return {
+                sampleId: existingSample?.sampleId || new ObjectId(),
+                sampleType: tubeType,
+                // Preserve state if sample already existed
+                status: existingSample?.status || 'AwaitingCollection',
+                collectionTimestamp: existingSample?.collectionTimestamp,
+                receivedTimestamp: existingSample?.receivedTimestamp,
+                accessionNumber: existingSample?.accessionNumber,
+                tests: newTests,
+            };
+        });
+        
+        // 6. Final Update Payload for the Order
         const updatePayload = {
             physicianId: new ObjectId(physicianId),
             icd10Code,
             priority,
-            samples: orderSamples,
+            samples: newOrderSamples,
             updatedAt: new Date(),
         };
 
@@ -150,12 +153,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             { $set: updatePayload }
         );
 
+        // 7. Audit Log
         await db.collection('auditLogs').insertOne({
             timestamp: new Date(),
             userId: new ObjectId(userPayload.userId as string),
             action: 'ORDER_UPDATE',
             entity: { collectionName: 'orders', documentId: orderObjectId },
-            details: { orderId: existingOrder.orderId, message: `Order ${existingOrder.orderId} updated.`, changes: updatePayload },
+            details: { orderId: existingOrder.orderId, message: `Order ${existingOrder.orderId} updated by manager.` },
             ipAddress: req.ip || req.headers.get('x-forwarded-for'),
         });
 
@@ -165,7 +169,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         return NextResponse.json(clientResponse, { status: 200 });
     } catch (error) {
         console.error('[FATAL] Failed to update order:', error);
-        return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ message: 'Internal Server Error', error: (error as Error).message }, { status: 500 });
     }
 }
     
