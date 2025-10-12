@@ -73,16 +73,22 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         const newApptEndTime = addMinutes(newApptStartTime, appointmentDetails.durationMinutes || 15);
         console.log('[DEBUG] 4. Appointment time window:', { start: newApptStartTime, end: newApptEndTime });
 
+        // ONLY perform the overlap check if the existing order has a valid appointment ID.
         if (existingOrder.appointmentId && ObjectId.isValid(existingOrder.appointmentId)) {
              const overlapQuery = {
                 _id: { $ne: existingOrder.appointmentId },
                  $or: [
+                    // An existing appointment starts during the new appointment
                     { scheduledTime: { $lt: newApptEndTime, $gte: newApptStartTime } },
+                    // An existing appointment ends during the new appointment
                     { 
-                        $and: [
-                            { scheduledTime: { $lt: newApptStartTime } },
-                            { $expr: { $gt: [ { $add: ["$scheduledTime", { $multiply: ["$durationMinutes", 60000] }] }, newApptStartTime ] } }
-                        ]
+                        $expr: { 
+                            $gt: [ 
+                                { $add: ["$scheduledTime", { $multiply: ["$durationMinutes", 60000] }] }, 
+                                newApptStartTime 
+                            ] 
+                        },
+                        scheduledTime: { $lt: newApptStartTime }
                     },
                 ]
             };
@@ -135,6 +141,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             };
         });
         
+        // Update the associated appointment if it exists
         if (existingOrder.appointmentId && ObjectId.isValid(existingOrder.appointmentId)) {
             console.log('[DEBUG] 7. Updating associated appointment:', existingOrder.appointmentId);
             await db.collection<Appointment>('appointments').updateOne(
