@@ -8,9 +8,8 @@ import { addMinutes } from 'date-fns';
 
 // GET a single order by ID
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+    const id = params.id;
     try {
-        const id = params.id;
-        
         if (!ObjectId.isValid(id)) {
             return NextResponse.json({ message: 'Invalid order ID format.' }, { status: 400 });
         }
@@ -90,7 +89,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             const newApptEndTime = addMinutes(newApptStartTime, newApptDuration);
 
             const overlapQuery = {
-                _id: { $ne: existingOrder.appointmentId }, // Exclude the order's own appointment
+                _id: { $ne: new ObjectId(existingOrder.appointmentId) },
                 $or: [
                     { scheduledTime: { $lt: newApptEndTime, $gt: newApptStartTime } },
                     { $expr: { $let: {
@@ -129,25 +128,40 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             return NextResponse.json({ message: 'One or more invalid test codes provided.' }, { status: 400 });
         }
         
-        const samplesByTubeType = new Map<string, TestCatalogItem[]>();
+        // Create a map of old tests for easy lookup
+        const oldTestsMap = new Map<string, OrderTest>();
+        existingOrder.samples.forEach(sample => {
+            sample.tests.forEach(test => {
+                oldTestsMap.set(test.testCode, test);
+            });
+        });
+        console.log('[DEBUG] 6a. Created map of old tests to preserve state.');
+
+        const samplesByTubeType = new Map<string, OrderTest[]>();
         testDefs.forEach(testDef => {
             const tubeType = testDef.specimenRequirements.tubeType;
-            if (!samplesByTubeType.has(tubeType)) samplesByTubeType.set(tubeType, []);
-            samplesByTubeType.get(tubeType)!.push(testDef);
+            if (!samplesByTubeType.has(tubeType)) {
+                samplesByTubeType.set(tubeType, []);
+            }
+
+            // Check if this test existed before
+            const existingTest = oldTestsMap.get(testDef.testCode);
+            const newTest: OrderTest = existingTest ? 
+                { ...existingTest } // Preserve the entire existing test object
+                : 
+                { // Or create a new one
+                    testCode: testDef.testCode,
+                    name: testDef.name,
+                    status: 'Pending',
+                    referenceRange: testDef.referenceRanges?.length > 0 ? `${testDef.referenceRanges[0].rangeLow} - ${testDef.referenceRanges[0].rangeHigh}` : 'N/A',
+                    resultUnits: testDef.referenceRanges?.length > 0 ? testDef.referenceRanges[0].units : '',
+                };
+            samplesByTubeType.get(tubeType)!.push(newTest);
         });
-        console.log('[DEBUG] 6. Tests grouped by sample tube type.');
+        console.log('[DEBUG] 6b. Grouped new/existing tests by sample tube type.');
 
         const newOrderSamples: OrderSample[] = Array.from(samplesByTubeType.entries()).map(([tubeType, tests]) => {
             const existingSample = existingOrder.samples.find(s => s.sampleType === tubeType);
-            
-            const newTests: OrderTest[] = tests.map(testDef => ({
-                testCode: testDef.testCode,
-                name: testDef.name,
-                status: 'Pending',
-                referenceRange: testDef.referenceRanges?.length > 0 ? `${testDef.referenceRanges[0].rangeLow} - ${testDef.referenceRanges[0].rangeHigh}` : 'N/A',
-                resultUnits: testDef.referenceRanges?.length > 0 ? testDef.referenceRanges[0].units : '',
-            }));
-
             return {
                 sampleId: existingSample?.sampleId || new ObjectId(),
                 sampleType: tubeType,
@@ -155,7 +169,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
                 collectionTimestamp: existingSample?.collectionTimestamp,
                 receivedTimestamp: existingSample?.receivedTimestamp,
                 accessionNumber: existingSample?.accessionNumber,
-                tests: newTests,
+                tests: tests,
             };
         });
         console.log('[DEBUG] 7. New samples array constructed:', JSON.stringify(newOrderSamples, null, 2));
