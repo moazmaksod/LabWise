@@ -176,6 +176,7 @@ function AccessioningPageComponent() {
                                     <Calendar mode="single" selected={selectedDate} onSelect={handleDateChange} initialFocus />
                                 </PopoverContent>
                             </Popover>
+                            <Button variant="outline" onClick={() => handleDateChange(new Date())}>Today</Button>
                              <Button variant="outline" size="icon" onClick={() => handleDateChange(addDays(selectedDate, 1))}>
                                 <ChevronRight className="h-4 w-4" />
                             </Button>
@@ -273,3 +274,5 @@ export default function AccessioningPage() {
         </Suspense>
     )
 }
+
+    
