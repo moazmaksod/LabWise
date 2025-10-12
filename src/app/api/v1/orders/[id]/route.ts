@@ -49,15 +49,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         const { patientId, physicianId, icd10Code, priority, testCodes, appointmentDetails } = body;
         
         // Validation
-        if (!patientId || !physicianId || !icd10Code || !testCodes || !Array.isArray(testCodes) || testCodes.length === 0 || !appointmentDetails) {
+        if (!patientId || !physicianId || !icd10Code || !priority || !testCodes || !Array.isArray(testCodes) || testCodes.length === 0 || !appointmentDetails) {
             return NextResponse.json({ message: 'Missing or invalid required fields.' }, { status: 400 });
         }
 
         const { db } = await connectToDatabase();
-
-        if(testCodes.length === 0) {
-             return NextResponse.json({ message: 'At least one test must be selected.' }, { status: 400 });
-        }
         
         const orderObjectId = new ObjectId(params.id);
         const existingOrder = await db.collection<Order>('orders').findOne({ _id: orderObjectId });
@@ -72,9 +68,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         const overlappingAppointment = await db.collection('appointments').findOne({
             _id: { $ne: existingOrder.appointmentId }, // Exclude the current order's own appointment
             $or: [
-                { scheduledTime: { $lt: newApptEndTime }, $expr: { $gt: [ { $add: ["$scheduledTime", { $multiply: ["$durationMinutes", 60000] }] }, newApptStartTime ] } },
-                { scheduledTime: { $lt: newApptStartTime }, $expr: { $gt: [ { $add: ["$scheduledTime", { $multiply: ["$durationMinutes", 60000] }] }, newApptStartTime ] } },
-                { scheduledTime: { $gte: newApptStartTime, $lt: newApptEndTime } }
+                { scheduledTime: { $lt: newApptEndTime, $gte: newApptStartTime } },
+                { $expr: { $gt: [ { $add: ["$scheduledTime", { $multiply: ["$durationMinutes", 60000] }] }, newApptStartTime ] }, scheduledTime: { $lt: newApptStartTime } }
             ]
         });
 
@@ -103,15 +98,20 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             const testsForSample: OrderTest[] = tests.map((testDef) => ({
                 testCode: testDef.testCode,
                 name: testDef.name,
-                status: 'Pending',
+                status: 'Pending', // Reset status on test change
                 referenceRange: testDef.referenceRanges?.length > 0 ? `${testDef.referenceRanges[0].rangeLow} - ${testDef.referenceRanges[0].rangeHigh}` : 'N/A',
                 resultUnits: testDef.referenceRanges?.length > 0 ? testDef.referenceRanges[0].units : '',
             }));
             
+            // Try to find an existing sample to preserve its ID and Timestamps if possible
+            const existingSample = existingOrder.samples.find(s => s.sampleType === tubeType);
+            
             return {
-                sampleId: new ObjectId(),
+                sampleId: existingSample?.sampleId || new ObjectId(),
                 sampleType: tubeType,
-                status: 'AwaitingCollection',
+                status: existingSample?.status || 'AwaitingCollection',
+                collectionTimestamp: existingSample?.collectionTimestamp,
+                receivedTimestamp: existingSample?.receivedTimestamp,
                 tests: testsForSample,
             };
         });
@@ -123,7 +123,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
                 { $set: { 
                     scheduledTime: newApptStartTime,
                     durationMinutes: appointmentDetails.durationMinutes || 15,
-                    notes: appointmentDetails.notes,
+                    notes: appointmentDetails.notes || existingOrder.notes || '',
                     updatedAt: new Date(),
                  } }
             );
@@ -154,18 +154,21 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             details: {
                 orderId: existingOrder.orderId,
                 message: `Order ${existingOrder.orderId} updated.`,
-                before: existingOrder,
-                after: { ...existingOrder, ...updatePayload },
+                changes: updatePayload,
             },
             ipAddress: req.ip || req.headers.get('x-forwarded-for'),
         });
         // --- End Audit Log ---
 
         const updatedOrder = await db.collection('orders').findOne({ _id: orderObjectId });
+        const clientResponse = { ...updatedOrder, id: updatedOrder?._id.toHexString() };
 
-        return NextResponse.json(updatedOrder, { status: 200 });
+
+        return NextResponse.json(clientResponse, { status: 200 });
     } catch (error) {
         console.error('Failed to update order:', error);
         return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
     }
 }
+
+    
