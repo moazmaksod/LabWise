@@ -34,6 +34,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 // PUT (update) an order
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+    console.log('--- UPDATE ORDER DEBUG ---');
     try {
         if (!ObjectId.isValid(params.id)) {
             return NextResponse.json({ message: 'Invalid order ID format.' }, { status: 400 });
@@ -45,10 +46,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         if (!userPayload?.userId) return NextResponse.json({ message: 'Invalid or expired token.' }, { status: 401 });
 
         const body = await req.json();
-        const { patientId, physicianId, icd10Code, priority, testCodes, appointmentDetails } = body;
+        console.log('1. Received body:', JSON.stringify(body, null, 2));
+
+        const { physicianId, icd10Code, priority, testCodes, appointmentDetails } = body;
         
+        console.log('2. Extracted variables:', { physicianId, icd10Code, priority, testCodes, appointmentDetails });
+
         // Validation
-        if (!patientId || !physicianId || !icd10Code || !priority || !testCodes || !Array.isArray(testCodes) || testCodes.length === 0 || !appointmentDetails) {
+        if (!physicianId || !icd10Code || !priority || !testCodes || !Array.isArray(testCodes) || testCodes.length === 0 || !appointmentDetails) {
+            console.error('Validation failed: Missing or invalid required fields.');
             return NextResponse.json({ message: 'Missing or invalid required fields.' }, { status: 400 });
         }
 
@@ -135,6 +141,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             samples: orderSamples,
             updatedAt: new Date(),
         };
+
+        console.log('3. Final update payload:', JSON.stringify(updatePayload, null, 2));
+
 
         const result = await db.collection('orders').updateOne(
             { _id: orderObjectId },
