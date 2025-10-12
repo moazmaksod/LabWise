@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
             // Sort the samples: STAT first, then by when they were received
             { 
                 $sort: {
-                    "priority": -1, // STAT will come before Routine
+                    "priority": -1, // Assuming STAT is represented in a way that descending sort works (e.g., STAT=1, Routine=0 or string "STAT" > "Routine")
                     "samples.receivedTimestamp": 1 // Oldest received first
                 }
             },
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
                     sampleId: "$samples.sampleId",
                     accessionNumber: "$samples.accessionNumber",
                     patientName: { $concat: ["$patientInfo.firstName", " ", "$patientInfo.lastName"] },
-                    patientId: "$patientInfo.mrn",
+                    patientMrn: "$patientInfo.mrn",
                     tests: "$samples.tests",
                     status: "$samples.status",
                     priority: "$priority",
