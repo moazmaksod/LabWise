@@ -100,7 +100,7 @@ function PatientRegistrationPageComponent() {
         });
     } catch (error: any) {
         toast({ variant: 'destructive', title: 'Error', description: error.message });
-        router.push('/patient');
+        router.push('/patient-management');
     } finally {
         setPageIsLoading(false);
     }
@@ -155,7 +155,7 @@ function PatientRegistrationPageComponent() {
 
   const savePatient = async (data: PatientFormValues): Promise<ClientPatient | null> => {
     if (!token) return null;
-    const apiEndpoint = isEditing ? '/api/v1/patients' : '/api/v1/patients';
+    const apiEndpoint = isEditing ? `/api/v1/patients` : '/api/v1/patients';
     const method = isEditing ? 'PUT' : 'POST';
   
     try {
@@ -181,11 +181,14 @@ function PatientRegistrationPageComponent() {
     setIsSubmitting(true);
     const savedPatient = await savePatient(data);
     if (savedPatient) {
-        toast({ title: `Patient ${isEditing ? 'updated' : 'created'} successfully` });
+        toast({ 
+            title: `Patient ${isEditing ? 'Updated' : 'Created'}`,
+            description: `Record for ${savedPatient.firstName} ${savedPatient.lastName} (MRN: ${savedPatient.mrn}) has been saved.`
+        });
         if (createOrder) {
             router.push(`/order-entry?patientId=${savedPatient.id}`);
         } else {
-            router.push('/patient');
+            router.push('/patient-management');
         }
     }
     setIsSubmitting(false);
@@ -208,7 +211,7 @@ function PatientRegistrationPageComponent() {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-        <Button variant="outline" onClick={() => router.push('/patient')} className="mb-4">
+        <Button variant="outline" onClick={() => router.push('/patient-management')} className="mb-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Patient List
         </Button>
@@ -254,7 +257,7 @@ function PatientRegistrationPageComponent() {
                         </div>
                     </div>
                     <div className="flex justify-end gap-2 pt-4">
-                        <Button type="button" variant="ghost" onClick={() => router.push('/patient')}>Cancel</Button>
+                        <Button type="button" variant="ghost" onClick={() => router.push('/patient-management')}>Cancel</Button>
                         <Button type="submit" disabled={isSubmitting}>
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {isEditing ? 'Save Changes' : 'Save Patient'}

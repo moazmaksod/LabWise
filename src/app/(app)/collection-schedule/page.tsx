@@ -68,25 +68,28 @@ function CollectionDetailPageComponent() {
         }
     }, [token, appointmentId, fetchAppointment, toast, router]);
 
-    const handleConfirmCollection = async (sampleId: string) => {
-        if (!token || !appointment) return;
-        setCollectingSampleId(sampleId);
+    const handleConfirmCollection = async (sample: OrderSample) => {
+        if (!token || !appointment || !appointment.patientInfo) return;
+        setCollectingSampleId(sample.sampleId);
         try {
             const response = await fetch(`/api/v1/appointments/${appointment.id}/collect`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ sampleId }),
+                body: JSON.stringify({ sampleId: sample.sampleId }),
             });
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.message || 'Failed to confirm collection');
             }
-            toast({ title: 'Collection Confirmed', description: 'Sample status has been updated to Collected.' });
+            toast({ 
+                title: 'Collection Confirmed', 
+                description: `Collected ${sample.specimenRequirements?.tubeType} for ${appointment.patientInfo.firstName} ${appointment.patientInfo.lastName}.` 
+            });
             
             setAppointment(prev => {
                 if (!prev || !prev.orderInfo) return prev;
                 const newSamples = prev.orderInfo.samples.map(s => 
-                    s.sampleId === sampleId ? { ...s, status: 'Collected', collectionTimestamp: new Date().toISOString() } : s
+                    s.sampleId === sample.sampleId ? { ...s, status: 'Collected', collectionTimestamp: new Date().toISOString() } : s
                 );
                 const allCollected = newSamples.every(s => s.status !== 'AwaitingCollection');
                 return {
@@ -187,7 +190,7 @@ function CollectionDetailPageComponent() {
                                         {user?.role === 'phlebotomist' && sample.status === 'AwaitingCollection' && (
                                             <Button 
                                                 size="sm" 
-                                                onClick={() => handleConfirmCollection(sample.sampleId)}
+                                                onClick={() => handleConfirmCollection(sample)}
                                                 disabled={!!collectingSampleId}
                                             >
                                                 {collectingSampleId === sample.sampleId ? (
