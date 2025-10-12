@@ -7,6 +7,7 @@ import { useSearchParams, useRouter, redirect } from 'next/navigation';
 import { Search, PlusCircle, Loader2, FileSearch } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { useUser } from '@/hooks/use-user';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,7 @@ import { format } from 'date-fns';
 
 function OrdersPageComponent() {
   const { toast } = useToast();
+  const { user } = useUser();
   const [token, setToken] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -110,9 +112,13 @@ function OrdersPageComponent() {
                 : searchResults.length > 0 ? (searchResults.map((order) => (
                     <TableRow key={order.id}>
                        <TableCell>
-                          <Link href={`/order-entry?id=${order.id}`} className="font-mono cursor-pointer hover:underline text-primary">
-                            {order.orderId}
-                          </Link>
+                          {user?.role === 'manager' ? (
+                            <Link href={`/order-entry?id=${order.id}`} className="font-mono cursor-pointer hover:underline text-primary">
+                                {order.orderId}
+                            </Link>
+                          ) : (
+                            <span className="font-mono">{order.orderId}</span>
+                          )}
                       </TableCell>
                       <TableCell>
                         {order.patientInfo ? (
