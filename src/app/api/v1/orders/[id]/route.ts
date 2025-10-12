@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
+import { ObjectId, MongoServerError } from 'mongodb';
 import type { Order, TestCatalogItem, OrderSample, OrderTest, Appointment } from '@/lib/types';
 import { decrypt } from '@/lib/auth';
 import { addMinutes } from 'date-fns';
@@ -54,7 +54,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         const { physicianId, icd10Code, priority, testCodes, appointmentDetails } = body;
         
         if (!physicianId || !icd10Code || !priority || !testCodes || !Array.isArray(testCodes) || testCodes.length === 0 || !appointmentDetails || !appointmentDetails.scheduledTime) {
-            return NextResponse.json({ message: 'Missing or invalid required fields for order update.', status: 400 });
+            return NextResponse.json({ message: 'Missing or invalid required fields for order update.' }, { status: 400 });
         }
         
         const { db } = await connectToDatabase();
@@ -69,11 +69,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         // 4. Appointment Logic
         const newApptStartTime = new Date(appointmentDetails.scheduledTime);
         const newApptDuration = parseInt(appointmentDetails.durationMinutes, 10) || 15;
-        const newApptEndTime = addMinutes(newApptStartTime, newApptDuration);
 
+        // Ensure appointmentId is valid before using it
         if (existingOrder.appointmentId && ObjectId.isValid(existingOrder.appointmentId)) {
+            const newApptEndTime = addMinutes(newApptStartTime, newApptDuration);
+
+            // Correctly query for overlaps, excluding the current appointment
             const overlapQuery = {
-                // IMPORTANT: Exclude the current order's own appointment from the check
                 _id: { $ne: existingOrder.appointmentId }, 
                 $or: [
                     { scheduledTime: { $lt: newApptEndTime, $gt: newApptStartTime } },
@@ -122,7 +124,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             const newTests: OrderTest[] = tests.map(testDef => ({
                 testCode: testDef.testCode,
                 name: testDef.name,
-                status: 'Pending', // New tests are always pending
+                status: 'Pending',
                 referenceRange: testDef.referenceRanges?.length > 0 ? `${testDef.referenceRanges[0].rangeLow} - ${testDef.referenceRanges[0].rangeHigh}` : 'N/A',
                 resultUnits: testDef.referenceRanges?.length > 0 ? testDef.referenceRanges[0].units : '',
             }));
@@ -130,7 +132,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             return {
                 sampleId: existingSample?.sampleId || new ObjectId(),
                 sampleType: tubeType,
-                // Preserve state if sample already existed
                 status: existingSample?.status || 'AwaitingCollection',
                 collectionTimestamp: existingSample?.collectionTimestamp,
                 receivedTimestamp: existingSample?.receivedTimestamp,
@@ -169,7 +170,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         return NextResponse.json(clientResponse, { status: 200 });
     } catch (error) {
         console.error('[FATAL] Failed to update order:', error);
-        return NextResponse.json({ message: 'Internal Server Error', error: (error as Error).message }, { status: 500 });
+        if (error instanceof MongoServerError) {
+            return NextResponse.json({ message: 'A database error occurred during the update.', details: error.message }, { status: 500 });
+        }
+        return NextResponse.json({ message: 'An unexpected internal error occurred.', details: (error as Error).message }, { status: 500 });
     }
 }
-    
