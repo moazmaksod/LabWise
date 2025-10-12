@@ -9,13 +9,13 @@ import { addMinutes } from 'date-fns';
 // GET a single order by ID
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
     try {
-        const { db } = await connectToDatabase();
         const id = params.id;
         
         if (!ObjectId.isValid(id)) {
             return NextResponse.json({ message: 'Invalid order ID format.' }, { status: 400 });
         }
-
+        
+        const { db } = await connectToDatabase();
         const order = await db.collection('orders').findOne({ _id: new ObjectId(id) });
 
         if (!order) {

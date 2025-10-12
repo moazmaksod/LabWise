@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
             patientId: new ObjectId(patientId),
             appointmentType,
             scheduledTime: new Date(scheduledTime),
-            durationMinutes: durationMinutes || 15,
+            durationMinutes: parseInt(durationMinutes, 10) || 15,
             status: status,
             notes: notes || '',
         };

@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
             orderId: orderObjectId, // Link appointment to the new order
             appointmentType: 'Sample Collection',
             scheduledTime: newApptStartTime,
-            durationMinutes: appointmentDetails.durationMinutes || 15,
+            durationMinutes: parseInt(appointmentDetails.durationMinutes, 10) || 15,
             status: appointmentDetails.status || 'Scheduled',
             notes: appointmentDetails.notes || '',
         };
