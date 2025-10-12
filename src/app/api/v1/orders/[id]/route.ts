@@ -66,11 +66,18 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         const newApptEndTime = addMinutes(newApptStartTime, appointmentDetails.durationMinutes || 15);
 
         if (existingOrder.appointmentId) {
-            const overlappingAppointment = await db.collection('appointments').findOne({
+             const overlappingAppointment = await db.collection('appointments').findOne({
                 _id: { $ne: existingOrder.appointmentId }, // Exclude the current order's own appointment
-                $or: [
+                 $or: [
+                    // New appointment starts during an existing one
                     { scheduledTime: { $lt: newApptEndTime, $gte: newApptStartTime } },
-                    { $expr: { $gt: [ { $add: ["$scheduledTime", { $multiply: ["$durationMinutes", 60000] }] }, newApptStartTime ] }, scheduledTime: { $lt: newApptStartTime } }
+                    // New appointment ends during an existing one
+                    { 
+                        $and: [
+                            { scheduledTime: { $lt: newApptStartTime } },
+                            { $expr: { $gt: [ { $add: ["$scheduledTime", { $multiply: ["$durationMinutes", 60000] }] }, newApptStartTime ] } }
+                        ]
+                    },
                 ]
             });
 
