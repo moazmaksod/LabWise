@@ -6,7 +6,12 @@ import { ObjectId } from 'mongodb';
 export async function GET(req: NextRequest) {
     try {
         const { db } = await connectToDatabase();
+        const { searchParams } = new URL(req.url);
         
+        const page = parseInt(searchParams.get('page') || '1');
+        const limit = parseInt(searchParams.get('limit') || '50');
+        const skip = (page - 1) * limit;
+
         // Find all orders that have at least one sample with status 'InLab' or 'Testing'
         const aggregationPipeline = [
             // Deconstruct the samples array to work with each sample individually
@@ -50,7 +55,8 @@ export async function GET(req: NextRequest) {
                     dueTimestamp: { $add: ["$samples.receivedTimestamp", 1000 * 60 * 60 * 4] } // Example: due 4 hours after receipt
                 }
             },
-            { $limit: 100 } // Add pagination limit
+            { $skip: skip },
+            { $limit: limit }
         ];
         
         const worklist = await db.collection('orders').aggregate(aggregationPipeline).toArray();
