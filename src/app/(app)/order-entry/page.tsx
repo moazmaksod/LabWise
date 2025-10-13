@@ -222,7 +222,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
             physicianId: data.physicianId,
             icd10Code: data.icd10Code,
             priority: data.priority,
-            testCodes: data.testIds,
+            testIds: data.testIds,
             appointmentId: data.appointmentId,
             appointmentDetails: {
                 scheduledTime: scheduledTimeInCairo.toISOString(),
@@ -496,7 +496,3 @@ export default function OrderEntryPage() {
         </Suspense>
     )
 }
-
-    
-
-    

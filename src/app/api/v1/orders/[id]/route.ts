@@ -157,7 +157,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             physicianId: new ObjectId(physicianId),
             icd10Code,
             priority,
-            samples: newOrderSamples, // This was the missing piece
+            samples: newOrderSamples,
             updatedAt: new Date(),
         };
         console.log('[DEBUG] 8. Final update payload for order:', JSON.stringify(updatePayload, null, 2));
@@ -195,4 +195,3 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         return NextResponse.json({ message: 'An unexpected internal error occurred.', details: (error as Error).message }, { status: 500 });
     }
 }
-    
