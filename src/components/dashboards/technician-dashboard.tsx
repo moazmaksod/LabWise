@@ -49,6 +49,10 @@ const statusStyles: Record<string, { row: string; badge: string }> = {
     row: 'bg-yellow-900/40 border-l-4 border-yellow-500 hover:bg-yellow-900/60',
     badge: 'bg-yellow-500/20 text-yellow-200 border-yellow-500/50',
   },
+  Routine: {
+    row: 'hover:bg-muted/50',
+    badge: 'border-transparent bg-secondary text-secondary-foreground',
+  },
   InLab: {
     row: 'hover:bg-muted/50',
     badge: 'border-transparent bg-blue-500/20 text-blue-300 border-blue-400/50',
@@ -70,9 +74,6 @@ const statusStyles: Record<string, { row: string; badge: string }> = {
 const statusIcons: Record<string, React.ReactNode> = {
     STAT: <Flame className="h-4 w-4" />,
     Overdue: <Clock className="h-4 w-4" />,
-    InLab: null,
-    Testing: null,
-    AwaitingVerification: null,
     Verified: <CheckCircle className="h-4 w-4" />,
 }
 
@@ -82,7 +83,8 @@ export default function TechnicianDashboard() {
   const [worklist, setWorklist] = useState<WorklistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
+  const [priorityFilter, setPriorityFilter] = useState('All');
+  const [resultFilter, setResultFilter] = useState('All');
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'ascending' | 'descending' }>({ key: '', direction: 'ascending' });
   const { toast } = useToast();
   const [token, setToken] = useState<string|null>(null);
@@ -97,11 +99,9 @@ export default function TechnicianDashboard() {
     if (!token) return;
     setLoading(true);
     try {
-        console.log('[DEBUG-FRONTEND] 1. Calling /api/v1/worklist');
         const response = await fetch('/api/v1/worklist', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        console.log(`[DEBUG-FRONTEND] 2. Received response with status: ${response.status}`);
 
         if (!response.ok) {
             const errorBody = await response.text();
@@ -110,10 +110,8 @@ export default function TechnicianDashboard() {
         }
 
         const data = await response.json();
-        console.log('[DEBUG-FRONTEND] 4. Successfully fetched and parsed data:', data);
         setWorklist(data);
     } catch(e: any) {
-        console.error('[DEBUG-FRONTEND] 5. An exception occurred during fetch:', e);
         toast({ variant: 'destructive', title: 'Error', description: e.message || "Could not fetch worklist."});
     } finally {
         setLoading(false);
@@ -125,31 +123,36 @@ export default function TechnicianDashboard() {
   }, [token, fetchWorklist]);
 
   const sortedAndFilteredSamples = useMemo(() => {
-    let filterableSamples = [...worklist];
+    let tempSamples = [...worklist];
 
     // Filter by search term
     if (searchTerm) {
-        filterableSamples = filterableSamples.filter(sample =>
+        tempSamples = tempSamples.filter(sample =>
             sample.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
             sample.accessionNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
             sample.tests.some(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()))
         );
     }
     
-    // Filter by status
-    if (statusFilter !== 'All') {
-        if (statusFilter === 'STAT') {
-            filterableSamples = filterableSamples.filter(sample => sample.priority === 'STAT');
-        } else if (statusFilter === 'Overdue') {
-            filterableSamples = filterableSamples.filter(sample => new Date(sample.dueTimestamp) < new Date() && sample.status !== 'Verified');
-        } else {
-            filterableSamples = filterableSamples.filter(sample => sample.status === statusFilter);
-        }
+    // Filter by Priority
+    if (priorityFilter !== 'All') {
+        tempSamples = tempSamples.filter(sample => {
+            const isOverdue = new Date(sample.dueTimestamp) < new Date() && sample.status !== 'Verified';
+            if (priorityFilter === 'STAT') return sample.priority === 'STAT';
+            if (priorityFilter === 'Overdue') return isOverdue;
+            if (priorityFilter === 'Routine') return sample.priority !== 'STAT' && !isOverdue;
+            return true;
+        });
+    }
+
+    // Filter by Result Status
+    if (resultFilter !== 'All') {
+        tempSamples = tempSamples.filter(sample => sample.status === resultFilter);
     }
 
     // Sort data
     if (sortConfig.key) {
-        filterableSamples.sort((a, b) => {
+        tempSamples.sort((a, b) => {
             const aVal = a[sortConfig.key as keyof WorklistItem];
             const bVal = b[sortConfig.key as keyof WorklistItem];
             if (aVal < bVal) {
@@ -162,8 +165,8 @@ export default function TechnicianDashboard() {
         });
     }
 
-    return filterableSamples;
-  }, [searchTerm, statusFilter, sortConfig, worklist]);
+    return tempSamples;
+  }, [searchTerm, priorityFilter, resultFilter, sortConfig, worklist]);
   
   const requestSort = (key: SortKey) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -180,7 +183,7 @@ export default function TechnicianDashboard() {
     return null;
   };
   
-  type HeaderKey = { label: string, key: SortKey };
+  type HeaderKey = { label: string; key: SortKey; };
   const headers: HeaderKey[] = [
       { label: 'Accession #', key: 'accessionNumber' },
       { label: 'Patient', key: 'patientName' },
@@ -199,8 +202,8 @@ export default function TechnicianDashboard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-center gap-4">
-            <div className="relative flex-grow">
+        <div className="flex flex-col md:flex-row items-center gap-4">
+            <div className="relative flex-grow w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
                     placeholder="Search by name, accession, or test..."
@@ -209,20 +212,31 @@ export default function TechnicianDashboard() {
                     className="pl-10"
                 />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="All">All Statuses</SelectItem>
-                    <SelectItem value="STAT">STAT</SelectItem>
-                    <SelectItem value="Overdue">Overdue</SelectItem>
-                    <SelectItem value="InLab">In Lab</SelectItem>
-                    <SelectItem value="Testing">Testing</SelectItem>
-                    <SelectItem value="AwaitingVerification">Awaiting Verification</SelectItem>
-                    <SelectItem value="Verified">Verified</SelectItem>
-                </SelectContent>
-            </Select>
+            <div className="flex w-full md:w-auto items-center gap-2">
+                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                    <SelectTrigger className="flex-1 md:w-[150px]">
+                        <SelectValue placeholder="Filter by priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="All">All Priorities</SelectItem>
+                        <SelectItem value="STAT">STAT</SelectItem>
+                        <SelectItem value="Overdue">Overdue</SelectItem>
+                        <SelectItem value="Routine">Routine</SelectItem>
+                    </SelectContent>
+                </Select>
+                 <Select value={resultFilter} onValueChange={setResultFilter}>
+                    <SelectTrigger className="flex-1 md:w-[180px]">
+                        <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="All">All Statuses</SelectItem>
+                        <SelectItem value="InLab">In Lab</SelectItem>
+                        <SelectItem value="Testing">Testing</SelectItem>
+                        <SelectItem value="AwaitingVerification">Awaiting Verification</SelectItem>
+                        <SelectItem value="Verified">Verified</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
         </div>
         <div className="overflow-hidden rounded-lg border">
           <Table>
@@ -246,7 +260,15 @@ export default function TechnicianDashboard() {
               ) : sortedAndFilteredSamples.length > 0 ? (
                 sortedAndFilteredSamples.map((sample) => {
                   const isOverdue = new Date(sample.dueTimestamp) < new Date() && sample.status !== 'Verified';
-                  const displayStatus = sample.priority === 'STAT' ? 'STAT' : isOverdue ? 'Overdue' : sample.status;
+                  let displayStatus;
+                  if (sample.priority === 'STAT') {
+                    displayStatus = 'STAT';
+                  } else if (isOverdue) {
+                    displayStatus = 'Overdue';
+                  } else {
+                    displayStatus = 'Routine';
+                  }
+
                   return (
                     <TableRow
                       key={sample.sampleId}
@@ -260,13 +282,14 @@ export default function TechnicianDashboard() {
                       </TableCell>
                       <TableCell>{sample.tests.map(t => t.name).join(', ')}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={cn('gap-1.5 font-semibold', (statusStyles as any)[displayStatus]?.badge)}>
-                          {(statusIcons as any)[displayStatus]}
-                          {displayStatus}
+                         <Badge variant="outline" className={cn('gap-1.5 font-semibold', (statusStyles as any)[sample.status]?.badge)}>
+                          {sample.status}
                         </Badge>
                       </TableCell>
                       <TableCell>{format(parseISO(sample.receivedTimestamp), 'p')}</TableCell>
-                      <TableCell>{format(parseISO(sample.dueTimestamp), 'p')}</TableCell>
+                      <TableCell className={cn(isOverdue && 'text-yellow-400 font-semibold')}>
+                        {format(parseISO(sample.dueTimestamp), 'p')}
+                      </TableCell>
                     </TableRow>
                   );
                 })
