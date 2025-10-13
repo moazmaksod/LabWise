@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -90,16 +91,28 @@ export default function TechnicianDashboard() {
   const fetchWorklist = useCallback(async () => {
     if (!token) return;
     setLoading(true);
+    console.log('[DEBUG-FRONTEND] 1. Initiating fetchWorklist...');
     try {
         const response = await fetch('/api/v1/worklist', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        if (!response.ok) throw new Error('Failed to fetch worklist');
+
+        console.log(`[DEBUG-FRONTEND] 2. Received response with status: ${response.status}`);
+
+        if (!response.ok) {
+            const errorBody = await response.text();
+            console.error(`[DEBUG-FRONTEND] 3. Fetch failed. Status: ${response.status}. Body:`, errorBody);
+            throw new Error(`Failed to fetch worklist. Server responded with status ${response.status}.`);
+        }
+
         const data = await response.json();
+        console.log('[DEBUG-FRONTEND] 4. Successfully parsed JSON data:', data);
         setWorklist(data);
     } catch(e: any) {
+        console.error('[DEBUG-FRONTEND] 5. Caught an error in fetchWorklist:', e);
         toast({ variant: 'destructive', title: 'Error', description: e.message || "Could not fetch worklist."});
     } finally {
+        console.log('[DEBUG-FRONTEND] 6. Finished fetchWorklist attempt.');
         setLoading(false);
     }
   }, [token, toast]);
