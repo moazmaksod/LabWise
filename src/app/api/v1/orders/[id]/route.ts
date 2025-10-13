@@ -132,58 +132,72 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
              console.log('[DEBUG] 5a. Order does not have a valid appointmentId. This may be an error condition for an update.');
         }
 
-        console.log('[DEBUG] 6. Starting new sample rebuild logic.');
-        const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: testIds } }).toArray();
-        if (testDefs.length !== testIds.length) {
-            console.error('[ERROR] One or more invalid test codes provided.');
-            return NextResponse.json({ message: 'One or more invalid test codes provided.' }, { status: 400 });
-        }
-        console.log('[DEBUG] 6a. Fetched test definitions for all submitted test codes.');
+        console.log('[DEBUG] 6. Starting payload construction.');
+        
+        const updatePayload: any = {
+            $set: {
+                physicianId: new ObjectId(physicianId),
+                icd10Code,
+                priority,
+                updatedAt: new Date(),
+            }
+        };
 
-        const samplesByTubeType = new Map<string, OrderTest[]>();
+        const existingTestCodes = new Set(existingOrder.samples.flatMap(s => s.tests.map(t => t.testCode)));
+        const newTestCodes = new Set(testIds);
 
-        for (const testDef of testDefs) {
-            const tubeType = testDef.specimenRequirements.tubeType;
-            if (!samplesByTubeType.has(tubeType)) {
-                samplesByTubeType.set(tubeType, []);
+        const testsChanged = existingTestCodes.size !== newTestCodes.size || ![...existingTestCodes].every(code => newTestCodes.has(code));
+
+        if (testsChanged) {
+            console.log('[DEBUG] 6a. Tests have changed. Rebuilding samples array.');
+            
+            const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: testIds } }).toArray();
+            if (testDefs.length !== testIds.length) {
+                console.error('[ERROR] One or more invalid test codes provided.');
+                return NextResponse.json({ message: 'One or more invalid test codes provided.' }, { status: 400 });
+            }
+
+            const samplesByTubeType = new Map<string, OrderTest[]>();
+            for (const testDef of testDefs) {
+                const tubeType = testDef.specimenRequirements.tubeType;
+                if (!samplesByTubeType.has(tubeType)) {
+                    samplesByTubeType.set(tubeType, []);
+                }
+                const newTest: OrderTest = {
+                    testCode: testDef.testCode,
+                    name: testDef.name,
+                    status: 'Pending',
+                    referenceRange: testDef.referenceRanges?.length > 0 ? `${testDef.referenceRanges[0].rangeLow} - ${testDef.referenceRanges[0].rangeHigh}` : 'N/A',
+                    resultUnits: testDef.referenceRanges?.length > 0 ? testDef.referenceRanges[0].units : '',
+                };
+                samplesByTubeType.get(tubeType)!.push(newTest);
             }
             
-            const newTest: OrderTest = {
-                testCode: testDef.testCode,
-                name: testDef.name,
-                status: 'Pending',
-                referenceRange: testDef.referenceRanges?.length > 0 ? `${testDef.referenceRanges[0].rangeLow} - ${testDef.referenceRanges[0].rangeHigh}` : 'N/A',
-                resultUnits: testDef.referenceRanges?.length > 0 ? testDef.referenceRanges[0].units : '',
-            };
-            samplesByTubeType.get(tubeType)!.push(newTest);
-        }
-        console.log('[DEBUG] 6b. Grouped new tests by sample tube type.');
-        
-        const newOrderSamples: OrderSample[] = Array.from(samplesByTubeType.entries()).map(([tubeType, tests]) => {
-            return {
-                sampleId: new ObjectId(), // Generate a new ID for the sample container
+            const newOrderSamples: OrderSample[] = Array.from(samplesByTubeType.entries()).map(([tubeType, tests]) => ({
+                sampleId: new ObjectId(),
                 sampleType: tubeType,
-                status: 'AwaitingCollection', // Reset status for the new sample
+                status: 'AwaitingCollection',
                 tests: tests,
-            };
-        });
-        console.log('[DEBUG] 7. New samples array constructed:', JSON.stringify(newOrderSamples, null, 2));
+            }));
 
-        const updatePayload = {
-            physicianId: new ObjectId(physicianId),
-            icd10Code,
-            priority,
-            samples: newOrderSamples, // This is the crucial part
-            updatedAt: new Date(),
-        };
+            updatePayload.$set.samples = newOrderSamples;
+            console.log('[DEBUG] 7. New samples array constructed:', JSON.stringify(newOrderSamples, null, 2));
+
+        } else {
+            console.log('[DEBUG] 6a. Tests have not changed. Skipping sample rebuild.');
+        }
+
         console.log('[DEBUG] 8. Final update payload for order:', JSON.stringify(updatePayload, null, 2));
         
         const finalResult = await db.collection('orders').updateOne(
             { _id: orderObjectId },
-            { $set: updatePayload }
+            updatePayload
         );
 
         console.log(`[DEBUG] 9. Database update result: Matched ${finalResult.matchedCount}, Modified ${finalResult.modifiedCount}`);
+        if(finalResult.modifiedCount === 0 && finalResult.matchedCount === 1) {
+             console.log('[WARNING] The update operation resulted in no document changes. The submitted data might be identical to the existing data.');
+        }
 
         await db.collection('auditLogs').insertOne({
             timestamp: new Date(),
@@ -209,3 +223,5 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         return NextResponse.json({ message: 'An unexpected internal error occurred.', details: (error as Error).message }, { status: 500 });
     }
 }
+
+    
