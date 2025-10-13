@@ -58,9 +58,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         const body = await req.json();
         console.log('[DEBUG] 3. Received request body:', JSON.stringify(body, null, 2));
 
-        const { physicianId, icd10Code, priority, testCodes, appointmentDetails, appointmentId } = body;
+        const { physicianId, icd10Code, priority, testIds, appointmentDetails, appointmentId } = body;
         
-        if (!physicianId || !icd10Code || !priority || !testCodes || !Array.isArray(testCodes) || testCodes.length === 0 || !appointmentDetails || !appointmentDetails.scheduledTime) {
+        if (!physicianId || !icd10Code || !priority || !testIds || !Array.isArray(testIds) || testIds.length === 0 || !appointmentDetails || !appointmentDetails.scheduledTime) {
             console.error('[ERROR] Missing or invalid required fields in request body.');
             return NextResponse.json({ message: 'Missing or invalid required fields for order update.' }, { status: 400 });
         }
@@ -114,14 +114,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
              console.log(`[DEBUG] 5d. Appointment ${appointmentId} updated successfully.`);
         } else {
              console.log('[DEBUG] 5a. Order does not have a valid appointmentId. A new one will be created if needed.');
-             // This path might indicate a problem or a new appointment creation flow for an existing order.
-             // For now, we focus on the update path.
         }
 
-        // --- SIMPLIFIED SAMPLE REBUILD LOGIC ---
         console.log('[DEBUG] 6. Starting new sample rebuild logic.');
-        const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: testCodes } }).toArray();
-        if (testDefs.length !== testCodes.length) {
+        const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: testIds } }).toArray();
+        if (testDefs.length !== testIds.length) {
             console.error('[ERROR] One or more invalid test codes provided.');
             return NextResponse.json({ message: 'One or more invalid test codes provided.' }, { status: 400 });
         }
@@ -138,7 +135,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             const newTest: OrderTest = {
                 testCode: testDef.testCode,
                 name: testDef.name,
-                status: 'Pending', // Reset status on update
+                status: 'Pending',
                 referenceRange: testDef.referenceRanges?.length > 0 ? `${testDef.referenceRanges[0].rangeLow} - ${testDef.referenceRanges[0].rangeHigh}` : 'N/A',
                 resultUnits: testDef.referenceRanges?.length > 0 ? testDef.referenceRanges[0].units : '',
             };
@@ -160,16 +157,27 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             physicianId: new ObjectId(physicianId),
             icd10Code,
             priority,
-            samples: newOrderSamples,
             updatedAt: new Date(),
         };
         console.log('[DEBUG] 8. Final update payload for order:', JSON.stringify(updatePayload, null, 2));
-
+        
         const result = await db.collection('orders').updateOne(
             { _id: orderObjectId },
-            { $set: updatePayload }
+            { 
+              $unset: { samples: "" }, // Force removal of the old array
+              $set: updatePayload 
+            }
         );
-        console.log(`[DEBUG] 9. Database update result: Matched ${result.matchedCount}, Modified ${result.modifiedCount}`);
+
+        // Now, set the new samples array in a separate operation
+        const finalResult = await db.collection('orders').updateOne(
+            { _id: orderObjectId },
+            {
+                $set: { samples: newOrderSamples }
+            }
+        );
+
+        console.log(`[DEBUG] 9. Database update result: Matched ${finalResult.matchedCount}, Modified ${finalResult.modifiedCount}`);
 
         await db.collection('auditLogs').insertOne({
             timestamp: new Date(),
