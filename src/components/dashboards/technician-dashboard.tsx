@@ -43,27 +43,27 @@ type WorklistItem = {
 const statusStyles: Record<string, { row: string; badge: string }> = {
   STAT: {
     row: 'bg-red-900/40 border-l-4 border-red-500 hover:bg-red-900/60',
-    badge: 'bg-red-500/20 text-red-100 border-red-500/50',
+    badge: 'bg-red-500/20 text-red-200 border-red-500/50',
   },
   Overdue: {
     row: 'bg-yellow-900/40 border-l-4 border-yellow-500 hover:bg-yellow-900/60',
-    badge: 'bg-yellow-500/20 text-yellow-100 border-yellow-500/50',
+    badge: 'bg-yellow-500/20 text-yellow-200 border-yellow-500/50',
   },
   InLab: {
     row: 'hover:bg-muted/50',
-    badge: 'border-transparent bg-blue-500/20 text-blue-200 border-blue-500/50',
+    badge: 'border-transparent bg-blue-500/20 text-blue-300 border-blue-400/50',
   },
   Testing: {
     row: 'hover:bg-muted/50',
-    badge: 'border-transparent bg-purple-500/20 text-purple-200 border-purple-500/50',
+    badge: 'border-transparent bg-purple-500/20 text-purple-300 border-purple-400/50',
   },
   AwaitingVerification: {
     row: 'hover:bg-muted/50',
-    badge: 'border-transparent bg-orange-500/20 text-orange-200 border-orange-500/50',
+    badge: 'border-transparent bg-orange-500/20 text-orange-300 border-orange-400/50',
   },
   Verified: {
     row: 'opacity-60 hover:bg-muted/50',
-    badge: 'border-transparent bg-green-500/20 text-green-200',
+    badge: 'border-transparent bg-green-500/20 text-green-300',
   },
 };
 
@@ -97,18 +97,23 @@ export default function TechnicianDashboard() {
     if (!token) return;
     setLoading(true);
     try {
+        console.log('[DEBUG-FRONTEND] 1. Calling /api/v1/worklist');
         const response = await fetch('/api/v1/worklist', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
+        console.log(`[DEBUG-FRONTEND] 2. Received response with status: ${response.status}`);
 
         if (!response.ok) {
             const errorBody = await response.text();
+            console.error(`[DEBUG-FRONTEND] 3. Fetch failed. Status: ${response.status}. Body:`, errorBody);
             throw new Error(`Failed to fetch worklist. Server responded with status ${response.status}.`);
         }
 
         const data = await response.json();
+        console.log('[DEBUG-FRONTEND] 4. Successfully fetched and parsed data:', data);
         setWorklist(data);
     } catch(e: any) {
+        console.error('[DEBUG-FRONTEND] 5. An exception occurred during fetch:', e);
         toast({ variant: 'destructive', title: 'Error', description: e.message || "Could not fetch worklist."});
     } finally {
         setLoading(false);
