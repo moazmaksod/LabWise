@@ -31,20 +31,18 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 }
 
-
 // PUT (update) an order - REWRITTEN WITH DEBUGGING
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
     console.log('\n--- [PUT /api/v1/orders/[id]] ---');
     try {
         const id = params.id;
-        console.log(`[DEBUG] 1. Received request for order ID: ${id}`);
+        console.log(`[DEBUG] 1. Received request to update order ID: ${id}`);
 
         if (!ObjectId.isValid(id)) {
             console.error('[ERROR] Invalid order ID format.');
             return NextResponse.json({ message: 'Invalid order ID format.' }, { status: 400 });
         }
 
-        // 1. Authentication & Authorization
         const token = req.headers.get('authorization')?.split(' ')[1];
         if (!token) {
             console.error('[ERROR] Authorization token missing.');
@@ -57,7 +55,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         }
         console.log(`[DEBUG] 2. User authenticated as manager (ID: ${userPayload.userId})`);
         
-        // 2. Body Validation
         const body = await req.json();
         console.log('[DEBUG] 3. Received request body:', JSON.stringify(body, null, 2));
 
@@ -71,15 +68,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         const { db } = await connectToDatabase();
         const orderObjectId = new ObjectId(id);
 
-        // 3. Fetch existing order
         const existingOrder = await db.collection<Order>('orders').findOne({ _id: orderObjectId });
         if (!existingOrder) {
             console.error(`[ERROR] Order with ID ${id} not found.`);
             return NextResponse.json({ message: 'Order not found' }, { status: 404 });
         }
-        console.log('[DEBUG] 4. Successfully fetched existing order:', JSON.stringify(existingOrder, null, 2));
+        console.log('[DEBUG] 4. Successfully fetched existing order.');
 
-        // 4. Appointment Logic
         const newApptStartTime = new Date(appointmentDetails.scheduledTime);
         const newApptDuration = parseInt(appointmentDetails.durationMinutes, 10) || 15;
         console.log(`[DEBUG] 5. New appointment time: ${newApptStartTime.toISOString()}, Duration: ${newApptDuration} mins`);
@@ -98,7 +93,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
                     }}},
                 ]
             };
-            console.log('[DEBUG] 5b. Overlap query:', JSON.stringify(overlapQuery, null, 2));
+            console.log('[DEBUG] 5b. Overlap query built.');
 
             const overlappingAppointment = await db.collection('appointments').findOne(overlapQuery);
 
@@ -118,68 +113,54 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             );
              console.log(`[DEBUG] 5d. Appointment ${existingOrder.appointmentId} updated successfully.`);
         } else {
-             console.log('[DEBUG] 5a. Order does not have a valid appointmentId. Skipping appointment overlap check and update.');
+             console.log('[DEBUG] 5a. Order does not have a valid appointmentId. Skipping appointment logic.');
         }
 
-        // 5. Rebuild Samples while preserving state
+        // --- NEW, SIMPLIFIED SAMPLE REBUILD LOGIC ---
+        console.log('[DEBUG] 6. Starting new sample rebuild logic.');
         const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: testCodes } }).toArray();
         if (testDefs.length !== testCodes.length) {
-             console.error('[ERROR] One or more invalid test codes provided.');
+            console.error('[ERROR] One or more invalid test codes provided.');
             return NextResponse.json({ message: 'One or more invalid test codes provided.' }, { status: 400 });
         }
-        
-        // Create a map of old tests for easy lookup
-        const oldTestsMap = new Map<string, OrderTest>();
-        existingOrder.samples.forEach(sample => {
-            sample.tests.forEach(test => {
-                oldTestsMap.set(test.testCode, test);
-            });
-        });
-        console.log('[DEBUG] 6a. Created map of old tests to preserve state.');
+        console.log('[DEBUG] 6a. Fetched test definitions for all submitted test codes.');
 
         const samplesByTubeType = new Map<string, OrderTest[]>();
-        testDefs.forEach(testDef => {
+
+        for (const testDef of testDefs) {
             const tubeType = testDef.specimenRequirements.tubeType;
             if (!samplesByTubeType.has(tubeType)) {
                 samplesByTubeType.set(tubeType, []);
             }
-
-            // Check if this test existed before
-            const existingTest = oldTestsMap.get(testDef.testCode);
-            const newTest: OrderTest = existingTest ? 
-                { ...existingTest } // Preserve the entire existing test object
-                : 
-                { // Or create a new one
-                    testCode: testDef.testCode,
-                    name: testDef.name,
-                    status: 'Pending',
-                    referenceRange: testDef.referenceRanges?.length > 0 ? `${testDef.referenceRanges[0].rangeLow} - ${testDef.referenceRanges[0].rangeHigh}` : 'N/A',
-                    resultUnits: testDef.referenceRanges?.length > 0 ? testDef.referenceRanges[0].units : '',
-                };
+            
+            // For an update, all tests are considered new/reset to Pending.
+            // This simplifies logic immensely and ensures the update payload is different.
+            const newTest: OrderTest = {
+                testCode: testDef.testCode,
+                name: testDef.name,
+                status: 'Pending', // Reset status on update
+                referenceRange: testDef.referenceRanges?.length > 0 ? `${testDef.referenceRanges[0].rangeLow} - ${testDef.referenceRanges[0].rangeHigh}` : 'N/A',
+                resultUnits: testDef.referenceRanges?.length > 0 ? testDef.referenceRanges[0].units : '',
+            };
             samplesByTubeType.get(tubeType)!.push(newTest);
-        });
-        console.log('[DEBUG] 6b. Grouped new/existing tests by sample tube type.');
+        }
+        console.log('[DEBUG] 6b. Grouped new tests by sample tube type.');
 
         const newOrderSamples: OrderSample[] = Array.from(samplesByTubeType.entries()).map(([tubeType, tests]) => {
-            const existingSample = existingOrder.samples.find(s => s.sampleType === tubeType);
             return {
-                sampleId: existingSample?.sampleId || new ObjectId(),
+                sampleId: new ObjectId(), // Always generate a new sample ID for simplicity in updates
                 sampleType: tubeType,
-                status: existingSample?.status || 'AwaitingCollection',
-                collectionTimestamp: existingSample?.collectionTimestamp,
-                receivedTimestamp: existingSample?.receivedTimestamp,
-                accessionNumber: existingSample?.accessionNumber,
+                status: 'AwaitingCollection', // Reset sample status on update
                 tests: tests,
             };
         });
         console.log('[DEBUG] 7. New samples array constructed:', JSON.stringify(newOrderSamples, null, 2));
-        
-        // 6. Final Update Payload for the Order
+
         const updatePayload = {
             physicianId: new ObjectId(physicianId),
             icd10Code,
             priority,
-            samples: newOrderSamples,
+            samples: newOrderSamples, // Use the newly constructed samples array
             updatedAt: new Date(),
         };
         console.log('[DEBUG] 8. Final update payload for order:', JSON.stringify(updatePayload, null, 2));
@@ -190,7 +171,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         );
         console.log(`[DEBUG] 9. Database update result: Matched ${result.matchedCount}, Modified ${result.modifiedCount}`);
 
-        // 7. Audit Log
         await db.collection('auditLogs').insertOne({
             timestamp: new Date(),
             userId: new ObjectId(userPayload.userId as string),
@@ -215,3 +195,5 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         return NextResponse.json({ message: 'An unexpected internal error occurred.', details: (error as Error).message }, { status: 500 });
     }
 }
+
+    
