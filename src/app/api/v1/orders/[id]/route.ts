@@ -86,26 +86,23 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             const overlapQuery = {
                 _id: { $ne: new ObjectId(appointmentId) },
                 $or: [
-                    // An existing appt starts during the new appt time window
                     { 
                         scheduledTime: { $gt: newApptStartTime, $lt: newApptEndTime } 
                     },
-                    // An existing appt ends during the new appt time window
                     { 
                         $expr: { 
                             $gt: [ 
-                                { $add: ["$scheduledTime", { $multiply: [{ $ifNull: [ { $toLong: "$durationMinutes" }, 15 ] }, 60000] }] }, 
+                                { $add: ["$scheduledTime", { $multiply: [{ $toLong: { $ifNull: [ "$durationMinutes", 15 ] } }, 60000] }] }, 
                                 newApptStartTime 
                             ] 
                         },
                         scheduledTime: { $lt: newApptStartTime }
                     },
-                     // An existing appt completely envelops the new appt
                     {
                         scheduledTime: { $lte: newApptStartTime },
                         $expr: { 
                             $gte: [ 
-                                { $add: ["$scheduledTime", { $multiply: [{ $ifNull: [ { $toLong: "$durationMinutes" }, 15 ] }, 60000] }] }, 
+                                { $add: ["$scheduledTime", { $multiply: [{ $toLong: { $ifNull: [ "$durationMinutes", 15 ] } }, 60000] }] }, 
                                 newApptEndTime
                             ] 
                         }
@@ -154,19 +151,19 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             const newTest: OrderTest = {
                 testCode: testDef.testCode,
                 name: testDef.name,
-                status: 'Pending', // New/updated tests are always reset to Pending
+                status: 'Pending',
                 referenceRange: testDef.referenceRanges?.length > 0 ? `${testDef.referenceRanges[0].rangeLow} - ${testDef.referenceRanges[0].rangeHigh}` : 'N/A',
                 resultUnits: testDef.referenceRanges?.length > 0 ? testDef.referenceRanges[0].units : '',
             };
             samplesByTubeType.get(tubeType)!.push(newTest);
         }
         console.log('[DEBUG] 6b. Grouped new tests by sample tube type.');
-
+        
         const newOrderSamples: OrderSample[] = Array.from(samplesByTubeType.entries()).map(([tubeType, tests]) => {
             return {
-                sampleId: new ObjectId(),
+                sampleId: new ObjectId(), // Generate a new ID for the sample container
                 sampleType: tubeType,
-                status: 'AwaitingCollection',
+                status: 'AwaitingCollection', // Reset status for the new sample
                 tests: tests,
             };
         });
@@ -176,16 +173,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             physicianId: new ObjectId(physicianId),
             icd10Code,
             priority,
-            samples: newOrderSamples,
+            samples: newOrderSamples, // This is the crucial part
             updatedAt: new Date(),
         };
         console.log('[DEBUG] 8. Final update payload for order:', JSON.stringify(updatePayload, null, 2));
         
         const finalResult = await db.collection('orders').updateOne(
             { _id: orderObjectId },
-            {
-                $set: updatePayload
-            }
+            { $set: updatePayload }
         );
 
         console.log(`[DEBUG] 9. Database update result: Matched ${finalResult.matchedCount}, Modified ${finalResult.modifiedCount}`);
