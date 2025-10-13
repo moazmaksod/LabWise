@@ -33,6 +33,7 @@ const orderFormSchema = z.object({
   icd10Code: z.string().min(3, 'A valid ICD-10 code is required.'),
   priority: z.enum(['Routine', 'STAT']).default('Routine'),
   testIds: z.array(z.string()).min(1, 'At least one test must be added to the order.'),
+  appointmentId: z.string().optional(),
   appointmentDateTime: z.string().min(1, 'An appointment time for sample collection is required.'),
   durationMinutes: z.coerce.number().int().min(5, 'Duration must be at least 5 minutes.').default(15),
 });
@@ -86,7 +87,8 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
       icd10Code: editingOrder?.icd10Code || '',
       priority: editingOrder?.priority || 'Routine',
       testIds: editingOrder?.samples.flatMap(s => s.tests.map(t => t.testCode)) || [],
-      appointmentDateTime: '', // Will be set by useEffect
+      appointmentId: editingOrder?.appointmentId,
+      appointmentDateTime: '',
       durationMinutes: 15,
     },
   });
@@ -145,6 +147,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
                 const localTimeString = formatInTimeZone(new Date(apptData.scheduledTime), TIME_ZONE, "yyyy-MM-dd'T'HH:mm");
                 form.setValue('appointmentDateTime', localTimeString);
                 form.setValue('durationMinutes', apptData.durationMinutes);
+                form.setValue('appointmentId', apptData.id); // Ensure appointmentId is set in the form
              } catch (e: any) {
                  console.error(e.message);
                  // Fallback
@@ -211,7 +214,6 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
     if (!token) return;
     const isEditing = !!data.id;
     try {
-        // Interpret the local time string as a date in the Cairo timezone
         const scheduledTimeInCairo = toZonedTime(data.appointmentDateTime, TIME_ZONE);
 
         const payload: any = {
@@ -221,6 +223,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
             icd10Code: data.icd10Code,
             priority: data.priority,
             testCodes: data.testIds,
+            appointmentId: data.appointmentId,
             appointmentDetails: {
                 scheduledTime: scheduledTimeInCairo.toISOString(),
                 durationMinutes: data.durationMinutes,
@@ -441,7 +444,7 @@ function OrderEntryPageComponent() {
                         <CardContent className="pb-4">
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <p className="font-semibold text-xl">{selectedPatient.firstName} {selectedPatient.lastName}</p>
+                                    <p className="font-semibold text-xl">{selectedPatient.firstName} ${selectedPatient.lastName}</p>
                                     <p className="text-muted-foreground">MRN: {selectedPatient.mrn}</p>
                                 </div>
                                 <div className="text-right">

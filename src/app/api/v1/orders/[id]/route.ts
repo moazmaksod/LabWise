@@ -22,7 +22,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         }
         
         const { _id, ...clientOrder } = order;
-        const result = { ...clientOrder, id: _id.toHexString() };
+        const result = { ...clientOrder, id: _id.toHexString(), appointmentId: order.appointmentId?.toHexString() };
 
         return NextResponse.json(result);
     } catch (error) {
@@ -58,7 +58,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         const body = await req.json();
         console.log('[DEBUG] 3. Received request body:', JSON.stringify(body, null, 2));
 
-        const { physicianId, icd10Code, priority, testCodes, appointmentDetails } = body;
+        const { physicianId, icd10Code, priority, testCodes, appointmentDetails, appointmentId } = body;
         
         if (!physicianId || !icd10Code || !priority || !testCodes || !Array.isArray(testCodes) || testCodes.length === 0 || !appointmentDetails || !appointmentDetails.scheduledTime) {
             console.error('[ERROR] Missing or invalid required fields in request body.');
@@ -79,12 +79,12 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         const newApptDuration = parseInt(appointmentDetails.durationMinutes, 10) || 15;
         console.log(`[DEBUG] 5. New appointment time: ${newApptStartTime.toISOString()}, Duration: ${newApptDuration} mins`);
         
-        if (existingOrder.appointmentId && ObjectId.isValid(existingOrder.appointmentId)) {
-            console.log(`[DEBUG] 5a. Order has a valid appointmentId: ${existingOrder.appointmentId}. Checking for overlaps.`);
+        if (appointmentId && ObjectId.isValid(appointmentId)) {
+            console.log(`[DEBUG] 5a. Order has a valid appointmentId: ${appointmentId}. Checking for overlaps.`);
             const newApptEndTime = addMinutes(newApptStartTime, newApptDuration);
 
             const overlapQuery = {
-                _id: { $ne: new ObjectId(existingOrder.appointmentId) },
+                _id: { $ne: new ObjectId(appointmentId) },
                 $or: [
                     { scheduledTime: { $lt: newApptEndTime, $gt: newApptStartTime } },
                     { $expr: { $let: {
@@ -104,19 +104,21 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             console.log('[DEBUG] 5c. No appointment overlap found. Proceeding to update appointment.');
             
             await db.collection<Appointment>('appointments').updateOne(
-                { _id: existingOrder.appointmentId },
+                { _id: new ObjectId(appointmentId) },
                 { $set: { 
                     scheduledTime: newApptStartTime,
                     durationMinutes: newApptDuration,
                     updatedAt: new Date(),
                  } }
             );
-             console.log(`[DEBUG] 5d. Appointment ${existingOrder.appointmentId} updated successfully.`);
+             console.log(`[DEBUG] 5d. Appointment ${appointmentId} updated successfully.`);
         } else {
-             console.log('[DEBUG] 5a. Order does not have a valid appointmentId. Skipping appointment logic.');
+             console.log('[DEBUG] 5a. Order does not have a valid appointmentId. A new one will be created if needed.');
+             // This path might indicate a problem or a new appointment creation flow for an existing order.
+             // For now, we focus on the update path.
         }
 
-        // --- NEW, SIMPLIFIED SAMPLE REBUILD LOGIC ---
+        // --- SIMPLIFIED SAMPLE REBUILD LOGIC ---
         console.log('[DEBUG] 6. Starting new sample rebuild logic.');
         const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: testCodes } }).toArray();
         if (testDefs.length !== testCodes.length) {
@@ -133,8 +135,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
                 samplesByTubeType.set(tubeType, []);
             }
             
-            // For an update, all tests are considered new/reset to Pending.
-            // This simplifies logic immensely and ensures the update payload is different.
             const newTest: OrderTest = {
                 testCode: testDef.testCode,
                 name: testDef.name,
@@ -148,9 +148,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
         const newOrderSamples: OrderSample[] = Array.from(samplesByTubeType.entries()).map(([tubeType, tests]) => {
             return {
-                sampleId: new ObjectId(), // Always generate a new sample ID for simplicity in updates
+                sampleId: new ObjectId(),
                 sampleType: tubeType,
-                status: 'AwaitingCollection', // Reset sample status on update
+                status: 'AwaitingCollection',
                 tests: tests,
             };
         });
@@ -160,7 +160,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             physicianId: new ObjectId(physicianId),
             icd10Code,
             priority,
-            samples: newOrderSamples, // Use the newly constructed samples array
+            samples: newOrderSamples,
             updatedAt: new Date(),
         };
         console.log('[DEBUG] 8. Final update payload for order:', JSON.stringify(updatePayload, null, 2));
@@ -195,5 +195,4 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         return NextResponse.json({ message: 'An unexpected internal error occurred.', details: (error as Error).message }, { status: 500 });
     }
 }
-
     
