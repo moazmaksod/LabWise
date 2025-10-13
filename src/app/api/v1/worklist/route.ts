@@ -2,27 +2,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
+import { decrypt } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
     try {
-        const { db } = await connectToDatabase();
-        const { searchParams } = new URL(req.url);
-        
-        const page = parseInt(searchParams.get('page') || '1');
-        const limit = parseInt(searchParams.get('limit') || '50');
-        const skip = (page - 1) * limit;
+        const token = req.headers.get('authorization')?.split(' ')[1];
+        if (!token) return NextResponse.json({ message: 'Authorization token missing.' }, { status: 401 });
+        const userPayload = await decrypt(token);
+        if (!userPayload?.userId) return NextResponse.json({ message: 'Invalid or expired token.' }, { status: 401 });
 
-        // Find all orders that have at least one sample with status 'InLab' or 'Testing'
+        const { db } = await connectToDatabase();
+        
         const aggregationPipeline = [
-            // Deconstruct the samples array to work with each sample individually
+            // Stage 1: Deconstruct the samples array
             { $unwind: "$samples" },
-            // Filter for samples that are in the worklist
-            {
-                $match: {
-                    "samples.status": { $in: ['InLab', 'Testing'] }
-                }
+            // Stage 2: Filter for samples that belong on the worklist
+            { 
+                $match: { 
+                    "samples.status": { $in: ['InLab', 'Testing', 'AwaitingVerification'] } 
+                } 
             },
-            // Lookup patient information for each sample's order
+            // Stage 3: Add patient info
             {
                 $lookup: {
                     from: 'patients',
@@ -31,19 +31,18 @@ export async function GET(req: NextRequest) {
                     as: 'patientInfo'
                 }
             },
-            // Deconstruct the patientInfo array
             { $unwind: { path: "$patientInfo", preserveNullAndEmptyArrays: true } },
-            // Sort the samples: STAT first, then by when they were received
+            // Stage 4: Sort by STAT first, then by oldest received
             { 
                 $sort: {
-                    "priority": -1, // Assuming STAT is represented in a way that descending sort works (e.g., STAT=1, Routine=0 or string "STAT" > "Routine")
-                    "samples.receivedTimestamp": 1 // Oldest received first
-                }
+                    "priority": -1, // This will put "STAT" before "Routine"
+                    "samples.receivedTimestamp": 1 
+                } 
             },
-             // Reshape the document to be more client-friendly
+            // Stage 5: Project the final shape for the client
             {
                 $project: {
-                    _id: 0,
+                    _id: 0, // Exclude the default _id
                     sampleId: "$samples.sampleId",
                     accessionNumber: "$samples.accessionNumber",
                     patientName: { $concat: ["$patientInfo.firstName", " ", "$patientInfo.lastName"] },
@@ -52,13 +51,14 @@ export async function GET(req: NextRequest) {
                     status: "$samples.status",
                     priority: "$priority",
                     receivedTimestamp: "$samples.receivedTimestamp",
-                    dueTimestamp: { $add: ["$samples.receivedTimestamp", 1000 * 60 * 60 * 4] } // Example: due 4 hours after receipt
+                    // Example: due 4 hours after receipt. Adjust as needed.
+                    dueTimestamp: { $add: ["$samples.receivedTimestamp", 4 * 60 * 60 * 1000] } 
                 }
             },
-            { $skip: skip },
-            { $limit: limit }
+            // Stage 6: Limit the results
+            { $limit: 100 }
         ];
-        
+
         const worklist = await db.collection('orders').aggregate(aggregationPipeline).toArray();
 
         return NextResponse.json(worklist, { status: 200 });
