@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -26,6 +25,7 @@ import { Flame, Clock, CheckCircle, ArrowDown, ArrowUp, Search, Loader2 } from '
 import type { OrderSample } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
+import { useRouter } from 'next/navigation';
 
 type WorklistItem = {
     sampleId: string;
@@ -80,6 +80,7 @@ export default function TechnicianDashboard() {
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'ascending' | 'descending' }>({ key: '', direction: 'ascending' });
   const { toast } = useToast();
   const [token, setToken] = useState<string|null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const storedToken = localStorage.getItem('labwise-token');
@@ -230,6 +231,7 @@ export default function TechnicianDashboard() {
                     <TableRow
                       key={sample.sampleId}
                       className={cn('cursor-pointer font-medium', (statusStyles as any)[displayStatus]?.row)}
+                      onClick={() => router.push(`/results/${sample.accessionNumber}`)}
                     >
                       <TableCell className="font-mono">{sample.accessionNumber}</TableCell>
                       <TableCell>
@@ -258,5 +260,3 @@ export default function TechnicianDashboard() {
     </Card>
   );
 }
-
-  
