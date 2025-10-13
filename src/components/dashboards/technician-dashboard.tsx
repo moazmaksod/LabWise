@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Flame, Clock, CheckCircle, ArrowDown, ArrowUp, Search, Loader2 } from 'lucide-react';
+import { Flame, Clock, CheckCircle, ArrowDown, ArrowUp, Search, Loader2, Thermometer } from 'lucide-react';
 import type { OrderSample } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
@@ -54,27 +54,27 @@ const statusStyles: Record<string, { row: string; badge: string }> = {
     badge: 'border-transparent bg-secondary text-secondary-foreground',
   },
   InLab: {
-    row: 'hover:bg-muted/50',
+    row: '',
     badge: 'border-transparent bg-blue-500/20 text-blue-300 border-blue-400/50',
   },
   Testing: {
-    row: 'hover:bg-muted/50',
+    row: '',
     badge: 'border-transparent bg-purple-500/20 text-purple-300 border-purple-400/50',
   },
   AwaitingVerification: {
-    row: 'hover:bg-muted/50',
+    row: '',
     badge: 'border-transparent bg-orange-500/20 text-orange-300 border-orange-400/50',
   },
   Verified: {
-    row: 'opacity-60 hover:bg-muted/50',
+    row: 'opacity-60',
     badge: 'border-transparent bg-green-500/20 text-green-300',
   },
 };
 
-const statusIcons: Record<string, React.ReactNode> = {
+const priorityIcons: Record<string, React.ReactNode> = {
     STAT: <Flame className="h-4 w-4" />,
     Overdue: <Clock className="h-4 w-4" />,
-    Verified: <CheckCircle className="h-4 w-4" />,
+    Routine: <Thermometer className="h-4 w-4" />,
 }
 
 type SortKey = keyof WorklistItem | '';
@@ -188,7 +188,8 @@ export default function TechnicianDashboard() {
       { label: 'Accession #', key: 'accessionNumber' },
       { label: 'Patient', key: 'patientName' },
       { label: 'Test(s)', key: 'tests' },
-      { label: 'Status', key: 'status' },
+      { label: 'Priority', key: 'priority' },
+      { label: 'Sample Status', key: 'status' },
       { label: 'Received', key: 'receivedTimestamp' },
       { label: 'Due', key: 'dueTimestamp' },
   ];
@@ -255,24 +256,24 @@ export default function TechnicianDashboard() {
             <TableBody>
               {loading ? (
                 Array.from({length: 5}).map((_, i) => (
-                  <TableRow key={i}><TableCell colSpan={6}><div className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin"/> <span>Loading worklist...</span></div></TableCell></TableRow>
+                  <TableRow key={i}><TableCell colSpan={7}><div className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin"/> <span>Loading worklist...</span></div></TableCell></TableRow>
                 ))
               ) : sortedAndFilteredSamples.length > 0 ? (
                 sortedAndFilteredSamples.map((sample) => {
                   const isOverdue = new Date(sample.dueTimestamp) < new Date() && sample.status !== 'Verified';
-                  let displayStatus;
+                  let priorityStatus;
                   if (sample.priority === 'STAT') {
-                    displayStatus = 'STAT';
+                    priorityStatus = 'STAT';
                   } else if (isOverdue) {
-                    displayStatus = 'Overdue';
+                    priorityStatus = 'Overdue';
                   } else {
-                    displayStatus = 'Routine';
+                    priorityStatus = 'Routine';
                   }
 
                   return (
                     <TableRow
                       key={sample.sampleId}
-                      className={cn('cursor-pointer font-medium', (statusStyles as any)[displayStatus]?.row)}
+                      className={cn('cursor-pointer font-medium', (statusStyles as any)[priorityStatus]?.row, statusStyles.Verified.row)}
                       onClick={() => router.push(`/results/${sample.accessionNumber}`)}
                     >
                       <TableCell className="font-mono">{sample.accessionNumber}</TableCell>
@@ -281,6 +282,12 @@ export default function TechnicianDashboard() {
                         <div className="text-sm text-muted-foreground">{`MRN: ${sample.patientMrn}`}</div>
                       </TableCell>
                       <TableCell>{sample.tests.map(t => t.name).join(', ')}</TableCell>
+                      <TableCell>
+                         <Badge variant="outline" className={cn('gap-1.5 font-semibold', (statusStyles as any)[priorityStatus]?.badge)}>
+                           {priorityIcons[priorityStatus]}
+                           {priorityStatus}
+                        </Badge>
+                      </TableCell>
                       <TableCell>
                          <Badge variant="outline" className={cn('gap-1.5 font-semibold', (statusStyles as any)[sample.status]?.badge)}>
                           {sample.status}
@@ -294,7 +301,7 @@ export default function TechnicianDashboard() {
                   );
                 })
               ) : (
-                <TableRow><TableCell colSpan={6} className="text-center h-24">No samples in the worklist match your criteria.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center h-24">No samples in the worklist match your criteria.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
