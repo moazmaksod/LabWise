@@ -67,6 +67,21 @@ export default function CollectionListPage() {
             default: return 'outline';
         }
     }
+
+    const getCollectionStatus = (order?: ClientOrder): { text: string; variant: "default" | "secondary" | "destructive" | "outline" | null } => {
+        if (!order || !order.samples || order.samples.length === 0) return { text: 'Pending', variant: 'outline' };
+
+        const totalSamples = order.samples.length;
+        const collectedSamples = order.samples.filter(s => s.status !== 'AwaitingCollection').length;
+
+        if (collectedSamples === 0) {
+            return { text: 'Awaiting Collection', variant: 'secondary' };
+        }
+        if (collectedSamples === totalSamples) {
+            return { text: 'All Collected', variant: 'default' };
+        }
+        return { text: 'Partially Collected', variant: 'outline' };
+    }
     
     const handleDateChange = (date: Date | undefined) => {
         if (date) {
@@ -129,13 +144,15 @@ export default function CollectionListPage() {
                             </div>
                         ))
                     ) : appointments.length > 0 ? (
-                        appointments.map((appt) => (
+                        appointments.map((appt) => {
+                             const collectionStatus = getCollectionStatus(appt.orderInfo);
+                            return (
                             <Link 
                                 href={`/collection-schedule?id=${appt.id}`} 
                                 key={appt.id}
                                 className={cn(
                                     "block w-full p-4 border-b last:border-b-0 hover:bg-muted/50 transition-colors cursor-pointer",
-                                    (appt.orderInfo?.orderStatus === 'In Progress' || appt.orderInfo?.orderStatus === 'Complete') && 'opacity-60'
+                                    (collectionStatus.text === 'All Collected') && 'opacity-60'
                                 )}
                             >
                                 <div className="flex justify-between items-start">
@@ -149,11 +166,9 @@ export default function CollectionListPage() {
                                             <div className="text-sm text-muted-foreground">MRN: {appt.patientInfo?.mrn}</div>
                                         </div>
                                     </div>
-                                    {appt.orderInfo?.orderStatus && (
-                                        <Badge variant={getOrderStatusVariant(appt.orderInfo.orderStatus)} className="text-base whitespace-nowrap">
-                                            {appt.orderInfo.orderStatus}
-                                        </Badge>
-                                    )}
+                                    <Badge variant={collectionStatus.variant} className="text-base whitespace-nowrap">
+                                        {collectionStatus.text}
+                                    </Badge>
                                 </div>
                                 {appt.orderInfo?.samples && appt.orderInfo.samples.length > 0 && (
                                     <div className="mt-3 pl-[9.5rem] flex flex-wrap items-center gap-2">
@@ -172,7 +187,7 @@ export default function CollectionListPage() {
                                     </div>
                                 )}
                             </Link>
-                        ))
+                        )})
                     ) : (
                         <div className="text-center text-muted-foreground py-10 h-48 flex items-center justify-center">
                             No sample collections scheduled for this day.
