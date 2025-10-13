@@ -113,7 +113,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             );
              console.log(`[DEBUG] 5d. Appointment ${appointmentId} updated successfully.`);
         } else {
-             console.log('[DEBUG] 5a. Order does not have a valid appointmentId. A new one will be created if needed.');
+             console.log('[DEBUG] 5a. Order does not have a valid appointmentId. Logic assumes it should for an update.');
         }
 
         console.log('[DEBUG] 6. Starting new sample rebuild logic.');
@@ -157,23 +157,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             physicianId: new ObjectId(physicianId),
             icd10Code,
             priority,
+            samples: newOrderSamples, // This was the missing piece
             updatedAt: new Date(),
         };
         console.log('[DEBUG] 8. Final update payload for order:', JSON.stringify(updatePayload, null, 2));
         
-        const result = await db.collection('orders').updateOne(
-            { _id: orderObjectId },
-            { 
-              $unset: { samples: "" }, // Force removal of the old array
-              $set: updatePayload 
-            }
-        );
-
-        // Now, set the new samples array in a separate operation
         const finalResult = await db.collection('orders').updateOne(
             { _id: orderObjectId },
             {
-                $set: { samples: newOrderSamples }
+                $set: updatePayload
             }
         );
 
