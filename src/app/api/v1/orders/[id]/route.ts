@@ -112,7 +112,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
         console.log('[DEBUG] 6. Starting payload construction.');
         
-        // --- START REFACTORED UPDATE LOGIC ---
         const updatePayload: { $set: Partial<Order> } = { $set: {} };
         let hasChanges = false;
 
@@ -178,7 +177,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         }
         
         updatePayload.$set.updatedAt = new Date();
-        // --- END REFACTORED UPDATE LOGIC ---
 
 
         console.log('[DEBUG] 8. Final update payload for order:', JSON.stringify(updatePayload, null, 2));
@@ -217,6 +215,4 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         return NextResponse.json({ message: 'An unexpected internal error occurred.', details: (error as Error).message }, { status: 500 });
     }
 }
-    
-
     
