@@ -48,6 +48,9 @@ const rbacMatrix: Record<string, { methods: string[], roles: Role[] }[]> = {
     '/api/v1/results/verify': [
         { methods: ['POST'], roles: ['technician', 'manager'] }
     ],
+    '/api/v1/worklist': [
+        { methods: ['GET'], roles: ['technician', 'manager'] }
+    ],
     '/api/v1/inventory': [
         { methods: ['POST', 'PUT'], roles: ['manager'] },
         // Note: Technician is read-only at the app layer
