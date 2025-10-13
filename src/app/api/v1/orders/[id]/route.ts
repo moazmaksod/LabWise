@@ -86,11 +86,30 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             const overlapQuery = {
                 _id: { $ne: new ObjectId(appointmentId) },
                 $or: [
-                    { scheduledTime: { $lt: newApptEndTime, $gt: newApptStartTime } },
-                    { $expr: { $let: {
-                        vars: { endTime: { $add: ["$scheduledTime", { $multiply: [{ $ifNull: [ { $toLong: "$durationMinutes" }, 15 ] }, 60000] }] } },
-                        in: { $and: [ { $lte: ["$scheduledTime", newApptStartTime] }, { $gt: [ "$$endTime", newApptStartTime ] } ] }
-                    }}},
+                    // An existing appt starts during the new appt time window
+                    { 
+                        scheduledTime: { $gt: newApptStartTime, $lt: newApptEndTime } 
+                    },
+                    // An existing appt ends during the new appt time window
+                    { 
+                        $expr: { 
+                            $gt: [ 
+                                { $add: ["$scheduledTime", { $multiply: [{ $ifNull: [ { $toLong: "$durationMinutes" }, 15 ] }, 60000] }] }, 
+                                newApptStartTime 
+                            ] 
+                        },
+                        scheduledTime: { $lt: newApptStartTime }
+                    },
+                     // An existing appt completely envelops the new appt
+                    {
+                        scheduledTime: { $lte: newApptStartTime },
+                        $expr: { 
+                            $gte: [ 
+                                { $add: ["$scheduledTime", { $multiply: [{ $ifNull: [ { $toLong: "$durationMinutes" }, 15 ] }, 60000] }] }, 
+                                newApptEndTime
+                            ] 
+                        }
+                    }
                 ]
             };
             console.log('[DEBUG] 5b. Overlap query built.');
@@ -113,7 +132,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             );
              console.log(`[DEBUG] 5d. Appointment ${appointmentId} updated successfully.`);
         } else {
-             console.log('[DEBUG] 5a. Order does not have a valid appointmentId. Logic assumes it should for an update.');
+             console.log('[DEBUG] 5a. Order does not have a valid appointmentId. This may be an error condition for an update.');
         }
 
         console.log('[DEBUG] 6. Starting new sample rebuild logic.');
@@ -135,7 +154,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             const newTest: OrderTest = {
                 testCode: testDef.testCode,
                 name: testDef.name,
-                status: 'Pending',
+                status: 'Pending', // New/updated tests are always reset to Pending
                 referenceRange: testDef.referenceRanges?.length > 0 ? `${testDef.referenceRanges[0].rangeLow} - ${testDef.referenceRanges[0].rangeHigh}` : 'N/A',
                 resultUnits: testDef.referenceRanges?.length > 0 ? testDef.referenceRanges[0].units : '',
             };
