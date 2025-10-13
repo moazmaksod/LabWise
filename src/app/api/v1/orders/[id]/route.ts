@@ -31,7 +31,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 }
 
-// PUT (update) an order - REWRITTEN WITH DEBUGGING
+// PUT (update) an order - REWRITTEN WITH DEBUGGING AND FINAL FIX
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
     console.log('\n--- [PUT /api/v1/orders/[id]] ---');
     try {
@@ -60,7 +60,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
         const { physicianId, icd10Code, priority, testIds, appointmentDetails, appointmentId } = body;
         
-        if (!physicianId || !icd10Code || !priority || !testIds || !Array.isArray(testIds) || testIds.length === 0 || !appointmentDetails || !appointmentDetails.scheduledTime) {
+        if (!physicianId || !icd10Code || !priority || !testIds || !Array.isArray(testIds) || !appointmentDetails || !appointmentDetails.scheduledTime) {
             console.error('[ERROR] Missing or invalid required fields in request body.');
             return NextResponse.json({ message: 'Missing or invalid required fields for order update.' }, { status: 400 });
         }
@@ -85,29 +85,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
             const overlapQuery = {
                 _id: { $ne: new ObjectId(appointmentId) },
-                $or: [
-                    { 
-                        scheduledTime: { $gt: newApptStartTime, $lt: newApptEndTime } 
-                    },
-                    { 
-                        $expr: { 
-                            $gt: [ 
-                                { $add: ["$scheduledTime", { $multiply: [{ $toLong: { $ifNull: [ "$durationMinutes", 15 ] } }, 60000] }] }, 
-                                newApptStartTime 
-                            ] 
-                        },
-                        scheduledTime: { $lt: newApptStartTime }
-                    },
-                    {
-                        scheduledTime: { $lte: newApptStartTime },
-                        $expr: { 
-                            $gte: [ 
-                                { $add: ["$scheduledTime", { $multiply: [{ $toLong: { $ifNull: [ "$durationMinutes", 15 ] } }, 60000] }] }, 
-                                newApptEndTime
-                            ] 
-                        }
-                    }
-                ]
+                 scheduledTime: { $lt: newApptEndTime, $gt: addMinutes(newApptStartTime, -newApptDuration) } // Simplified check
             };
             console.log('[DEBUG] 5b. Overlap query built.');
 
@@ -134,58 +112,74 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
         console.log('[DEBUG] 6. Starting payload construction.');
         
-        const updatePayload: any = {
-            $set: {
-                physicianId: new ObjectId(physicianId),
-                icd10Code,
-                priority,
-                updatedAt: new Date(),
-            }
-        };
+        // --- START REFACTORED UPDATE LOGIC ---
+        const updatePayload: { $set: Partial<Order> } = { $set: {} };
+        let hasChanges = false;
+
+        if (existingOrder.physicianId.toHexString() !== physicianId) {
+            updatePayload.$set.physicianId = new ObjectId(physicianId);
+            hasChanges = true;
+        }
+        if (existingOrder.icd10Code !== icd10Code) {
+            updatePayload.$set.icd10Code = icd10Code;
+            hasChanges = true;
+        }
+        if (existingOrder.priority !== priority) {
+            updatePayload.$set.priority = priority;
+            hasChanges = true;
+        }
 
         const existingTestCodes = new Set(existingOrder.samples.flatMap(s => s.tests.map(t => t.testCode)));
         const newTestCodes = new Set(testIds);
 
         const testsChanged = existingTestCodes.size !== newTestCodes.size || ![...existingTestCodes].every(code => newTestCodes.has(code));
-
+        
         if (testsChanged) {
             console.log('[DEBUG] 6a. Tests have changed. Rebuilding samples array.');
+            hasChanges = true;
             
             const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: testIds } }).toArray();
             if (testDefs.length !== testIds.length) {
                 console.error('[ERROR] One or more invalid test codes provided.');
                 return NextResponse.json({ message: 'One or more invalid test codes provided.' }, { status: 400 });
             }
-
+            console.log('[DEBUG] 6b. Fetched test definitions for all submitted test codes.');
+            
             const samplesByTubeType = new Map<string, OrderTest[]>();
             for (const testDef of testDefs) {
                 const tubeType = testDef.specimenRequirements.tubeType;
                 if (!samplesByTubeType.has(tubeType)) {
                     samplesByTubeType.set(tubeType, []);
                 }
-                const newTest: OrderTest = {
+                samplesByTubeType.get(tubeType)!.push({
                     testCode: testDef.testCode,
                     name: testDef.name,
                     status: 'Pending',
                     referenceRange: testDef.referenceRanges?.length > 0 ? `${testDef.referenceRanges[0].rangeLow} - ${testDef.referenceRanges[0].rangeHigh}` : 'N/A',
                     resultUnits: testDef.referenceRanges?.length > 0 ? testDef.referenceRanges[0].units : '',
-                };
-                samplesByTubeType.get(tubeType)!.push(newTest);
+                });
             }
-            
-            const newOrderSamples: OrderSample[] = Array.from(samplesByTubeType.entries()).map(([tubeType, tests]) => ({
+            console.log('[DEBUG] 6c. Grouped new tests by sample tube type.');
+
+            updatePayload.$set.samples = Array.from(samplesByTubeType.entries()).map(([tubeType, tests]) => ({
                 sampleId: new ObjectId(),
                 sampleType: tubeType,
                 status: 'AwaitingCollection',
                 tests: tests,
             }));
-
-            updatePayload.$set.samples = newOrderSamples;
-            console.log('[DEBUG] 7. New samples array constructed:', JSON.stringify(newOrderSamples, null, 2));
-
+            console.log('[DEBUG] 7. New samples array constructed:', JSON.stringify(updatePayload.$set.samples, null, 2));
         } else {
-            console.log('[DEBUG] 6a. Tests have not changed. Skipping sample rebuild.');
+             console.log('[DEBUG] 6a. Tests have not changed. Skipping sample rebuild.');
         }
+        
+        if (!hasChanges) {
+             console.log('[DEBUG] 8a. No changes detected. Returning early.');
+             return NextResponse.json({ message: "No changes detected in the order.", order: existingOrder }, { status: 200 });
+        }
+        
+        updatePayload.$set.updatedAt = new Date();
+        // --- END REFACTORED UPDATE LOGIC ---
+
 
         console.log('[DEBUG] 8. Final update payload for order:', JSON.stringify(updatePayload, null, 2));
         
@@ -204,7 +198,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             userId: new ObjectId(userPayload.userId as string),
             action: 'ORDER_UPDATE',
             entity: { collectionName: 'orders', documentId: orderObjectId },
-            details: { orderId: existingOrder.orderId, message: `Order ${existingOrder.orderId} updated by manager.` },
+            details: { orderId: existingOrder.orderId, message: `Order ${existingOrder.orderId} updated by manager.`, changes: updatePayload.$set },
             ipAddress: req.ip || req.headers.get('x-forwarded-for'),
         });
         console.log('[DEBUG] 10. Audit log created successfully.');
@@ -223,5 +217,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         return NextResponse.json({ message: 'An unexpected internal error occurred.', details: (error as Error).message }, { status: 500 });
     }
 }
+    
 
     
