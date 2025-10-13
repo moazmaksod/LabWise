@@ -57,7 +57,11 @@ const statusStyles: Record<string, { row: string; badge: string }> = {
     row: 'hover:bg-muted/50',
     badge: 'border-transparent bg-purple-500/20 text-purple-200 border-purple-500/50',
   },
-  Complete: {
+  AwaitingVerification: {
+    row: 'hover:bg-muted/50',
+    badge: 'border-transparent bg-orange-500/20 text-orange-200 border-orange-500/50',
+  },
+  Verified: {
     row: 'opacity-60 hover:bg-muted/50',
     badge: 'border-transparent bg-green-500/20 text-green-200',
   },
@@ -68,7 +72,8 @@ const statusIcons: Record<string, React.ReactNode> = {
     Overdue: <Clock className="h-4 w-4" />,
     InLab: null,
     Testing: null,
-    Complete: <CheckCircle className="h-4 w-4" />,
+    AwaitingVerification: null,
+    Verified: <CheckCircle className="h-4 w-4" />,
 }
 
 type SortKey = keyof WorklistItem | '';
@@ -91,28 +96,21 @@ export default function TechnicianDashboard() {
   const fetchWorklist = useCallback(async () => {
     if (!token) return;
     setLoading(true);
-    console.log('[DEBUG-FRONTEND] 1. Initiating fetchWorklist...');
     try {
         const response = await fetch('/api/v1/worklist', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
-        console.log(`[DEBUG-FRONTEND] 2. Received response with status: ${response.status}`);
-
         if (!response.ok) {
             const errorBody = await response.text();
-            console.error(`[DEBUG-FRONTEND] 3. Fetch failed. Status: ${response.status}. Body:`, errorBody);
             throw new Error(`Failed to fetch worklist. Server responded with status ${response.status}.`);
         }
 
         const data = await response.json();
-        console.log('[DEBUG-FRONTEND] 4. Successfully parsed JSON data:', data);
         setWorklist(data);
     } catch(e: any) {
-        console.error('[DEBUG-FRONTEND] 5. Caught an error in fetchWorklist:', e);
         toast({ variant: 'destructive', title: 'Error', description: e.message || "Could not fetch worklist."});
     } finally {
-        console.log('[DEBUG-FRONTEND] 6. Finished fetchWorklist attempt.');
         setLoading(false);
     }
   }, [token, toast]);
@@ -135,8 +133,10 @@ export default function TechnicianDashboard() {
     
     // Filter by status
     if (statusFilter !== 'All') {
-        if (statusFilter === 'STAT' || statusFilter === 'Overdue') {
-            filterableSamples = filterableSamples.filter(sample => sample.priority === statusFilter);
+        if (statusFilter === 'STAT') {
+            filterableSamples = filterableSamples.filter(sample => sample.priority === 'STAT');
+        } else if (statusFilter === 'Overdue') {
+            filterableSamples = filterableSamples.filter(sample => new Date(sample.dueTimestamp) < new Date() && sample.status !== 'Verified');
         } else {
             filterableSamples = filterableSamples.filter(sample => sample.status === statusFilter);
         }
@@ -214,7 +214,8 @@ export default function TechnicianDashboard() {
                     <SelectItem value="Overdue">Overdue</SelectItem>
                     <SelectItem value="InLab">In Lab</SelectItem>
                     <SelectItem value="Testing">Testing</SelectItem>
-                    <SelectItem value="Complete">Complete</SelectItem>
+                    <SelectItem value="AwaitingVerification">Awaiting Verification</SelectItem>
+                    <SelectItem value="Verified">Verified</SelectItem>
                 </SelectContent>
             </Select>
         </div>
@@ -239,7 +240,8 @@ export default function TechnicianDashboard() {
                 ))
               ) : sortedAndFilteredSamples.length > 0 ? (
                 sortedAndFilteredSamples.map((sample) => {
-                  const displayStatus = sample.priority === 'STAT' ? 'STAT' : new Date(sample.dueTimestamp) < new Date() ? 'Overdue' : sample.status;
+                  const isOverdue = new Date(sample.dueTimestamp) < new Date() && sample.status !== 'Verified';
+                  const displayStatus = sample.priority === 'STAT' ? 'STAT' : isOverdue ? 'Overdue' : sample.status;
                   return (
                     <TableRow
                       key={sample.sampleId}
