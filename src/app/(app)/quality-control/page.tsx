@@ -33,10 +33,9 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  Legend,
   ReferenceLine,
   ResponsiveContainer,
+  LineChart as RechartsLineChart,
 } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 
@@ -159,7 +158,7 @@ export default function QualityControlPage() {
         <CardContent>
             <ChartContainer config={chartConfig} className="h-64 w-full">
               <ResponsiveContainer>
-                <LineChart
+                <RechartsLineChart
                     data={MOCK_LJ_DATA}
                     margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
                 >
@@ -185,7 +184,7 @@ export default function QualityControlPage() {
                       }
                       return <circle cx={cx} cy={cy} r={3} fill="hsl(var(--chart-1))" />;
                     }} />
-                </LineChart>
+                </RechartsLineChart>
               </ResponsiveContainer>
             </ChartContainer>
         </CardContent>
