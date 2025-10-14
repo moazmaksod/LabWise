@@ -1,4 +1,5 @@
 
+
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { decrypt } from '@/lib/auth';
@@ -83,6 +84,18 @@ const rbacMatrix: Record<string, { methods: string[], roles: Role[] }[]> = {
     '/api/v1/appointments/.*': [
         { methods: ['GET'], roles: ['receptionist', 'manager', 'phlebotomist', 'technician'] },
         { methods: ['PUT', 'DELETE'], roles: ['receptionist', 'manager'] }
+    ],
+    '/api/v1/instruments': [
+        { methods: ['GET', 'POST'], roles: ['manager', 'technician'] }
+    ],
+    '/api/v1/instruments/.*': [
+        { methods: ['GET', 'PUT', 'DELETE'], roles: ['manager', 'technician'] }
+    ],
+    '/api/v1/qc-logs': [
+        { methods: ['GET', 'POST'], roles: ['manager', 'technician'] }
+    ],
+    '/api/v1/qc-logs/.*': [
+        { methods: ['GET', 'PUT', 'DELETE'], roles: ['manager', 'technician'] }
     ],
 };
 

@@ -151,6 +151,7 @@ export type OrderSample = {
     sampleType: string; // Snapshotted from test catalog specimen requirements
     collectionTimestamp?: Date;
     receivedTimestamp?: Date;
+    accessionNumber?: string;
     status: 'AwaitingCollection' | 'Collected' | 'InLab' | 'Testing' | 'AwaitingVerification' | 'Verified' | 'Archived' | 'Rejected';
     tests: OrderTest[];
     specimenRequirements?: SpecimenRequirements; // Added for phlebotomist view
@@ -198,4 +199,54 @@ export type ClientAppointment = Omit<Appointment, '_id' | 'patientId' | 'orderId
     orderId?: string;
     patientInfo?: Partial<ClientPatient>;
     orderInfo?: Partial<ClientOrder>;
+};
+
+// --- Sprint 8 Additions ---
+export type Instrument = {
+    _id: ObjectId;
+    instrumentId: string; // User-defined unique ID
+    name: string;
+    model: string;
+    status: 'Online' | 'Offline' | 'Maintenance';
+    lastCalibrationDate: Date;
+    createdAt: Date;
+    updatedAt: Date;
+};
+
+export type ClientInstrument = Omit<Instrument, '_id'> & { id: string };
+
+export type QCLog = {
+    _id: ObjectId;
+    instrumentId: ObjectId;
+    testCode: string;
+    qcMaterialLot: string;
+    resultValue: number;
+    isPass: boolean;
+    runTimestamp: Date;
+    performedBy: ObjectId;
+    correctiveAction?: {
+        action: string;
+        documentedBy: ObjectId;
+        timestamp: Date;
+    };
+};
+
+export type ClientQCLog = Omit<QCLog, '_id' | 'instrumentId' | 'performedBy' | 'correctiveAction'> & {
+  id: string;
+  instrumentId: string;
+  performedBy: string;
+  correctiveAction?: {
+    action: string;
+    documentedBy: string;
+    timestamp: Date;
+  };
+};
+
+export type MaintenanceLog = {
+    _id: ObjectId;
+    instrumentId: ObjectId;
+    logType: 'Maintenance' | 'Calibration' | 'Repair' | 'Error';
+    description: string;
+    performedBy: ObjectId;
+    timestamp: Date;
 };
