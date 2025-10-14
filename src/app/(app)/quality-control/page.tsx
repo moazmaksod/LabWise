@@ -28,6 +28,17 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ReferenceLine,
+  ResponsiveContainer,
+} from 'recharts';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 
 
 const MOCK_QC_RUNS = [
@@ -51,6 +62,16 @@ const MOCK_TESTS = [
     { id: 'TEST-004', name: 'PT/INR' },
 ];
 
+const MOCK_LJ_DATA = [
+    { run: 'Day 1', value: 102 }, { run: 'Day 2', value: 101 }, { run: 'Day 3', value: 100 },
+    { run: 'Day 4', value: 99 }, { run: 'Day 5', value: 103 }, { run: 'Day 6', value: 104 },
+    { run: 'Day 7', value: 105, isFail: true }, { run: 'Day 8', value: 98 }, { run: 'Day 9', value: 100 },
+    { run: 'Day 10', value: 102 },
+];
+
+const MEAN = 100;
+const SD = 2;
+
 const qcFormSchema = z.object({
   instrumentId: z.string().min(1, "Instrument is required."),
   testCode: z.string().min(1, "Test is required."),
@@ -59,6 +80,13 @@ const qcFormSchema = z.object({
 });
 
 type QcFormValues = z.infer<typeof qcFormSchema>;
+
+const chartConfig = {
+  value: {
+    label: 'Value',
+    color: 'hsl(var(--chart-1))',
+  },
+}
 
 export default function QualityControlPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -129,12 +157,37 @@ export default function QualityControlPage() {
           <CardDescription>Visual representation of instrument performance over time.</CardDescription>
         </CardHeader>
         <CardContent>
-            <div className="h-64 flex items-center justify-center bg-secondary/50 rounded-lg">
-                <div className="text-center text-muted-foreground">
-                    <LineChart className="h-12 w-12" />
-                    <p>Levey-Jennings chart will be displayed here.</p>
-                </div>
-            </div>
+            <ChartContainer config={chartConfig} className="h-64 w-full">
+              <ResponsiveContainer>
+                <LineChart
+                    data={MOCK_LJ_DATA}
+                    margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
+                >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="run" />
+                    <YAxis domain={[MEAN - SD * 4, MEAN + SD * 4]} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <ChartLegend />
+
+                    {/* Mean and SD lines */}
+                    <ReferenceLine y={MEAN} label="Mean" stroke="hsl(var(--foreground))" strokeDasharray="3 3" />
+                    <ReferenceLine y={MEAN + SD} label="+1 SD" stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
+                    <ReferenceLine y={MEAN - SD} label="-1 SD" stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
+                    <ReferenceLine y={MEAN + 2 * SD} label="+2 SD" stroke="hsl(var(--chart-2))" strokeWidth={1.5} />
+                    <ReferenceLine y={MEAN - 2 * SD} label="-2 SD" stroke="hsl(var(--chart-2))" strokeWidth={1.5} />
+                    <ReferenceLine y={MEAN + 3 * SD} label="+3 SD" stroke="hsl(var(--destructive))" strokeWidth={1.5} />
+                    <ReferenceLine y={MEAN - 3 * SD} label="-3 SD" stroke="hsl(var(--destructive))" strokeWidth={1.5} />
+
+                    <Line type="monotone" dataKey="value" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={(props) => {
+                      const { cx, cy, payload } = props;
+                      if (payload.isFail) {
+                        return <circle cx={cx} cy={cy} r={5} fill="hsl(var(--destructive))" stroke="white" strokeWidth={2} />;
+                      }
+                      return <circle cx={cx} cy={cy} r={3} fill="hsl(var(--chart-1))" />;
+                    }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartContainer>
         </CardContent>
       </Card>
 
