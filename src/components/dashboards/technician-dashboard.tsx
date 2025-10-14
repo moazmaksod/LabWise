@@ -56,15 +56,15 @@ const statusStyles: Record<string, { row: string; badge: string }> = {
   },
   InLab: {
     row: '',
-    badge: 'border-transparent bg-blue-500/20 text-blue-300 border-blue-400/50',
+    badge: 'bg-blue-500/20 text-blue-300 border-blue-400/50',
   },
   Testing: {
     row: '',
-    badge: 'border-transparent bg-purple-500/20 text-purple-300 border-purple-400/50',
+    badge: 'bg-purple-500/20 text-purple-300 border-purple-400/50',
   },
   AwaitingVerification: {
     row: '',
-    badge: 'border-transparent bg-orange-500/20 text-orange-300 border-orange-400/50',
+    badge: 'bg-orange-500/20 text-orange-300 border-orange-400/50',
   },
   Verified: {
     row: 'opacity-60',
@@ -90,7 +90,8 @@ function WorklistTable({ samples, loading, onSort, sortConfig }: { samples: Work
         return null;
     };
     
-    const headers: { label: string; key: SortKey; }[] = [
+    type HeaderKey = { label: string; key: SortKey; };
+    const headers: HeaderKey[] = [
         { label: 'Priority', key: 'priority' },
         { label: 'Accession #', key: 'accessionNumber' },
         { label: 'Patient', key: 'patientName' },
@@ -285,12 +286,12 @@ export default function TechnicianDashboard() {
       </CardHeader>
       <CardContent className="space-y-4">
         <Tabs defaultValue="worklist">
-            <div className="flex flex-col md:flex-row items-center gap-4">
-                <TabsList className="grid w-full md:w-auto grid-cols-2">
+            <div className="flex flex-wrap items-center gap-4">
+                <TabsList>
                     <TabsTrigger value="worklist">Active Worklist</TabsTrigger>
                     <TabsTrigger value="verified">Verified Log</TabsTrigger>
                 </TabsList>
-                <div className="relative flex-grow w-full">
+                <div className="relative flex-grow min-w-40">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
                         placeholder="Search by name, accession, or test..."
@@ -299,9 +300,9 @@ export default function TechnicianDashboard() {
                         className="pl-10"
                     />
                 </div>
-                <div className="flex w-full md:w-auto items-center gap-2">
+                <div className="flex flex-wrap flex-grow sm:flex-nowrap items-center gap-2">
                     <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                        <SelectTrigger className="flex-1 md:w-[150px]">
+                        <SelectTrigger className="w-full sm:w-[150px]">
                             <SelectValue placeholder="Filter by priority" />
                         </SelectTrigger>
                         <SelectContent>
@@ -312,12 +313,11 @@ export default function TechnicianDashboard() {
                         </SelectContent>
                     </Select>
                     <Select value={resultFilter} onValueChange={setResultFilter}>
-                        <SelectTrigger className="flex-1 md:w-[180px]">
+                        <SelectTrigger className="w-full sm:w-[180px]">
                             <SelectValue placeholder="Filter by status" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="All">All Statuses</SelectItem>
-                            <SelectItem value="InLab">In Lab</SelectItem>
                             <SelectItem value="Testing">Testing</SelectItem>
                             <SelectItem value="AwaitingVerification">Awaiting Verification</SelectItem>
                             <SelectItem value="Verified">Verified</SelectItem>
