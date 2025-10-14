@@ -156,9 +156,9 @@ function WorklistTable({ samples, loading, onSort, sortConfig }: { samples: Work
                           {sample.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>{format(parseISO(sample.receivedTimestamp), 'p')}</TableCell>
+                      <TableCell>{format(parseISO(sample.receivedTimestamp), 'PP p')}</TableCell>
                       <TableCell className={cn(isOverdue && 'text-yellow-400 font-semibold')}>
-                        {format(parseISO(sample.dueTimestamp), 'p')}
+                        {format(parseISO(sample.dueTimestamp), 'PP p')}
                       </TableCell>
                     </TableRow>
                   );
@@ -287,7 +287,7 @@ export default function TechnicianDashboard() {
       <CardContent className="space-y-4">
         <Tabs defaultValue="worklist">
             <div className="flex flex-wrap items-center gap-4">
-                <TabsList>
+                <TabsList className="grid w-full md:w-auto grid-cols-2">
                     <TabsTrigger value="worklist">Active Worklist</TabsTrigger>
                     <TabsTrigger value="verified">Verified Log</TabsTrigger>
                 </TabsList>
@@ -318,6 +318,7 @@ export default function TechnicianDashboard() {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="All">All Statuses</SelectItem>
+                            <SelectItem value="InLab">In Lab</SelectItem>
                             <SelectItem value="Testing">Testing</SelectItem>
                             <SelectItem value="AwaitingVerification">Awaiting Verification</SelectItem>
                             <SelectItem value="Verified">Verified</SelectItem>
