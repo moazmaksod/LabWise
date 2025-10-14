@@ -170,7 +170,7 @@ function ResultEntryPageComponent() {
                         </div>
                          <div className="flex items-center gap-4 text-sm">
                              <div className="flex items-center gap-2"><FlaskConical className="h-4 w-4 text-muted-foreground"/> <span>{sample.sampleType}</span></div>
-                             <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground"/> <span>Received: {format(parseISO(sample.receivedTimestamp as string), 'p')}</span></div>
+                             <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground"/> <span>Received: {sample.receivedTimestamp ? format(parseISO(sample.receivedTimestamp as string), 'p') : 'N/A'}</span></div>
                          </div>
                     </CardHeader>
                 </Card>
