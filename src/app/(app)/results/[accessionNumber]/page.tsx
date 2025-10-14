@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import type { ClientOrder, ClientPatient, OrderSample, OrderTest } from '@/lib/types';
 import { calculateAge } from '@/lib/utils';
 import { cn } from '@/lib/utils';
@@ -45,6 +46,9 @@ function ResultEntryPageComponent() {
   const [sample, setSample] = useState<OrderSample | null>(null);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
+  const [deltaCheckModalOpen, setDeltaCheckModalOpen] = useState(false);
+  const [deltaCheckTest, setDeltaCheckTest] = useState<OrderTest | null>(null);
+
 
   const form = useForm<VerificationFormValues>({
     resolver: zodResolver(verificationSchema),
@@ -85,6 +89,13 @@ function ResultEntryPageComponent() {
             notes: test.notes || '',
         }));
         replace(initialResults);
+
+        // Check for delta check on load
+        const testWithDelta = targetSample.tests.find(t => t.flags?.includes('DELTA_CHECK_FAILED') && t.status !== 'Verified');
+        if (testWithDelta) {
+            setDeltaCheckTest(testWithDelta);
+            setDeltaCheckModalOpen(true);
+        }
 
     } catch (error: any) {
         toast({ variant: 'destructive', title: 'Error Loading Sample', description: error.message });
@@ -141,6 +152,8 @@ function ResultEntryPageComponent() {
     return <div className="text-center text-muted-foreground">Sample data could not be loaded.</div>
   }
 
+  const isFullyVerified = sample.status === 'Verified';
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
         <Button variant="outline" onClick={() => router.back()}>
@@ -180,8 +193,9 @@ function ResultEntryPageComponent() {
                         {fields.map((field, index) => {
                             const test = sample.tests[index];
                             const hasDeltaFlag = test.flags?.includes('DELTA_CHECK_FAILED');
+                            const isVerified = test.status === 'Verified';
                             return (
-                                <Card key={field.id} className={cn(hasDeltaFlag && "border-yellow-500/50 bg-yellow-900/20")}>
+                                <Card key={field.id} className={cn(hasDeltaFlag && !isVerified && "border-yellow-500/50 bg-yellow-900/20")}>
                                     <CardHeader className="flex flex-row justify-between items-start pb-4">
                                         <div>
                                             <CardTitle className="text-lg">{test.name}</CardTitle>
@@ -190,7 +204,7 @@ function ResultEntryPageComponent() {
                                         <Badge variant={getTestStatusVariant(test.status)}>{test.status}</Badge>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
-                                        {hasDeltaFlag && (
+                                        {hasDeltaFlag && !isVerified && (
                                             <Alert variant="destructive" className="bg-yellow-600/10 border-yellow-500/60 text-yellow-200 [&>svg]:text-yellow-400">
                                                 <FileWarning className="h-4 w-4" />
                                                 <AlertTitle>Delta Check Failed</AlertTitle>
@@ -208,7 +222,7 @@ function ResultEntryPageComponent() {
                                                         <FormLabel>Result Value</FormLabel>
                                                         <FormControl>
                                                             <div className="relative">
-                                                                <Input placeholder="Enter result..." {...field} disabled={test.status === 'Verified'} />
+                                                                <Input placeholder="Enter result..." {...field} disabled={isVerified} />
                                                                 {test.resultUnits && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{test.resultUnits}</span>}
                                                             </div>
                                                         </FormControl>
@@ -223,7 +237,7 @@ function ResultEntryPageComponent() {
                                                     <FormItem className="md:col-span-3">
                                                         <FormLabel>Notes</FormLabel>
                                                         <FormControl>
-                                                            <Textarea placeholder="Add any relevant notes..." {...field} disabled={test.status === 'Verified'} />
+                                                            <Textarea placeholder="Add any relevant notes..." {...field} disabled={isVerified} />
                                                         </FormControl>
                                                         <FormMessage />
                                                     </FormItem>
@@ -236,15 +250,50 @@ function ResultEntryPageComponent() {
                         })}
 
                         <div className="flex justify-end pt-4">
-                            <Button type="submit" disabled={form.formState.isSubmitting || sample.status === 'Verified'}>
+                            <Button type="submit" disabled={form.formState.isSubmitting || isFullyVerified}>
                                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                {sample.status === 'Verified' ? <><CheckCircle className="mr-2 h-4 w-4" /> Fully Verified</> : <><Save className="mr-2 h-4 w-4" /> Save & Verify Results</>}
+                                {isFullyVerified ? <><CheckCircle className="mr-2 h-4 w-4" /> Fully Verified</> : <><Save className="mr-2 h-4 w-4" /> Save & Verify Results</>}
                             </Button>
                         </div>
                     </form>
                 </Form>
             </CardContent>
         </Card>
+        
+        <Dialog open={deltaCheckModalOpen} onOpenChange={setDeltaCheckModalOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2 text-yellow-400">
+                        <FileWarning /> Delta Check Failure
+                    </DialogTitle>
+                    <DialogDescription>
+                        The result for **{deltaCheckTest?.name}** is significantly different from the patient's previous result.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-2 gap-4 my-4">
+                    <div className="text-center p-4 rounded-lg bg-secondary">
+                        <p className="text-sm text-muted-foreground">Previous Result</p>
+                        <p className="text-2xl font-bold">4.1 <span className="text-base text-muted-foreground">{deltaCheckTest?.resultUnits}</span></p>
+                        <p className="text-xs text-muted-foreground">Yesterday</p>
+                    </div>
+                    <div className="text-center p-4 rounded-lg bg-yellow-900/50 border border-yellow-500/50">
+                        <p className="text-sm text-yellow-400">Current Result</p>
+                        <p className="text-2xl font-bold text-yellow-300">7.0 <span className="text-base text-muted-foreground">{deltaCheckTest?.resultUnits}</span></p>
+                        <p className="text-xs text-muted-foreground">Now</p>
+                    </div>
+                </div>
+                 <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Action Required</AlertTitle>
+                    <AlertDescription>
+                        Please investigate for potential pre-analytical errors (e.g., IV contamination) or instrument issues before releasing this result. Document your findings in the notes section.
+                    </AlertDescription>
+                </Alert>
+                <div className="flex justify-end pt-4">
+                     <Button onClick={() => setDeltaCheckModalOpen(false)}>Acknowledge & Continue</Button>
+                </div>
+            </DialogContent>
+        </Dialog>
     </div>
   );
 }
