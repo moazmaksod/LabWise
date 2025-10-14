@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { decrypt } from '@/lib/auth';
-import type { Order, OrderTest } from '@/lib/types';
+import type { Order, OrderTest, QCLog } from '@/lib/types';
 
 function isAbnormal(value: any, range: string | undefined): boolean {
     if (!range) return false;
@@ -47,7 +47,6 @@ export async function POST(req: NextRequest) {
              return NextResponse.json({ message: 'Sample with that accession number not found in the order.' }, { status: 404 });
         }
         
-        // Prevent re-verification of an already verified sample
         if (order.samples[sampleIndex].status === 'Verified') {
             return NextResponse.json({ message: 'This sample has already been fully verified.' }, { status: 409 });
         }
@@ -58,33 +57,43 @@ export async function POST(req: NextRequest) {
         for (const result of results) {
             const testIndex = order.samples[sampleIndex].tests.findIndex(t => t.testCode === result.testCode);
             if (testIndex !== -1) {
+                const originalTest = order.samples[sampleIndex].tests[testIndex];
+                
+                // New QC Check Logic
+                const latestQcRun = await db.collection<QCLog>('qcLogs').findOne(
+                    { testCode: result.testCode },
+                    { sort: { runTimestamp: -1 } }
+                );
+
+                const isQcFailed = latestQcRun && !latestQcRun.isPass;
+                // End New QC Check Logic
+
                 updates[`samples.${sampleIndex}.tests.${testIndex}.resultValue`] = result.value;
                 updates[`samples.${sampleIndex}.tests.${testIndex}.notes`] = result.notes;
                 
-                const originalTest = order.samples[sampleIndex].tests[testIndex];
-                
-                // Logic for verification
                 const isAbnormalResult = isAbnormal(result.value, originalTest.referenceRange);
-                // Simulate a delta check failure for demonstration purposes
-                const failsDeltaCheck = Math.random() < 0.05; // 5% chance of failing delta check
-                const isManualReviewRequired = isAbnormalResult || failsDeltaCheck;
+                const failsDeltaCheck = Math.random() < 0.05;
 
+                const newFlags = originalTest.flags?.filter(f => f !== 'DELTA_CHECK_FAILED' && f !== 'QC_HOLD') || [];
+                if (failsDeltaCheck) newFlags.push('DELTA_CHECK_FAILED');
+                if (isQcFailed) newFlags.push('QC_HOLD');
+                
+                updates[`samples.${sampleIndex}.tests.${testIndex}.flags`] = newFlags;
                 updates[`samples.${sampleIndex}.tests.${testIndex}.isAbnormal`] = isAbnormalResult;
                 
+                const isManualReviewRequired = isAbnormalResult || failsDeltaCheck || isQcFailed;
+
                 if (isManualReviewRequired) {
                     updates[`samples.${sampleIndex}.tests.${testIndex}.status`] = 'AwaitingVerification';
-                    updates[`samples.${sampleIndex}.tests.${testIndex}.flags`] = failsDeltaCheck ? ['DELTA_CHECK_FAILED'] : [];
-                    allTestsInSampleAreNowVerified = false; // This test needs manual review
+                    allTestsInSampleAreNowVerified = false;
                 } else {
                     updates[`samples.${sampleIndex}.tests.${testIndex}.status`] = 'Verified';
                     updates[`samples.${sampleIndex}.tests.${testIndex}.verifiedBy`] = new ObjectId(userPayload.userId as string);
                     updates[`samples.${sampleIndex}.tests.${testIndex}.verifiedAt`] = new Date();
-                    updates[`samples.${sampleIndex}.tests.${testIndex}.flags`] = [];
                 }
             }
         }
         
-        // Update sample and order status
         if (Object.keys(updates).length > 0) {
             if(allTestsInSampleAreNowVerified) {
                 updates[`samples.${sampleIndex}.status`] = 'Verified';
@@ -92,28 +101,17 @@ export async function POST(req: NextRequest) {
                 updates[`samples.${sampleIndex}.status`] = 'AwaitingVerification';
             }
             
-            await db.collection('orders').updateOne(
-                { _id: order._id },
-                { $set: updates }
-            );
+            await db.collection('orders').updateOne({ _id: order._id }, { $set: updates });
 
-            // After applying updates, refetch the order to check its final state
             const updatedOrder = await db.collection<Order>('orders').findOne({ _id: order._id });
             const allSamplesInOrderVerified = updatedOrder?.samples.every(s => s.status === 'Verified');
 
             if (allSamplesInOrderVerified) {
-                 await db.collection('orders').updateOne(
-                    { _id: order._id },
-                    { $set: { orderStatus: 'Complete' } }
-                );
+                 await db.collection('orders').updateOne({ _id: order._id }, { $set: { orderStatus: 'Complete' } });
             } else {
-                // If some but not all are done, it's partially complete
                  const someSamplesVerified = updatedOrder?.samples.some(s => s.status === 'Verified');
                  if (someSamplesVerified) {
-                      await db.collection('orders').updateOne(
-                        { _id: order._id },
-                        { $set: { orderStatus: 'Partially Complete' } }
-                    );
+                      await db.collection('orders').updateOne({ _id: order._id }, { $set: { orderStatus: 'Partially Complete' } });
                  }
             }
         }
