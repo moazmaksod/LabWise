@@ -202,6 +202,13 @@ export type ClientAppointment = Omit<Appointment, '_id' | 'patientId' | 'orderId
 };
 
 // --- Sprint 8 Additions ---
+export type MaintenanceLog = {
+    logType: 'Maintenance' | 'Calibration' | 'Repair' | 'Error';
+    description: string;
+    performedBy: ObjectId;
+    timestamp: Date;
+};
+
 export type Instrument = {
     _id: ObjectId;
     instrumentId: string; // User-defined unique ID
@@ -209,11 +216,15 @@ export type Instrument = {
     model: string;
     status: 'Online' | 'Offline' | 'Maintenance';
     lastCalibrationDate: Date;
+    maintenanceLogs?: MaintenanceLog[];
     createdAt: Date;
     updatedAt: Date;
 };
 
-export type ClientInstrument = Omit<Instrument, '_id'> & { id: string };
+export type ClientInstrument = Omit<Instrument, '_id' | 'maintenanceLogs'> & { 
+  id: string;
+  maintenanceLogs?: (Omit<MaintenanceLog, 'performedBy'> & { performedBy: string })[];
+};
 
 export type QCLog = {
     _id: ObjectId;
@@ -242,7 +253,7 @@ export type ClientQCLog = Omit<QCLog, '_id' | 'instrumentId' | 'performedBy' | '
   };
 };
 
-export type MaintenanceLog = {
+export type OldMaintenanceLog = {
     _id: ObjectId;
     instrumentId: ObjectId;
     logType: 'Maintenance' | 'Calibration' | 'Repair' | 'Error';
