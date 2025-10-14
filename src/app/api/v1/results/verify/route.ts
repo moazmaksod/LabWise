@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
         }
         
         const updates: any = {};
-        let allTestsVerified = true;
+        let allTestsVerifiedInSample = true;
 
         for (const result of results) {
             const testIndex = order.samples[sampleIndex].tests.findIndex(t => t.testCode === result.testCode);
@@ -52,18 +53,19 @@ export async function POST(req: NextRequest) {
                     updates[`samples.${sampleIndex}.tests.${testIndex}.verifiedBy`] = new ObjectId(userPayload.userId as string);
                     updates[`samples.${sampleIndex}.tests.${testIndex}.verifiedAt`] = new Date();
                     updates[`samples.${sampleIndex}.tests.${testIndex}.isAbnormal`] = false;
+                    updates[`samples.${sampleIndex}.tests.${testIndex}.flags`] = [];
                 } else {
                     updates[`samples.${sampleIndex}.tests.${testIndex}.status`] = 'AwaitingVerification';
                     updates[`samples.${sampleIndex}.tests.${testIndex}.isAbnormal`] = !isNormal;
                     updates[`samples.${sampleIndex}.tests.${testIndex}.flags`] = !passesDeltaCheck ? ['DELTA_CHECK_FAILED'] : [];
-                    allTestsVerified = false; // A test requires manual review
+                    allTestsVerifiedInSample = false; // A test requires manual review
                 }
             }
         }
         
         // Update sample and order status
         if (Object.keys(updates).length > 0) {
-            if(allTestsVerified) {
+            if(allTestsVerifiedInSample) {
                 updates[`samples.${sampleIndex}.status`] = 'Verified';
             } else {
                 updates[`samples.${sampleIndex}.status`] = 'AwaitingVerification';
@@ -76,7 +78,9 @@ export async function POST(req: NextRequest) {
 
             // Check if all samples in the order are now verified to update order status
             const updatedOrder = await db.collection<Order>('orders').findOne({ _id: order._id });
-            if (updatedOrder && updatedOrder.samples.every(s => s.status === 'Verified')) {
+            const allSamplesInOrderVerified = updatedOrder?.samples.every(s => s.status === 'Verified');
+
+            if (allSamplesInOrderVerified) {
                  await db.collection('orders').updateOne(
                     { _id: order._id },
                     { $set: { orderStatus: 'Complete' } }
@@ -88,7 +92,7 @@ export async function POST(req: NextRequest) {
             message: "Results processed successfully.",
             orderId: order.orderId,
             accessionNumber: accessionNumber,
-            newStatus: allTestsVerified ? 'Verified' : 'AwaitingVerification'
+            newStatus: allTestsVerifiedInSample ? 'Verified' : 'AwaitingVerification'
         }, { status: 200 });
 
     } catch (error: any) {
