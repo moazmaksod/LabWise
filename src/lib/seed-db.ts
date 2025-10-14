@@ -4,7 +4,7 @@
 import { connectToDatabase } from '@/lib/mongodb';
 import { hash } from 'bcryptjs';
 import { USERS } from '@/lib/constants';
-import type { User, Appointment, Patient } from '@/lib/types';
+import type { User, Appointment, Patient, Instrument, QCLog } from '@/lib/types';
 import { MongoClient, Db, ObjectId } from 'mongodb';
 
 async function seedAppointments(db: Db) {
@@ -39,11 +39,11 @@ async function seedAppointments(db: Db) {
     
     const now = new Date();
     const appointmentsToInsert: Omit<Appointment, '_id'>[] = [
-        { patientId: patients[0]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0), durationMinutes: 15, status: 'Completed', notes: 'Patient was a little late.' },
-        { patientId: patients[1]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 15), durationMinutes: 15, status: 'Completed', notes: '' },
-        { patientId: patients[2]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 30), durationMinutes: 15, status: 'CheckedIn', notes: 'Waiting for phlebotomist.' },
-        { patientId: patients[3]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 45), durationMinutes: 15, status: 'Scheduled', notes: '' },
-        { patientId: patients[4]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0), durationMinutes: 15, status: 'Scheduled', notes: 'Needs a butterfly needle.' },
+        { patientId: patients[0]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0), durationMinutes: 15, status: 'Completed', notes: 'Patient was a little late.', appointmentType: 'Consultation' },
+        { patientId: patients[1]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 15), durationMinutes: 15, status: 'Completed', notes: '', appointmentType: 'Consultation' },
+        { patientId: patients[2]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 30), durationMinutes: 15, status: 'CheckedIn', notes: 'Waiting for phlebotomist.', appointmentType: 'Sample Collection' },
+        { patientId: patients[3]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 45), durationMinutes: 15, status: 'Scheduled', notes: '', appointmentType: 'Sample Collection' },
+        { patientId: patients[4]._id, scheduledTime: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0), durationMinutes: 15, status: 'Scheduled', notes: 'Needs a butterfly needle.', appointmentType: 'Sample Collection' },
     ];
     await appointmentsCollection.insertMany(appointmentsToInsert);
 
@@ -87,6 +87,33 @@ async function seedUsers(db: Db) {
     }
 }
 
+async function seedInstruments(db: Db) {
+    const instrumentsCollection = db.collection('instruments');
+    const count = await instrumentsCollection.countDocuments();
+    if (count > 0) {
+        return; // Already seeded
+    }
+
+    console.log('Seeding instruments...');
+    const instrumentsToInsert: Omit<Instrument, '_id'>[] = [
+        { instrumentId: 'INST-001', name: 'ARCHITECT c4000', model: 'Chemistry Analyzer', status: 'Online', lastCalibrationDate: new Date('2024-07-26'), createdAt: new Date(), updatedAt: new Date() },
+        { instrumentId: 'INST-002', name: 'Sysmex XN-1000', model: 'Hematology Analyzer', status: 'Online', lastCalibrationDate: new Date('2024-07-25'), createdAt: new Date(), updatedAt: new Date() },
+        { instrumentId: 'INST-003', name: 'ACL TOP 550', model: 'Coagulation Analyzer', status: 'Maintenance', lastCalibrationDate: new Date('2024-07-20'), createdAt: new Date(), updatedAt: new Date() },
+        { instrumentId: 'INST-004', name: 'VITEK 2 Compact', model: 'Microbiology Analyzer', status: 'Offline', lastCalibrationDate: new Date('2024-07-22'), createdAt: new Date(), updatedAt: new Date() },
+    ];
+
+    await instrumentsCollection.insertMany(instrumentsToInsert);
+    await instrumentsCollection.createIndex({ instrumentId: 1 }, { unique: true });
+    console.log('Instruments seeded successfully.');
+}
+
+async function seedQcLogs(db: Db) {
+    const qcLogsCollection = db.collection('qcLogs');
+    // Just ensure indexes exist, no seeding needed for logs.
+    await qcLogsCollection.createIndex({ instrumentId: 1 });
+    await qcLogsCollection.createIndex({ runTimestamp: -1 });
+}
+
 
 // A wrapper to ensure the seeding logic is self-contained and handles its own DB connection.
 export async function seedDatabase() {
@@ -112,6 +139,8 @@ export async function seedDatabase() {
 
         await seedUsers(db);
         await seedAppointments(db);
+        await seedInstruments(db);
+        await seedQcLogs(db);
 
     } catch (error) {
         console.error('Error during database seed check:', error);
