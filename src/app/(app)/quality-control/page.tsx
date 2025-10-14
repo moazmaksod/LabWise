@@ -178,11 +178,11 @@ export default function QualityControlPage() {
                     <ReferenceLine y={MEAN - 3 * SD} label="-3 SD" stroke="hsl(var(--destructive))" strokeWidth={1.5} />
 
                     <Line type="monotone" dataKey="value" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={(props) => {
-                      const { cx, cy, payload } = props;
+                      const { cx, cy, payload, index } = props;
                       if (payload.isFail) {
-                        return <circle cx={cx} cy={cy} r={5} fill="hsl(var(--destructive))" stroke="white" strokeWidth={2} />;
+                        return <circle key={`dot-${index}`} cx={cx} cy={cy} r={5} fill="hsl(var(--destructive))" stroke="white" strokeWidth={2} />;
                       }
-                      return <circle cx={cx} cy={cy} r={3} fill="hsl(var(--chart-1))" />;
+                      return <circle key={`dot-${index}`} cx={cx} cy={cy} r={3} fill="hsl(var(--chart-1))" />;
                     }} />
                 </RechartsLineChart>
               </ResponsiveContainer>
