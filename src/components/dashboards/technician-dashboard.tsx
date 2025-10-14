@@ -27,6 +27,7 @@ import type { OrderSample } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type WorklistItem = {
     sampleId: string;
@@ -79,6 +80,97 @@ const priorityIcons: Record<string, React.ReactNode> = {
 
 type SortKey = keyof WorklistItem | '';
 
+function WorklistTable({ samples, loading, onSort, sortConfig }: { samples: WorklistItem[], loading: boolean, onSort: (key: SortKey) => void, sortConfig: { key: SortKey, direction: string } }) {
+    const router = useRouter();
+
+    const getSortIndicator = (key: SortKey) => {
+        if (sortConfig.key === key) {
+        return sortConfig.direction === 'ascending' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
+        }
+        return null;
+    };
+    
+    const headers: { label: string; key: SortKey; }[] = [
+        { label: 'Priority', key: 'priority' },
+        { label: 'Accession #', key: 'accessionNumber' },
+        { label: 'Patient', key: 'patientName' },
+        { label: 'Test(s)', key: 'tests' },
+        { label: 'Sample Status', key: 'status' },
+        { label: 'Received', key: 'receivedTimestamp' },
+        { label: 'Due', key: 'dueTimestamp' },
+    ];
+
+    return (
+        <div className="overflow-hidden rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-secondary hover:bg-secondary">
+                {headers.map(({label, key}) => (
+                    <TableHead key={key}>
+                        <Button variant="ghost" onClick={() => onSort(key)} className="px-2 py-1 h-auto">
+                            {label}
+                            <span className="ml-2">{getSortIndicator(key)}</span>
+                        </Button>
+                    </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                Array.from({length: 5}).map((_, i) => (
+                  <TableRow key={i}><TableCell colSpan={headers.length}><div className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin"/> <span>Loading worklist...</span></div></TableCell></TableRow>
+                ))
+              ) : samples.length > 0 ? (
+                samples.map((sample) => {
+                  const isOverdue = new Date(sample.dueTimestamp) < new Date() && sample.status !== 'Verified';
+                  let priorityStatus;
+                  if (sample.priority === 'STAT') {
+                    priorityStatus = 'STAT';
+                  } else if (isOverdue) {
+                    priorityStatus = 'Overdue';
+                  } else {
+                    priorityStatus = 'Routine';
+                  }
+
+                  return (
+                    <TableRow
+                      key={sample.sampleId}
+                      className={cn('cursor-pointer font-medium', (statusStyles as any)[priorityStatus]?.row, sample.status === 'Verified' && statusStyles.Verified.row)}
+                      onClick={() => router.push(`/results/${sample.accessionNumber}`)}
+                    >
+                      <TableCell>
+                         <Badge variant="outline" className={cn('gap-1.5 font-semibold', (statusStyles as any)[priorityStatus]?.badge)}>
+                           {priorityIcons[priorityStatus]}
+                           {priorityStatus}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono">{sample.accessionNumber}</TableCell>
+                      <TableCell>
+                        <div>{sample.patientName}</div>
+                        <div className="text-sm text-muted-foreground">{`MRN: ${sample.patientMrn}`}</div>
+                      </TableCell>
+                      <TableCell>{sample.tests.map(t => t.name).join(', ')}</TableCell>
+                      <TableCell>
+                         <Badge variant="outline" className={cn('gap-1.5 font-semibold', (statusStyles as any)[sample.status]?.badge)}>
+                          {sample.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{format(parseISO(sample.receivedTimestamp), 'p')}</TableCell>
+                      <TableCell className={cn(isOverdue && 'text-yellow-400 font-semibold')}>
+                        {format(parseISO(sample.dueTimestamp), 'p')}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow><TableCell colSpan={headers.length} className="text-center h-24">No samples in the worklist match your criteria.</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+    )
+}
+
 export default function TechnicianDashboard() {
   const [worklist, setWorklist] = useState<WorklistItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,7 +180,6 @@ export default function TechnicianDashboard() {
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'ascending' | 'descending' }>({ key: '', direction: 'ascending' });
   const { toast } = useToast();
   const [token, setToken] = useState<string|null>(null);
-  const router = useRouter();
 
   useEffect(() => {
     const storedToken = localStorage.getItem('labwise-token');
@@ -122,7 +213,7 @@ export default function TechnicianDashboard() {
       if(token) fetchWorklist();
   }, [token, fetchWorklist]);
 
-  const sortedAndFilteredSamples = useMemo(() => {
+  const filteredSamples = useMemo(() => {
     let tempSamples = [...worklist];
 
     // Filter by search term
@@ -150,6 +241,11 @@ export default function TechnicianDashboard() {
         tempSamples = tempSamples.filter(sample => sample.status === resultFilter);
     }
 
+    return tempSamples;
+  }, [searchTerm, priorityFilter, resultFilter, worklist]);
+
+  const sortedAndFilteredSamples = useMemo(() => {
+    let tempSamples = [...filteredSamples];
     // Sort data
     if (sortConfig.key) {
         tempSamples.sort((a, b) => {
@@ -164,9 +260,12 @@ export default function TechnicianDashboard() {
             return 0;
         });
     }
-
     return tempSamples;
-  }, [searchTerm, priorityFilter, resultFilter, sortConfig, worklist]);
+  }, [filteredSamples, sortConfig]);
+
+  const activeWorklistSamples = useMemo(() => sortedAndFilteredSamples.filter(s => s.status !== 'Verified'), [sortedAndFilteredSamples]);
+  const verifiedLogSamples = useMemo(() => sortedAndFilteredSamples.filter(s => s.status === 'Verified'), [sortedAndFilteredSamples]);
+
   
   const requestSort = (key: SortKey) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -176,136 +275,63 @@ export default function TechnicianDashboard() {
     setSortConfig({ key, direction });
   };
 
-  const getSortIndicator = (key: SortKey) => {
-    if (sortConfig.key === key) {
-      return sortConfig.direction === 'ascending' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
-    }
-    return null;
-  };
-  
-  type HeaderKey = { label: string; key: SortKey; };
-  const headers: HeaderKey[] = [
-      { label: 'Accession #', key: 'accessionNumber' },
-      { label: 'Patient', key: 'patientName' },
-      { label: 'Test(s)', key: 'tests' },
-      { label: 'Priority', key: 'priority' },
-      { label: 'Sample Status', key: 'status' },
-      { label: 'Received', key: 'receivedTimestamp' },
-      { label: 'Due', key: 'dueTimestamp' },
-  ];
-
   return (
     <Card className="shadow-lg">
       <CardHeader>
-        <CardTitle>Technician Worklist</CardTitle>
+        <CardTitle>Technician Dashboard</CardTitle>
         <CardDescription>
           Real-time, prioritized list of samples for processing.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-col md:flex-row items-center gap-4">
-            <div className="relative flex-grow w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                    placeholder="Search by name, accession, or test..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                />
+        <Tabs defaultValue="worklist">
+            <div className="flex flex-col md:flex-row items-center gap-4">
+                <TabsList className="grid w-full md:w-auto grid-cols-2">
+                    <TabsTrigger value="worklist">Active Worklist</TabsTrigger>
+                    <TabsTrigger value="verified">Verified Log</TabsTrigger>
+                </TabsList>
+                <div className="relative flex-grow w-full">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        placeholder="Search by name, accession, or test..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
+                    />
+                </div>
+                <div className="flex w-full md:w-auto items-center gap-2">
+                    <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                        <SelectTrigger className="flex-1 md:w-[150px]">
+                            <SelectValue placeholder="Filter by priority" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="All">All Priorities</SelectItem>
+                            <SelectItem value="STAT">STAT</SelectItem>
+                            <SelectItem value="Overdue">Overdue</SelectItem>
+                            <SelectItem value="Routine">Routine</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Select value={resultFilter} onValueChange={setResultFilter}>
+                        <SelectTrigger className="flex-1 md:w-[180px]">
+                            <SelectValue placeholder="Filter by status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="All">All Statuses</SelectItem>
+                            <SelectItem value="InLab">In Lab</SelectItem>
+                            <SelectItem value="Testing">Testing</SelectItem>
+                            <SelectItem value="AwaitingVerification">Awaiting Verification</SelectItem>
+                            <SelectItem value="Verified">Verified</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
-            <div className="flex w-full md:w-auto items-center gap-2">
-                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                    <SelectTrigger className="flex-1 md:w-[150px]">
-                        <SelectValue placeholder="Filter by priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="All">All Priorities</SelectItem>
-                        <SelectItem value="STAT">STAT</SelectItem>
-                        <SelectItem value="Overdue">Overdue</SelectItem>
-                        <SelectItem value="Routine">Routine</SelectItem>
-                    </SelectContent>
-                </Select>
-                 <Select value={resultFilter} onValueChange={setResultFilter}>
-                    <SelectTrigger className="flex-1 md:w-[180px]">
-                        <SelectValue placeholder="Filter by status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="All">All Statuses</SelectItem>
-                        <SelectItem value="InLab">In Lab</SelectItem>
-                        <SelectItem value="Testing">Testing</SelectItem>
-                        <SelectItem value="AwaitingVerification">Awaiting Verification</SelectItem>
-                        <SelectItem value="Verified">Verified</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-        </div>
-        <div className="overflow-hidden rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-secondary hover:bg-secondary">
-                {headers.map(({label, key}) => (
-                    <TableHead key={key}>
-                        <Button variant="ghost" onClick={() => requestSort(key)} className="px-2 py-1 h-auto">
-                            {label}
-                            <span className="ml-2">{getSortIndicator(key)}</span>
-                        </Button>
-                    </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                Array.from({length: 5}).map((_, i) => (
-                  <TableRow key={i}><TableCell colSpan={7}><div className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin"/> <span>Loading worklist...</span></div></TableCell></TableRow>
-                ))
-              ) : sortedAndFilteredSamples.length > 0 ? (
-                sortedAndFilteredSamples.map((sample) => {
-                  const isOverdue = new Date(sample.dueTimestamp) < new Date() && sample.status !== 'Verified';
-                  let priorityStatus;
-                  if (sample.priority === 'STAT') {
-                    priorityStatus = 'STAT';
-                  } else if (isOverdue) {
-                    priorityStatus = 'Overdue';
-                  } else {
-                    priorityStatus = 'Routine';
-                  }
-
-                  return (
-                    <TableRow
-                      key={sample.sampleId}
-                      className={cn('cursor-pointer font-medium', (statusStyles as any)[priorityStatus]?.row, statusStyles.Verified.row)}
-                      onClick={() => router.push(`/results/${sample.accessionNumber}`)}
-                    >
-                      <TableCell className="font-mono">{sample.accessionNumber}</TableCell>
-                      <TableCell>
-                        <div>{sample.patientName}</div>
-                        <div className="text-sm text-muted-foreground">{`MRN: ${sample.patientMrn}`}</div>
-                      </TableCell>
-                      <TableCell>{sample.tests.map(t => t.name).join(', ')}</TableCell>
-                      <TableCell>
-                         <Badge variant="outline" className={cn('gap-1.5 font-semibold', (statusStyles as any)[priorityStatus]?.badge)}>
-                           {priorityIcons[priorityStatus]}
-                           {priorityStatus}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                         <Badge variant="outline" className={cn('gap-1.5 font-semibold', (statusStyles as any)[sample.status]?.badge)}>
-                          {sample.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{format(parseISO(sample.receivedTimestamp), 'p')}</TableCell>
-                      <TableCell className={cn(isOverdue && 'text-yellow-400 font-semibold')}>
-                        {format(parseISO(sample.dueTimestamp), 'p')}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              ) : (
-                <TableRow><TableCell colSpan={7} className="text-center h-24">No samples in the worklist match your criteria.</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+            <TabsContent value="worklist" className="mt-4">
+                <WorklistTable samples={activeWorklistSamples} loading={loading} onSort={requestSort} sortConfig={sortConfig} />
+            </TabsContent>
+            <TabsContent value="verified" className="mt-4">
+                <WorklistTable samples={verifiedLogSamples} loading={loading} onSort={requestSort} sortConfig={sortConfig} />
+            </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
