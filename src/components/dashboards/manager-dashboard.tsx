@@ -177,9 +177,10 @@ export default function ManagerDashboard() {
   }, [toast]);
   
   const rejectionChartData = kpiData?.rejectionReasons.map(item => ({
-      ...item,
-      fill: `var(--color-${item.reason.replace(/\s/g, '-')})`,
+    ...item,
+    fill: rejectionChartConfig[item.reason as keyof typeof rejectionChartConfig]?.color || 'hsl(var(--muted))',
   })) || [];
+
 
   return (
     <div className="space-y-8">
@@ -264,7 +265,7 @@ export default function ManagerDashboard() {
                     <ChartTooltip content={<ChartTooltipContent nameKey="reason" hideLabel />} />
                     <Pie data={rejectionChartData} dataKey="count" nameKey="reason" innerRadius={60} strokeWidth={5}>
                     {rejectionChartData.map((entry) => (
-                        <Cell key={entry.reason} fill={entry.fill} />
+                        <Cell key={`cell-${entry.reason}`} fill={entry.fill} />
                     ))}
                     </Pie>
                     <ChartLegend content={<ChartLegendContent nameKey="reason" />} className="-translate-y-2 flex-wrap gap-2" />
@@ -285,6 +286,7 @@ export default function ManagerDashboard() {
                 <BarChart accessibilityLayer data={kpiData.workloadDistribution} margin={{ top: 0, right: 0, left: 0, bottom: -10 }}>
                     <CartesianGrid vertical={false} />
                     <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} tick={false} />
+                    <YAxis />
                     <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
                     <Bar dataKey="samples" fill="var(--color-samples)" radius={4} />
                 </BarChart>
