@@ -44,7 +44,7 @@ const rejectionChartConfig = {
   },
   QNS: {
     label: 'QNS',
-    color: '#00FF00', // Hardcoded bright green for debugging
+    color: 'hsl(var(--chart-2))',
   },
   Mislabeled: {
     label: 'Mislabeled',
@@ -181,12 +181,6 @@ export default function ManagerDashboard() {
     name: item.reason,
     fill: rejectionChartConfig[item.reason as keyof typeof rejectionChartConfig]?.color || 'hsl(var(--muted))',
   })) || [];
-
-  // DEBUGGING CODE
-  console.log("--- DEBUG: Chart Data ---");
-  console.log("Chart Config:", rejectionChartConfig);
-  console.log("Data being passed to chart:", rejectionChartData);
-
 
   return (
     <div className="space-y-8">
