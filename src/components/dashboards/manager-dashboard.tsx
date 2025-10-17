@@ -179,7 +179,7 @@ export default function ManagerDashboard() {
   const rejectionChartData = kpiData?.rejectionReasons.map(item => ({
     reason: item.reason,
     count: item.count,
-    name: item.reason, // Explicitly add name key for recharts to lookup in config
+    name: item.reason,
     fill: rejectionChartConfig[item.reason as keyof typeof rejectionChartConfig]?.color || 'hsl(var(--muted))',
   })) || [];
 
