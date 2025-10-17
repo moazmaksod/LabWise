@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
 import type { ChartConfig } from '@/components/ui/chart';
-import { MOCK_REJECTION_DATA, MOCK_TAT_DATA } from '@/lib/constants';
+import { MOCK_REJECTION_DATA, MOCK_STAFF_WORKLOAD_DATA, MOCK_TAT_DATA } from '@/lib/constants';
 import { IntelligentReporting } from '../intelligent-reporting';
 import type { ClientInstrument } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -61,6 +61,13 @@ const rejectionChartConfig = {
     color: 'hsl(var(--chart-5))',
   },
 } satisfies ChartConfig;
+
+const workloadChartConfig = {
+  samples: {
+    label: "Samples",
+    color: "hsl(var(--chart-1))",
+  },
+} satisfies ChartConfig
 
 const statusConfig = {
   Online: { icon: Server, color: 'text-green-400' },
@@ -145,7 +152,18 @@ export default function ManagerDashboard() {
             <CardDescription>Samples pending per tech</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold">8.4</p>
+            <ChartContainer config={workloadChartConfig} className="h-[120px] w-full">
+              <BarChart accessibilityLayer data={MOCK_STAFF_WORKLOAD_DATA} margin={{ top: 0, right: 0, left: -25, bottom: -10 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} />
+                <YAxis tickLine={false} axisLine={false} />
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent indicator="line" />}
+                />
+                <Bar dataKey="samples" fill="var(--color-samples)" radius={4} />
+              </BarChart>
+            </ChartContainer>
           </CardContent>
         </Card>
         <Card className="shadow-lg">

@@ -167,3 +167,11 @@ export const MOCK_REJECTION_DATA = [
   { reason: 'Improper Container', count: 10 },
   { reason: 'Other', count: 5 },
 ];
+
+export const MOCK_STAFF_WORKLOAD_DATA = [
+  { name: 'David R.', samples: 12 },
+  { name: 'Maria S.', samples: 8 },
+  { name: 'Jessica W.', samples: 15 },
+  { name: 'Kevin L.', samples: 5 },
+  { name: 'Laura C.', samples: 10 },
+];
