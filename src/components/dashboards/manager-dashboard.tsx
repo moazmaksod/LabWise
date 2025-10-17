@@ -177,7 +177,9 @@ export default function ManagerDashboard() {
   }, [toast]);
   
   const rejectionChartData = kpiData?.rejectionReasons.map(item => ({
-    ...item,
+    reason: item.reason,
+    count: item.count,
+    name: item.reason, // Explicitly add name key for recharts to lookup in config
     fill: rejectionChartConfig[item.reason as keyof typeof rejectionChartConfig]?.color || 'hsl(var(--muted))',
   })) || [];
 
@@ -263,12 +265,12 @@ export default function ManagerDashboard() {
                 <ChartContainer config={rejectionChartConfig} className="h-[250px] w-full">
                 <PieChart>
                     <ChartTooltip content={<ChartTooltipContent nameKey="reason" hideLabel />} />
-                    <Pie data={rejectionChartData} dataKey="count" nameKey="reason" innerRadius={60} strokeWidth={5}>
+                    <Pie data={rejectionChartData} dataKey="count" nameKey="name" innerRadius={60} strokeWidth={5}>
                     {rejectionChartData.map((entry) => (
                         <Cell key={`cell-${entry.reason}`} fill={entry.fill} />
                     ))}
                     </Pie>
-                    <ChartLegend content={<ChartLegendContent nameKey="reason" />} className="-translate-y-2 flex-wrap gap-2" />
+                    <ChartLegend content={<ChartLegendContent nameKey="name" />} className="-translate-y-2 flex-wrap gap-2" />
                 </PieChart>
                 </ChartContainer>
              )}
