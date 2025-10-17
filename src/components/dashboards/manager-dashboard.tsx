@@ -15,7 +15,7 @@ import {
   ChartLegend,
   ChartLegendContent,
 } from '@/components/ui/chart';
-import { Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, Cell } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, Cell, XAxis, YAxis } from 'recharts';
 import type { ChartConfig } from '@/components/ui/chart';
 import { MOCK_REJECTION_DATA, MOCK_STAFF_WORKLOAD_DATA, MOCK_TAT_DATA } from '@/lib/constants';
 import type { ClientInstrument } from '@/lib/types';
