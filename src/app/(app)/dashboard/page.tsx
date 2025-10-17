@@ -1,4 +1,3 @@
-
 'use client';
 import { useUser } from '@/hooks/use-user';
 import ManagerDashboard from '@/components/dashboards/manager-dashboard';
