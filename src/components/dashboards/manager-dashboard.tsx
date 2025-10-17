@@ -17,12 +17,11 @@ import {
 } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, Cell, XAxis, YAxis } from 'recharts';
 import type { ChartConfig } from '@/components/ui/chart';
-import { MOCK_REJECTION_DATA, MOCK_STAFF_WORKLOAD_DATA, MOCK_TAT_DATA } from '@/lib/constants';
 import type { ClientInstrument } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { cn } from '@/lib/utils';
-import { Server, Wrench, CircleOff } from 'lucide-react';
+import { Server, Wrench, CircleOff, Loader2 } from 'lucide-react';
 
 const tatChartConfig = {
   STAT: {
@@ -51,7 +50,7 @@ const rejectionChartConfig = {
     label: 'Mislabeled',
     color: 'hsl(var(--chart-3))',
   },
-  'Improper-Container': { // CSS-friendly key
+  'Improper Container': {
     label: 'Improper Container',
     color: 'hsl(var(--chart-4))',
   },
@@ -60,6 +59,7 @@ const rejectionChartConfig = {
     color: 'hsl(var(--chart-5))',
   },
 } satisfies ChartConfig;
+
 
 const workloadChartConfig = {
   samples: {
@@ -73,6 +73,16 @@ const statusConfig = {
   Maintenance: { icon: Wrench, color: 'text-yellow-400' },
   Offline: { icon: CircleOff, color: 'text-red-500' },
 };
+
+type KpiData = {
+    averageTat: { stat: number; routine: number };
+    rejectionRate: number;
+    instrumentUptime: number;
+    staffWorkload: number;
+    tatHistory: { hour: string; Routine: number; STAT: number }[];
+    rejectionReasons: { reason: string; count: number }[];
+    workloadDistribution: { name: string; samples: number }[];
+}
 
 function InstrumentStatusWidget() {
   const [instruments, setInstruments] = useState<ClientInstrument[]>([]);
@@ -142,6 +152,35 @@ function InstrumentStatusWidget() {
 
 
 export default function ManagerDashboard() {
+  const [kpiData, setKpiData] = useState<KpiData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchKpiData = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('labwise-token');
+        const response = await fetch('/api/v1/reports/kpi', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Failed to fetch KPI data.');
+        const data = await response.json();
+        setKpiData(data);
+      } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Error', description: error.message });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchKpiData();
+  }, [toast]);
+  
+  const rejectionChartData = kpiData?.rejectionReasons.map(item => ({
+      ...item,
+      fill: `var(--color-${item.reason.replace(/\s/g, '-')})`,
+  })) || [];
+
   return (
     <div className="space-y-8">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -152,36 +191,38 @@ export default function ManagerDashboard() {
             <CardDescription>Samples pending per tech</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={workloadChartConfig} className="h-[120px] w-full">
-              <BarChart accessibilityLayer data={MOCK_STAFF_WORKLOAD_DATA} margin={{ top: 0, right: 0, left: -25, bottom: -10 }}>
-                <CartesianGrid vertical={false} />
-                <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} tick={false} />
-                <YAxis tickLine={false} axisLine={false} />
-                <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent indicator="line" />}
-                />
-                <Bar dataKey="samples" fill="var(--color-samples)" radius={4} />
-              </BarChart>
-            </ChartContainer>
+             {loading ? <Skeleton className="h-[120px] w-full"/> : kpiData && (
+                <ChartContainer config={workloadChartConfig} className="h-[120px] w-full">
+                <BarChart accessibilityLayer data={kpiData.workloadDistribution} margin={{ top: 0, right: 0, left: 0, bottom: -10 }}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} tick={false} />
+                    <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
+                    <Bar dataKey="samples" fill="var(--color-samples)" radius={4} />
+                </BarChart>
+                </ChartContainer>
+            )}
           </CardContent>
         </Card>
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>STAT TAT (avg)</CardTitle>
-            <CardDescription>Past 24 hours</CardDescription>
+            <CardDescription>Past 7 days</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold">28 min</p>
+            {loading ? <Skeleton className="h-10 w-24"/> : (
+                <p className="text-4xl font-bold">{kpiData?.averageTat.stat || 0} min</p>
+            )}
           </CardContent>
         </Card>
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>Rejection Rate</CardTitle>
-            <CardDescription>This month</CardDescription>
+            <CardDescription>Past 7 days</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold">2.1%</p>
+             {loading ? <Skeleton className="h-10 w-24"/> : (
+                <p className="text-4xl font-bold">{kpiData?.rejectionRate || 0}%</p>
+             )}
           </CardContent>
         </Card>
       </div>
@@ -193,29 +234,19 @@ export default function ManagerDashboard() {
             <CardDescription>Hourly average for STAT vs. Routine</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={tatChartConfig} className="h-[250px] w-full">
-              <LineChart data={MOCK_TAT_DATA} margin={{ left: -10, right: 10 }}>
-                <CartesianGrid vertical={false} />
-                <XAxis dataKey="hour" tickLine={false} axisLine={false} />
-                <YAxis tickLine={false} axisLine={false} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Line
-                  dataKey="Routine"
-                  type="monotone"
-                  stroke="var(--color-Routine)"
-                  strokeWidth={2}
-                  dot={false}
-                />
-                <Line
-                  dataKey="STAT"
-                  type="monotone"
-                  stroke="var(--color-STAT)"
-                  strokeWidth={2}
-                  dot={false}
-                />
-                 <ChartLegend content={<ChartLegendContent />} />
-              </LineChart>
-            </ChartContainer>
+            {loading ? <Skeleton className="h-[250px] w-full"/> : kpiData && (
+                <ChartContainer config={tatChartConfig} className="h-[250px] w-full">
+                <LineChart data={kpiData.tatHistory} margin={{ left: -10, right: 10 }}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis dataKey="hour" tickLine={false} axisLine={false} />
+                    <YAxis tickLine={false} axisLine={false} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Line dataKey="Routine" type="monotone" stroke="var(--color-Routine)" strokeWidth={2} dot={false} />
+                    <Line dataKey="STAT" type="monotone" stroke="var(--color-STAT)" strokeWidth={2} dot={false} />
+                    <ChartLegend content={<ChartLegendContent />} />
+                </LineChart>
+                </ChartContainer>
+            )}
           </CardContent>
         </Card>
         <Card className="shadow-lg">
@@ -224,17 +255,19 @@ export default function ManagerDashboard() {
             <CardDescription>Breakdown of rejected samples this month</CardDescription>
           </CardHeader>
           <CardContent className="flex items-center justify-center">
-            <ChartContainer config={rejectionChartConfig} className="h-[250px] w-full">
-              <PieChart>
-                <ChartTooltip content={<ChartTooltipContent nameKey="reason" hideLabel />} />
-                <Pie data={MOCK_REJECTION_DATA} dataKey="count" nameKey="reason" innerRadius={60} strokeWidth={5}>
-                  {MOCK_REJECTION_DATA.map((entry) => (
-                      <Cell key={entry.reason} fill={`var(--color-${entry.reason.replace(/\s/g, '-')})`} />
-                  ))}
-                </Pie>
-                <ChartLegend content={<ChartLegendContent nameKey="reason" />} className="-translate-y-2 flex-wrap gap-2" />
-              </PieChart>
-            </ChartContainer>
+             {loading ? <Skeleton className="h-[250px] w-full"/> : kpiData && (
+                <ChartContainer config={rejectionChartConfig} className="h-[250px] w-full">
+                <PieChart>
+                    <ChartTooltip content={<ChartTooltipContent nameKey="reason" hideLabel />} />
+                    <Pie data={rejectionChartData} dataKey="count" nameKey="reason" innerRadius={60} strokeWidth={5}>
+                    {rejectionChartData.map((entry) => (
+                        <Cell key={entry.reason} fill={entry.fill} />
+                    ))}
+                    </Pie>
+                    <ChartLegend content={<ChartLegendContent nameKey="reason" />} className="-translate-y-2 flex-wrap gap-2" />
+                </PieChart>
+                </ChartContainer>
+             )}
           </CardContent>
         </Card>
       </div>
