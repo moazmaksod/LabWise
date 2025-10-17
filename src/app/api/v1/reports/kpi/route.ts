@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
         const tatPipeline = [
             { $match: { 'samples.verifiedAt': { $gte: sevenDaysAgo } } },
             { $unwind: "$samples" },
-            { $match: { "samples.status": "Verified" } },
+            { $match: { "samples.status": "Verified", "samples.receivedTimestamp": { $exists: true }, "samples.verifiedAt": { $exists: true } } },
             {
                 $project: {
                     priority: "$priority",
@@ -50,7 +50,6 @@ export async function GET(req: NextRequest) {
 
         // --- Aggregation for Rejection Rate ---
         const rejectionPipeline = [
-            { $match: { 'samples.rejectionInfo': { $exists: true, $ne: null } } },
             { $unwind: "$samples" },
             { $match: { 'samples.rejectionInfo': { $exists: true, $ne: null } } },
             {
@@ -63,7 +62,15 @@ export async function GET(req: NextRequest) {
         ];
 
         const rejectionReasonResults = await db.collection('orders').aggregate(rejectionPipeline).toArray();
-        const totalSamples = await db.collection('orders').countDocuments({ "samples.receivedTimestamp": { $exists: true } });
+        
+        const totalSamplesInOrders = await db.collection('orders').aggregate([
+            { $unwind: "$samples" },
+            { $match: { "samples.status": { $ne: 'AwaitingCollection' } } },
+            { $count: "totalSamples" }
+        ]).toArray();
+        
+        const totalSamples = totalSamplesInOrders.length > 0 ? totalSamplesInOrders[0].totalSamples : 0;
+        
         const totalRejections = rejectionReasonResults.reduce((sum, item) => sum + (item as any).count, 0);
         const rejectionRate = totalSamples > 0 ? (totalRejections / totalSamples) * 100 : 0;
         
