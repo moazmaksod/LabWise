@@ -283,10 +283,10 @@ export default function ManagerDashboard() {
           <CardContent>
              {loading ? <Skeleton className="h-[120px] w-full"/> : kpiData && (
                 <ChartContainer config={workloadChartConfig} className="h-[120px] w-full">
-                <BarChart accessibilityLayer data={kpiData.workloadDistribution} margin={{ top: 0, right: 0, left: 0, bottom: -10 }}>
+                <BarChart accessibilityLayer data={kpiData.workloadDistribution} margin={{ top: 0, right: 0, left: -25, bottom: -10 }}>
                     <CartesianGrid vertical={false} />
                     <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} tick={false} />
-                    <YAxis />
+                    <YAxis tickLine={false} axisLine={false} />
                     <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
                     <Bar dataKey="samples" fill="var(--color-samples)" radius={4} />
                 </BarChart>
