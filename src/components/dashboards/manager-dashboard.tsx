@@ -44,7 +44,7 @@ const rejectionChartConfig = {
   },
   QNS: {
     label: 'QNS',
-    color: 'hsl(var(--chart-2))',
+    color: '#00FF00', // Hardcoded bright green for debugging
   },
   Mislabeled: {
     label: 'Mislabeled',
@@ -177,11 +177,15 @@ export default function ManagerDashboard() {
   }, [toast]);
   
   const rejectionChartData = kpiData?.rejectionReasons.map(item => ({
-    reason: item.reason,
-    count: item.count,
+    ...item,
     name: item.reason,
     fill: rejectionChartConfig[item.reason as keyof typeof rejectionChartConfig]?.color || 'hsl(var(--muted))',
   })) || [];
+
+  // DEBUGGING CODE
+  console.log("--- DEBUG: Chart Data ---");
+  console.log("Chart Config:", rejectionChartConfig);
+  console.log("Data being passed to chart:", rejectionChartData);
 
 
   return (
@@ -266,8 +270,8 @@ export default function ManagerDashboard() {
                 <PieChart>
                     <ChartTooltip content={<ChartTooltipContent nameKey="reason" hideLabel />} />
                     <Pie data={rejectionChartData} dataKey="count" nameKey="name" innerRadius={60} strokeWidth={5}>
-                    {rejectionChartData.map((entry) => (
-                        <Cell key={`cell-${entry.reason}`} fill={entry.fill} />
+                    {rejectionChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}
                     </Pie>
                     <ChartLegend content={<ChartLegendContent nameKey="name" />} className="-translate-y-2 flex-wrap gap-2" />
