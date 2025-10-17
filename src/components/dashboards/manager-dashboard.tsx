@@ -84,6 +84,14 @@ type KpiData = {
     workloadDistribution: { name: string; samples: number }[];
 }
 
+function getRejectionColor(reason: string): string {
+    const configEntry = rejectionChartConfig[reason as keyof typeof rejectionChartConfig];
+    if (configEntry && 'color' in configEntry) {
+        return configEntry.color;
+    }
+    return 'hsl(var(--muted))'; // Fallback color
+}
+
 function InstrumentStatusWidget() {
   const [instruments, setInstruments] = useState<ClientInstrument[]>([]);
   const [loading, setLoading] = useState(true);
@@ -179,8 +187,9 @@ export default function ManagerDashboard() {
   const rejectionChartData = kpiData?.rejectionReasons.map(item => ({
     ...item,
     name: item.reason,
-    fill: rejectionChartConfig[item.reason as keyof typeof rejectionChartConfig]?.color || 'hsl(var(--muted))',
+    fill: getRejectionColor(item.reason),
   })) || [];
+
 
   return (
     <div className="space-y-8">
@@ -262,7 +271,7 @@ export default function ManagerDashboard() {
              {loading ? <Skeleton className="h-[250px] w-full"/> : kpiData && (
                 <ChartContainer config={rejectionChartConfig} className="h-[250px] w-full">
                 <PieChart>
-                    <ChartTooltip content={<ChartTooltipContent nameKey="reason" hideLabel />} />
+                    <ChartTooltip content={<ChartTooltipContent nameKey="name" hideLabel />} />
                     <Pie data={rejectionChartData} dataKey="count" nameKey="name" innerRadius={60} strokeWidth={5}>
                     {rejectionChartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.fill} />
