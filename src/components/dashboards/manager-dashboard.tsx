@@ -15,10 +15,9 @@ import {
   ChartLegend,
   ChartLegendContent,
 } from '@/components/ui/chart';
-import { Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, Cell } from 'recharts';
 import type { ChartConfig } from '@/components/ui/chart';
 import { MOCK_REJECTION_DATA, MOCK_STAFF_WORKLOAD_DATA, MOCK_TAT_DATA } from '@/lib/constants';
-import { IntelligentReporting } from '../intelligent-reporting';
 import type { ClientInstrument } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
@@ -28,11 +27,11 @@ import { Server, Wrench, CircleOff } from 'lucide-react';
 const tatChartConfig = {
   STAT: {
     label: 'STAT (min)',
-    color: 'hsl(var(--chart-1))',
+    color: 'hsl(var(--chart-2))',
   },
   Routine: {
     label: 'Routine (min)',
-    color: 'hsl(var(--chart-2))',
+    color: 'hsl(var(--chart-1))',
   },
 } satisfies ChartConfig;
 
@@ -52,7 +51,7 @@ const rejectionChartConfig = {
     label: 'Mislabeled',
     color: 'hsl(var(--chart-3))',
   },
-  'Improper Container': {
+  'Improper-Container': { // CSS-friendly key
     label: 'Improper Container',
     color: 'hsl(var(--chart-4))',
   },
@@ -110,6 +109,7 @@ function InstrumentStatusWidget() {
                <Skeleton className="h-6 w-full" />
                <Skeleton className="h-6 w-full" />
                <Skeleton className="h-6 w-full" />
+               <Skeleton className="h-6 w-full" />
             </CardContent>
           </Card>
       )
@@ -155,7 +155,7 @@ export default function ManagerDashboard() {
             <ChartContainer config={workloadChartConfig} className="h-[120px] w-full">
               <BarChart accessibilityLayer data={MOCK_STAFF_WORKLOAD_DATA} margin={{ top: 0, right: 0, left: -25, bottom: -10 }}>
                 <CartesianGrid vertical={false} />
-                <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} />
+                <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} tick={false} />
                 <YAxis tickLine={false} axisLine={false} />
                 <ChartTooltip
                   cursor={false}
@@ -194,22 +194,22 @@ export default function ManagerDashboard() {
           </CardHeader>
           <CardContent>
             <ChartContainer config={tatChartConfig} className="h-[250px] w-full">
-              <LineChart data={MOCK_TAT_DATA}>
+              <LineChart data={MOCK_TAT_DATA} margin={{ left: -10, right: 10 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="hour" tickLine={false} axisLine={false} />
                 <YAxis tickLine={false} axisLine={false} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Line
-                  dataKey="STAT"
+                  dataKey="Routine"
                   type="monotone"
-                  stroke="var(--color-STAT)"
+                  stroke="var(--color-Routine)"
                   strokeWidth={2}
                   dot={false}
                 />
                 <Line
-                  dataKey="Routine"
+                  dataKey="STAT"
                   type="monotone"
-                  stroke="var(--color-Routine)"
+                  stroke="var(--color-STAT)"
                   strokeWidth={2}
                   dot={false}
                 />
@@ -229,7 +229,7 @@ export default function ManagerDashboard() {
                 <ChartTooltip content={<ChartTooltipContent nameKey="reason" hideLabel />} />
                 <Pie data={MOCK_REJECTION_DATA} dataKey="count" nameKey="reason" innerRadius={60} strokeWidth={5}>
                   {MOCK_REJECTION_DATA.map((entry) => (
-                      <Bar key={entry.reason} dataKey="count" fill={`var(--color-${entry.reason.replace(/\s/g, '-')})`} />
+                      <Cell key={entry.reason} fill={`var(--color-${entry.reason.replace(/\s/g, '-')})`} />
                   ))}
                 </Pie>
                 <ChartLegend content={<ChartLegendContent nameKey="reason" />} className="-translate-y-2 flex-wrap gap-2" />
@@ -237,9 +237,6 @@ export default function ManagerDashboard() {
             </ChartContainer>
           </CardContent>
         </Card>
-      </div>
-      <div>
-        <IntelligentReporting />
       </div>
     </div>
   );

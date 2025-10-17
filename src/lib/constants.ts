@@ -152,20 +152,20 @@ export const MOCK_APPOINTMENTS = [
 ];
 
 export const MOCK_TAT_DATA = [
-  { hour: '08:00', STAT: 25, Routine: 120 },
-  { hour: '09:00', STAT: 28, Routine: 125 },
-  { hour: '10:00', STAT: 22, Routine: 118 },
-  { hour: '11:00', STAT: 35, Routine: 130 },
-  { hour: '12:00', STAT: 30, Routine: 122 },
-  { hour: '13:00', STAT: 27, Routine: 128 },
+  { hour: '08:00', Routine: 120, STAT: 25 },
+  { hour: '09:00', Routine: 125, STAT: 28 },
+  { hour: '10:00', Routine: 118, STAT: 22 },
+  { hour: '11:00', Routine: 130, STAT: 35 },
+  { hour: '12:00', Routine: 122, STAT: 30 },
+  { hour: '13:00', Routine: 128, STAT: 27 },
 ];
 
 export const MOCK_REJECTION_DATA = [
-  { reason: 'Hemolysis', count: 40 },
-  { reason: 'QNS', count: 30 },
-  { reason: 'Mislabeled', count: 15 },
-  { reason: 'Improper Container', count: 10 },
-  { reason: 'Other', count: 5 },
+  { reason: 'Hemolysis', count: 40, fill: 'var(--color-Hemolysis)' },
+  { reason: 'QNS', count: 30, fill: 'var(--color-QNS)' },
+  { reason: 'Mislabeled', count: 15, fill: 'var(--color-Mislabeled)' },
+  { reason: 'Improper Container', count: 10, fill: 'var(--color-Improper-Container)' },
+  { reason: 'Other', count: 5, fill: 'var(--color-Other)' },
 ];
 
 export const MOCK_STAFF_WORKLOAD_DATA = [
