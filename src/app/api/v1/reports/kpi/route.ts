@@ -1,6 +1,7 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { decrypt } from '@/lib/auth';
-import { MOCK_TAT_DATA, MOCK_REJECTION_DATA } from '@/lib/constants';
+import { MOCK_TAT_DATA, MOCK_REJECTION_DATA, MOCK_STAFF_WORKLOAD_DATA } from '@/lib/constants';
 
 export async function GET(req: NextRequest) {
     try {
@@ -9,13 +10,13 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ message: 'Authorization token missing.' }, { status: 401 });
         }
         const userPayload = await decrypt(token);
-        // This endpoint is protected by middleware, so we can assume role is manager if we reach here
+        // This endpoint is also protected by middleware, but this provides defense-in-depth.
         if (!userPayload?.userId || userPayload.role !== 'manager') {
             return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
         }
 
-        // In a real application, you would perform complex aggregation queries here.
-        // For this sprint, we will return mock data.
+        // In a real application, you would perform complex aggregation queries on the database here.
+        // For this sprint, we will return mock data to fulfill the API contract.
         const kpiData = {
             averageTat: {
                 stat: 28,
@@ -25,7 +26,8 @@ export async function GET(req: NextRequest) {
             instrumentUptime: 99.2,
             staffWorkload: 8.4,
             tatHistory: MOCK_TAT_DATA,
-            rejectionReasons: MOCK_REJECTION_DATA
+            rejectionReasons: MOCK_REJECTION_DATA,
+            workloadDistribution: MOCK_STAFF_WORKLOAD_DATA
         };
 
         return NextResponse.json(kpiData, { status: 200 });
