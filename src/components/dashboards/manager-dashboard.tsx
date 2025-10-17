@@ -1,4 +1,6 @@
+
 'use client';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -17,6 +19,11 @@ import { Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, XAxis, YA
 import type { ChartConfig } from '@/components/ui/chart';
 import { MOCK_REJECTION_DATA, MOCK_TAT_DATA } from '@/lib/constants';
 import { IntelligentReporting } from '../intelligent-reporting';
+import type { ClientInstrument } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '../ui/skeleton';
+import { cn } from '@/lib/utils';
+import { Server, Wrench, CircleOff } from 'lucide-react';
 
 const tatChartConfig = {
   STAT: {
@@ -55,20 +62,83 @@ const rejectionChartConfig = {
   },
 } satisfies ChartConfig;
 
+const statusConfig = {
+  Online: { icon: Server, color: 'text-green-400' },
+  Maintenance: { icon: Wrench, color: 'text-yellow-400' },
+  Offline: { icon: CircleOff, color: 'text-red-500' },
+};
+
+function InstrumentStatusWidget() {
+  const [instruments, setInstruments] = useState<ClientInstrument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchInstruments = async () => {
+      try {
+        const token = localStorage.getItem('labwise-token');
+        const response = await fetch('/api/v1/instruments', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) throw new Error('Failed to fetch instruments.');
+        const data = await response.json();
+        setInstruments(data);
+      } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Error', description: error.message });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchInstruments();
+  }, [toast]);
+  
+  if (loading) {
+      return (
+          <Card>
+            <CardHeader>
+                <CardTitle>Instrument Status</CardTitle>
+                <CardDescription>Live status of all analyzers</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+               <Skeleton className="h-6 w-full" />
+               <Skeleton className="h-6 w-full" />
+               <Skeleton className="h-6 w-full" />
+            </CardContent>
+          </Card>
+      )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Instrument Status</CardTitle>
+        <CardDescription>Live status of all analyzers</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {instruments.map((inst) => {
+            const Icon = statusConfig[inst.status]?.icon || Server;
+            const colorClass = statusConfig[inst.status]?.color || 'text-muted-foreground';
+            return (
+                <div key={inst.id} className="flex items-center justify-between">
+                    <span className="font-medium">{inst.name}</span>
+                    <div className={cn("flex items-center gap-2 text-sm font-semibold", colorClass)}>
+                       <Icon className="h-4 w-4" />
+                       <span>{inst.status}</span>
+                    </div>
+                </div>
+            );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
+
 export default function ManagerDashboard() {
   return (
     <div className="space-y-8">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {/* Placeholder cards for other KPIs */}
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle>Instrument Uptime</CardTitle>
-            <CardDescription>Past 24 hours</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-4xl font-bold">99.2%</p>
-          </CardContent>
-        </Card>
+        <InstrumentStatusWidget />
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>Staff Workload</CardTitle>
