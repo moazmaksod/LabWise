@@ -52,7 +52,7 @@ const rejectionChartConfig = {
   },
   'Improper Container': {
     label: 'Improper Container',
-    color: '#00FF00', // DEBUG: Hardcode to bright green
+    color: 'hsl(var(--chart-4))',
   },
   Other: {
     label: 'Other',
@@ -189,9 +189,6 @@ export default function ManagerDashboard() {
     name: item.reason,
     fill: getRejectionColor(item.reason),
   })) || [];
-
-  // DEBUG: Log the data being sent to the chart
-  console.log("Rejection Chart Data:", JSON.stringify(rejectionChartData, null, 2));
 
   return (
     <div className="space-y-8">
