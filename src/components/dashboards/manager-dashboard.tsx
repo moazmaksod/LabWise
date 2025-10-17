@@ -184,25 +184,6 @@ export default function ManagerDashboard() {
   return (
     <div className="space-y-8">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <InstrumentStatusWidget />
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle>Staff Workload</CardTitle>
-            <CardDescription>Samples pending per tech</CardDescription>
-          </CardHeader>
-          <CardContent>
-             {loading ? <Skeleton className="h-[120px] w-full"/> : kpiData && (
-                <ChartContainer config={workloadChartConfig} className="h-[120px] w-full">
-                <BarChart accessibilityLayer data={kpiData.workloadDistribution} margin={{ top: 0, right: 0, left: 0, bottom: -10 }}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} tick={false} />
-                    <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
-                    <Bar dataKey="samples" fill="var(--color-samples)" radius={4} />
-                </BarChart>
-                </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>STAT TAT (avg)</CardTitle>
@@ -216,12 +197,34 @@ export default function ManagerDashboard() {
         </Card>
         <Card className="shadow-lg">
           <CardHeader>
+            <CardTitle>Routine TAT (avg)</CardTitle>
+            <CardDescription>Past 7 days</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? <Skeleton className="h-10 w-24"/> : (
+                <p className="text-4xl font-bold">{kpiData?.averageTat.routine || 0} min</p>
+            )}
+          </CardContent>
+        </Card>
+        <Card className="shadow-lg">
+          <CardHeader>
             <CardTitle>Rejection Rate</CardTitle>
             <CardDescription>Past 7 days</CardDescription>
           </CardHeader>
           <CardContent>
              {loading ? <Skeleton className="h-10 w-24"/> : (
                 <p className="text-4xl font-bold">{kpiData?.rejectionRate || 0}%</p>
+             )}
+          </CardContent>
+        </Card>
+         <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle>Instrument Uptime</CardTitle>
+            <CardDescription>Live Status</CardDescription>
+          </CardHeader>
+          <CardContent>
+             {loading ? <Skeleton className="h-10 w-24"/> : (
+                <p className="text-4xl font-bold">{kpiData?.instrumentUptime || 100}%</p>
              )}
           </CardContent>
         </Card>
@@ -268,6 +271,25 @@ export default function ManagerDashboard() {
                 </PieChart>
                 </ChartContainer>
              )}
+          </CardContent>
+        </Card>
+        <InstrumentStatusWidget />
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle>Staff Workload</CardTitle>
+            <CardDescription>Samples pending per tech</CardDescription>
+          </CardHeader>
+          <CardContent>
+             {loading ? <Skeleton className="h-[120px] w-full"/> : kpiData && (
+                <ChartContainer config={workloadChartConfig} className="h-[120px] w-full">
+                <BarChart accessibilityLayer data={kpiData.workloadDistribution} margin={{ top: 0, right: 0, left: 0, bottom: -10 }}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} tick={false} />
+                    <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
+                    <Bar dataKey="samples" fill="var(--color-samples)" radius={4} />
+                </BarChart>
+                </ChartContainer>
+            )}
           </CardContent>
         </Card>
       </div>
