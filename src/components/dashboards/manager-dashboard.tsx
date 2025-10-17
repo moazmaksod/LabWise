@@ -52,7 +52,7 @@ const rejectionChartConfig = {
   },
   'Improper Container': {
     label: 'Improper Container',
-    color: 'hsl(var(--chart-4))',
+    color: '#00FF00', // DEBUG: Hardcode to bright green
   },
   Other: {
     label: 'Other',
@@ -82,14 +82,6 @@ type KpiData = {
     tatHistory: { hour: string; Routine: number; STAT: number }[];
     rejectionReasons: { reason: string; count: number }[];
     workloadDistribution: { name: string; samples: number }[];
-}
-
-function getRejectionColor(reason: string): string {
-    const configEntry = rejectionChartConfig[reason as keyof typeof rejectionChartConfig];
-    if (configEntry && 'color' in configEntry) {
-        return configEntry.color;
-    }
-    return 'hsl(var(--muted))'; // Fallback color
 }
 
 function InstrumentStatusWidget() {
@@ -184,12 +176,22 @@ export default function ManagerDashboard() {
     fetchKpiData();
   }, [toast]);
   
+  function getRejectionColor(reason: string): string {
+    const configEntry = rejectionChartConfig[reason as keyof typeof rejectionChartConfig];
+    if (configEntry && 'color' in configEntry) {
+        return configEntry.color;
+    }
+    return 'hsl(var(--muted))'; // Fallback color
+  }
+
   const rejectionChartData = kpiData?.rejectionReasons.map(item => ({
     ...item,
     name: item.reason,
     fill: getRejectionColor(item.reason),
   })) || [];
 
+  // DEBUG: Log the data being sent to the chart
+  console.log("Rejection Chart Data:", JSON.stringify(rejectionChartData, null, 2));
 
   return (
     <div className="space-y-8">
