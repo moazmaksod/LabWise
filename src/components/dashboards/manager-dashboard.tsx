@@ -44,7 +44,7 @@ const rejectionChartConfig = {
   },
   QNS: {
     label: 'QNS',
-    color: 'hsl(var(--chart-5))',
+    color: 'hsl(var(--chart-2))',
   },
   Mislabeled: {
     label: 'Mislabeled',
@@ -56,7 +56,7 @@ const rejectionChartConfig = {
   },
   Other: {
     label: 'Other',
-    color: 'hsl(var(--destructive))',
+    color: 'hsl(var(--chart-5))',
   },
 } satisfies ChartConfig;
 
@@ -176,19 +176,18 @@ export default function ManagerDashboard() {
     fetchKpiData();
   }, [toast]);
   
+  // Helper function to reliably get the color from the config
   function getRejectionColor(reason: string): string {
-    const configEntry = Object.entries(rejectionChartConfig).find(
-      ([key]) => key.toLowerCase() === reason.toLowerCase()
-    );
-    if (configEntry && 'color' in configEntry[1]) {
-        return configEntry[1].color;
+    const configKey = reason as keyof typeof rejectionChartConfig;
+    if (rejectionChartConfig[configKey] && 'color' in rejectionChartConfig[configKey]) {
+      return rejectionChartConfig[configKey].color as string;
     }
-    // Fallback for keys not found, though it shouldn't happen with proper data
+    // Fallback color if reason not in config
     return 'hsl(var(--muted))';
   }
 
   const rejectionChartData = kpiData?.rejectionReasons.map(item => ({
-    name: item.reason,
+    name: item.reason, // Use name for the legend
     count: item.count,
     fill: getRejectionColor(item.reason),
   })) || [];
