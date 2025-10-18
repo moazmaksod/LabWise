@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PlusCircle, MoreHorizontal, ShieldAlert, Users, Filter, Search, Download, Mail } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, ShieldAlert, Users, Filter, Search, Download, Mail, FileUp, Calendar, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -31,6 +31,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -54,6 +55,12 @@ import {
   AlertDescription,
   AlertTitle,
 } from '@/components/ui/alert';
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from '@/components/ui/accordion';
 
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -70,6 +77,7 @@ import {
 
 import type { ClientUser, Role } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 
 
 const userFormSchema = z.object({
@@ -299,7 +307,7 @@ export default function UserManagementPage() {
                         <Users className="h-5 w-5" />
                         System Users ({users.length})
                     </CardTitle>
-                    <CardDescription>Manage user accounts and permissions</CardDescription>
+                    <CardDescription>Manage user accounts, roles, and training records.</CardDescription>
                 </div>
                 <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                     <DialogTrigger asChild>
@@ -332,88 +340,88 @@ export default function UserManagementPage() {
             </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-hidden rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-secondary hover:bg-secondary">
-                  <TableHead>User</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Last Login</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell colSpan={7}><Skeleton className="h-10 w-full" /></TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  users.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar>
-                            <AvatarImage src={user.avatar} alt={user.firstName} />
-                            <AvatarFallback>{user.firstName[0]}{user.lastName[0]}</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium">{user.firstName} {user.lastName}</div>
-                            <div className="text-sm text-muted-foreground">ID: {user.id.substring(user.id.length-4)}</div>
-                          </div>
+          <Accordion type="single" collapsible className="w-full">
+            {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="flex items-center space-x-4 p-4 border-b">
+                        <Skeleton className="h-12 w-12 rounded-full" />
+                        <div className="space-y-2 flex-grow">
+                          <Skeleton className="h-4 w-[250px]" />
+                          <Skeleton className="h-4 w-[200px]" />
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                            <Mail className="h-4 w-4" />
-                            <span>{user.email}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={cn("capitalize", roleBadgeStyles[user.role])}>
-                          {user.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={cn(user.isActive ? 'text-green-400 bg-green-900/40 border-green-400/50' : 'text-red-400 bg-red-900/40 border-red-400/50')}>
-                          {user.isActive ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {new Date(user.updatedAt).toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {new Date(user.createdAt).toLocaleDateString()}
-                      </TableCell>
-                       <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              aria-haspopup="true"
-                              size="icon"
-                              variant="ghost"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Toggle menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => handleEdit(user)}>Edit</DropdownMenuItem>
-                            <DropdownMenuItem>Deactivate</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                    </div>
+                ))
+            ) : (
+                users.map((user) => (
+                    <AccordionItem value={user.id} key={user.id}>
+                        <AccordionTrigger className="hover:no-underline px-4">
+                            <div className="flex items-center gap-4 text-left w-full">
+                                <Avatar className="h-10 w-10">
+                                    <AvatarImage src={user.avatar} alt={user.firstName} />
+                                    <AvatarFallback>{user.firstName[0]}{user.lastName[0]}</AvatarFallback>
+                                </Avatar>
+                                <div className="grid gap-1 flex-grow">
+                                    <div className="font-medium">{user.firstName} {user.lastName}</div>
+                                    <div className="text-sm text-muted-foreground flex items-center gap-2">
+                                        <Mail className="h-3 w-3" />
+                                        <span>{user.email}</span>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col items-end gap-1">
+                                    <Badge variant="outline" className={cn("capitalize", roleBadgeStyles[user.role])}>
+                                      {user.role}
+                                    </Badge>
+                                    <Badge variant="outline" className={cn(user.isActive ? 'text-green-400 bg-green-900/40 border-green-400/50' : 'text-red-400 bg-red-900/40 border-red-400/50')}>
+                                      {user.isActive ? 'Active' : 'Inactive'}
+                                    </Badge>
+                                </div>
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="bg-muted/30">
+                            <div className="p-4 space-y-4">
+                                <h4 className="font-semibold">Training & Competency Records</h4>
+                                {user.trainingRecords && user.trainingRecords.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {user.trainingRecords.map((record, index) => (
+                                            <div key={index} className="flex justify-between items-center text-sm p-2 rounded-md bg-background/50">
+                                                <span>{record.documentName}</span>
+                                                <div className="flex items-center gap-4">
+                                                    <span className="flex items-center gap-1"><Calendar className="h-4 w-4 text-muted-foreground" /> Expires: {format(new Date(record.expiryDate), 'MM/dd/yyyy')}</span>
+                                                    <Button variant="ghost" size="sm">View</Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground text-center py-4">No training records found.</p>
+                                )}
+                                <div className="pt-4 border-t border-border/50 flex justify-between items-center">
+                                    <Button variant="outline" size="sm">
+                                        <FileUp className="mr-2 h-4 w-4" />
+                                        Upload Document
+                                    </Button>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button size="sm" variant="ghost">
+                                          <MoreHorizontal className="h-4 w-4" />
+                                          <span className="sr-only">Toggle menu</span>
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                        <DropdownMenuItem onClick={() => handleEdit(user)}>Edit User</DropdownMenuItem>
+                                        <DropdownMenuItem>Deactivate User</DropdownMenuItem>
+                                         <DropdownMenuSeparator />
+                                        <DropdownMenuItem className="text-red-400">Delete User</DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+                            </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                ))
+            )}
+          </Accordion>
         </CardContent>
       </Card>
     </div>

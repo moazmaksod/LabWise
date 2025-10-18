@@ -121,7 +121,7 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
     { href: '/reports', label: 'Reports & Analytics', icon: BarChart },
     { href: '/inventory', label: 'Inventory Mgmt', icon: Boxes },
     { href: '/quality-assurance', label: 'Quality Assurance', icon: FileCheck },
-    { href: '/audit-trail', label: 'Audit Trail', icon: ClipboardCopy },
+    { href: '/audit-trail', label: 'Audit Trail', icon: FileSearch },
   ],
   phlebotomist: [
     { href: '/dashboard', label: 'Collection List', icon: Droplets },

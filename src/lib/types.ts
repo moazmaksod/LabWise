@@ -289,3 +289,30 @@ export type InventoryItem = {
 export type ClientInventoryItem = Omit<InventoryItem, '_id'> & {
     id: string;
 };
+
+// --- Sprint 11 Additions ---
+export type AuditLog = {
+    _id: ObjectId;
+    timestamp: Date;
+    userId: ObjectId;
+    action: string; // e.g., USER_LOGIN, PATIENT_CREATE
+    entity: {
+        collectionName: string;
+        documentId: ObjectId;
+    };
+    details: any;
+    ipAddress: string;
+};
+
+export type ClientAuditLog = Omit<AuditLog, '_id' | 'userId' | 'entity'> & {
+    id: string;
+    user: {
+        id: string;
+        name: string;
+        role: Role;
+    };
+    entity: {
+        collectionName: string;
+        documentId: string;
+    };
+};
