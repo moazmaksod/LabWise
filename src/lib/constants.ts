@@ -110,7 +110,7 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
     { href: '/accessioning', label: 'Accessioning', icon: Beaker },
     { href: '/quality-control', label: 'Quality Control', icon: ShieldCheck },
     { href: '/instruments', label: 'Instruments', icon: Wrench },
-    { href: '/inventory-search', label: 'Inventory Search', icon: Search },
+    { href: '/inventory', label: 'Inventory Search', icon: Search },
   ],
   manager: [
     { href: '/dashboard', label: 'KPI Dashboard', icon: AreaChart },

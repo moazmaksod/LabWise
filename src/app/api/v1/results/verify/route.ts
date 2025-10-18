@@ -1,9 +1,10 @@
 
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { decrypt } from '@/lib/auth';
-import type { Order, OrderTest, QCLog } from '@/lib/types';
+import type { Order, OrderTest, QCLog, TestCatalogItem } from '@/lib/types';
 
 function isAbnormal(value: any, range: string | undefined): boolean {
     if (!range) return false;
@@ -53,21 +54,20 @@ export async function POST(req: NextRequest) {
 
         const updates: any = {};
         let allTestsInSampleAreNowVerified = true;
+        const testCodesToDecrement = [];
 
         for (const result of results) {
             const testIndex = order.samples[sampleIndex].tests.findIndex(t => t.testCode === result.testCode);
             if (testIndex !== -1) {
                 const originalTest = order.samples[sampleIndex].tests[testIndex];
                 
-                // New QC Check Logic
                 const latestQcRun = await db.collection<QCLog>('qcLogs').findOne(
                     { testCode: result.testCode },
                     { sort: { runTimestamp: -1 } }
                 );
 
                 const isQcFailed = latestQcRun && !latestQcRun.isPass;
-                // End New QC Check Logic
-
+                
                 updates[`samples.${sampleIndex}.tests.${testIndex}.resultValue`] = result.value;
                 updates[`samples.${sampleIndex}.tests.${testIndex}.notes`] = result.notes;
                 
@@ -90,6 +90,7 @@ export async function POST(req: NextRequest) {
                     updates[`samples.${sampleIndex}.tests.${testIndex}.status`] = 'Verified';
                     updates[`samples.${sampleIndex}.tests.${testIndex}.verifiedBy`] = new ObjectId(userPayload.userId as string);
                     updates[`samples.${sampleIndex}.tests.${testIndex}.verifiedAt`] = new Date();
+                    testCodesToDecrement.push(result.testCode); // Add to decrement list
                 }
             }
         }
@@ -115,6 +116,20 @@ export async function POST(req: NextRequest) {
                  }
             }
         }
+
+        // Automated Consumption Logic
+        if (testCodesToDecrement.length > 0) {
+            const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: testCodesToDecrement } }).toArray();
+            for (const testDef of testDefs) {
+                if (testDef.associatedReagentId) {
+                    await db.collection('inventoryItems').updateOne(
+                        { _id: testDef.associatedReagentId },
+                        { $inc: { quantityOnHand: -1 } }
+                    );
+                }
+            }
+        }
+
 
         return NextResponse.json({
             message: "Results processed successfully.",

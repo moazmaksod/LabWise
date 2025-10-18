@@ -53,12 +53,11 @@ const rbacMatrix: Record<string, { methods: string[], roles: Role[] }[]> = {
         { methods: ['GET'], roles: ['technician', 'manager'] }
     ],
     '/api/v1/inventory': [
+        { methods: ['GET'], roles: ['manager', 'technician'] },
         { methods: ['POST', 'PUT'], roles: ['manager'] },
-        // Note: Technician is read-only at the app layer
-        { methods: ['GET'], roles: ['manager', 'technician'] }
     ],
      '/api/v1/inventory/.*': [
-        { methods: ['PUT'], roles: ['manager'] }
+        { methods: ['GET', 'PUT', 'DELETE'], roles: ['manager'] },
     ],
     '/api/v1/reports/kpi': [
         { methods: ['GET'], roles: ['manager'] }

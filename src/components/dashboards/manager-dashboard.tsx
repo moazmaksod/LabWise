@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -16,17 +17,17 @@ import {
 } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, Cell, XAxis, YAxis } from 'recharts';
 import type { ChartConfig } from '@/components/ui/chart';
-import type { ClientInstrument } from '@/lib/types';
+import type { ClientInstrument, ClientInventoryItem } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { cn } from '@/lib/utils';
-import { Server, Wrench, CircleOff, Loader2, ServerCrash, AlertTriangle } from 'lucide-react';
+import { Server, Wrench, CircleOff, Loader2, ServerCrash, AlertTriangle, Boxes } from 'lucide-react';
+import Link from 'next/link';
 
 /**
  * Chart Color Palette Definition
  * These variables define the actual color values for charts across the application.
- * They are mapped to specific data points within component files (e.g., manager-dashboard.tsx).
- * The actual color values are defined in `src/app/globals.css`.
+ * They are defined in `src/app/globals.css` and are mapped to data here.
  */
 const tatChartConfig = {
   STAT: {
@@ -88,6 +89,79 @@ type KpiData = {
     rejectionReasons: { reason: string; count: number }[];
     workloadDistribution: { name: string; samples: number }[];
 }
+
+function LowStockWidget() {
+  const [lowStockItems, setLowStockItems] = useState<ClientInventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchLowStock = async () => {
+      try {
+        const token = localStorage.getItem('labwise-token');
+        const response = await fetch('/api/v1/inventory?lowStock=true', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) throw new Error('Failed to fetch low stock items.');
+        const data = await response.json();
+        if (isMounted) {
+          setLowStockItems(data);
+        }
+      } catch (error: any) {
+        if (isMounted) {
+          toast({ variant: 'destructive', title: 'Error', description: error.message });
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+    fetchLowStock();
+    return () => { isMounted = false; };
+  }, [toast]);
+
+  return (
+    <Card className="shadow-lg">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className="text-yellow-400" />
+            Low Stock Items
+        </CardTitle>
+        <CardDescription>Items at or below minimum stock level.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {loading ? (
+          <div className="flex items-center justify-center h-24">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </div>
+        ) : lowStockItems.length > 0 ? (
+          <div className="space-y-2">
+            {lowStockItems.map(item => (
+              <div key={item.id} className="flex justify-between items-center text-sm">
+                <span className="font-medium">{item.itemName} ({item.lotNumber})</span>
+                <span className="font-bold text-yellow-400">{item.quantityOnHand} left</span>
+              </div>
+            ))}
+             <div className="pt-2">
+                <Link href="/inventory" passHref>
+                    <Button variant="secondary" className="w-full">
+                        <Boxes className="mr-2 h-4 w-4" /> Manage Inventory
+                    </Button>
+                </Link>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground text-center h-24 flex items-center justify-center">
+            All inventory levels are sufficient.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 
 function InstrumentStatusWidget() {
   const [instruments, setInstruments] = useState<ClientInstrument[]>([]);
@@ -327,23 +401,7 @@ export default function ManagerDashboard() {
           </CardContent>
         </Card>
         <InstrumentStatusWidget />
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle>Staff Workload</CardTitle>
-            <CardDescription>Samples pending per tech</CardDescription>
-          </CardHeader>
-          <CardContent className="overflow-x-auto">
-            <ChartContainer config={workloadChartConfig} className="h-[120px] min-w-[300px]">
-            <BarChart accessibilityLayer data={kpiData.workloadDistribution} margin={{ top: 0, right: 0, left: -25, bottom: -10 }}>
-                <CartesianGrid vertical={false} />
-                <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} tick={false} />
-                <YAxis tickLine={false} axisLine={false} />
-                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
-                <Bar dataKey="samples" fill="var(--color-samples)" radius={4} />
-            </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
+        <LowStockWidget />
       </div>
     </div>
   );

@@ -92,6 +92,8 @@ export type TestCatalogItem = {
   referenceRanges: ReferenceRange[];
   reflexRules: ReflexRule[];
   isActive: boolean;
+  // --- Sprint 10 Addition ---
+  associatedReagentId?: ObjectId; 
 };
 
 export type ClientTestCatalogItem = Omit<TestCatalogItem, '_id'> & {
@@ -267,4 +269,23 @@ export type OldMaintenanceLog = {
     description: string;
     performedBy: ObjectId;
     timestamp: Date;
+};
+
+// --- Sprint 10 Additions ---
+export type InventoryItem = {
+    _id: ObjectId;
+    itemName: string;
+    partNumber?: string;
+    vendor?: string;
+    lotNumber: string;
+    expirationDate: Date;
+    quantityOnHand: number;
+    minStockLevel: number;
+    storageRequirements?: string;
+    createdAt: Date;
+    updatedAt: Date;
+};
+
+export type ClientInventoryItem = Omit<InventoryItem, '_id'> & {
+    id: string;
 };
