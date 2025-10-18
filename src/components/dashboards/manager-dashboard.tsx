@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   CardContent,
@@ -21,7 +21,7 @@ import type { ClientInstrument } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { cn } from '@/lib/utils';
-import { Server, Wrench, CircleOff, Loader2 } from 'lucide-react';
+import { Server, Wrench, CircleOff, Loader2, ServerCrash, AlertTriangle } from 'lucide-react';
 
 const tatChartConfig = {
   STAT: {
@@ -90,6 +90,7 @@ function InstrumentStatusWidget() {
   const { toast } = useToast();
 
   useEffect(() => {
+    let isMounted = true;
     const fetchInstruments = async () => {
       try {
         const token = localStorage.getItem('labwise-token');
@@ -98,33 +99,24 @@ function InstrumentStatusWidget() {
         });
         if (!response.ok) throw new Error('Failed to fetch instruments.');
         const data = await response.json();
-        setInstruments(data);
+        if (isMounted) {
+          setInstruments(data);
+        }
       } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Error', description: error.message });
+         if (isMounted) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+         }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
     fetchInstruments();
+
+    return () => { isMounted = false; };
   }, [toast]);
   
-  if (loading) {
-      return (
-          <Card>
-            <CardHeader>
-                <CardTitle>Instrument Status</CardTitle>
-                <CardDescription>Live status of all analyzers</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-               <Skeleton className="h-6 w-full" />
-               <Skeleton className="h-6 w-full" />
-               <Skeleton className="h-6 w-full" />
-               <Skeleton className="h-6 w-full" />
-            </CardContent>
-          </Card>
-      )
-  }
-
   return (
     <Card>
       <CardHeader>
@@ -132,19 +124,32 @@ function InstrumentStatusWidget() {
         <CardDescription>Live status of all analyzers</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {instruments.map((inst) => {
-            const Icon = statusConfig[inst.status]?.icon || Server;
-            const colorClass = statusConfig[inst.status]?.color || 'text-muted-foreground';
-            return (
-                <div key={inst.id} className="flex items-center justify-between">
-                    <span className="font-medium">{inst.name}</span>
-                    <div className={cn("flex items-center gap-2 text-sm font-semibold", colorClass)}>
-                       <Icon className="h-4 w-4" />
-                       <span>{inst.status}</span>
+        {loading ? (
+             <div className="space-y-3">
+               <Skeleton className="h-6 w-full" />
+               <Skeleton className="h-6 w-full" />
+               <Skeleton className="h-6 w-full" />
+             </div>
+        ) : instruments.length > 0 ? (
+            instruments.map((inst) => {
+                const Icon = statusConfig[inst.status]?.icon || Server;
+                const colorClass = statusConfig[inst.status]?.color || 'text-muted-foreground';
+                return (
+                    <div key={inst.id} className="flex items-center justify-between">
+                        <span className="font-medium">{inst.name}</span>
+                        <div className={cn("flex items-center gap-2 text-sm font-semibold", colorClass)}>
+                        <Icon className="h-4 w-4" />
+                        <span>{inst.status}</span>
+                        </div>
                     </div>
-                </div>
-            );
-        })}
+                );
+            })
+        ) : (
+            <div className="text-sm text-muted-foreground text-center flex flex-col items-center justify-center h-full py-4">
+                <ServerCrash className="h-8 w-8 mb-2" />
+                No instruments found.
+            </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -157,8 +162,8 @@ export default function ManagerDashboard() {
   const { toast } = useToast();
 
   useEffect(() => {
+    let isMounted = true;
     const fetchKpiData = async () => {
-      setLoading(true);
       try {
         const token = localStorage.getItem('labwise-token');
         const response = await fetch('/api/v1/reports/kpi', {
@@ -166,35 +171,57 @@ export default function ManagerDashboard() {
         });
         if (!response.ok) throw new Error('Failed to fetch KPI data.');
         const data = await response.json();
-        setKpiData(data);
+        if (isMounted) {
+          setKpiData(data);
+        }
       } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Error', description: error.message });
+        if (isMounted) {
+          toast({ variant: 'destructive', title: 'Dashboard Error', description: error.message });
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
     fetchKpiData();
+
+    return () => { isMounted = false; }
   }, [toast]);
   
-  // Helper function to reliably get the color from the config
   function getRejectionColor(reason: string): string {
     const configKey = reason as keyof typeof rejectionChartConfig;
     if (rejectionChartConfig[configKey] && 'color' in rejectionChartConfig[configKey]) {
       return rejectionChartConfig[configKey].color as string;
     }
-    // Fallback color if reason not in config
     return 'hsl(var(--muted))';
   }
 
   const rejectionChartData = kpiData?.rejectionReasons.map(item => ({
-    name: item.reason, // Use name for the legend
+    name: item.reason,
     count: item.count,
     fill: getRejectionColor(item.reason),
   })) || [];
 
+  if (!loading && !kpiData) {
+    return (
+        <Card className="shadow-lg col-span-full">
+             <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-destructive">
+                    <AlertTriangle/> Data Load Failed
+                </CardTitle>
+             </CardHeader>
+            <CardContent className="text-center text-muted-foreground">
+                <p>Failed to load essential KPI data for the dashboard.</p>
+                <p>Please try refreshing the page or contact support.</p>
+            </CardContent>
+        </Card>
+    );
+  }
+
   return (
     <div className="space-y-8">
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4">
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>STAT TAT (avg)</CardTitle>
@@ -247,16 +274,16 @@ export default function ManagerDashboard() {
             <CardTitle>Average Turnaround Time (TAT)</CardTitle>
             <CardDescription>Hourly average for STAT vs. Routine</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="overflow-x-auto">
             {loading ? <Skeleton className="h-[250px] w-full"/> : kpiData && (
-                <ChartContainer config={tatChartConfig} className="h-[250px] w-full">
+                <ChartContainer config={tatChartConfig} className="h-[250px] min-w-[400px]">
                 <LineChart data={kpiData.tatHistory} margin={{ left: -10, right: 10 }}>
                     <CartesianGrid vertical={false} />
                     <XAxis dataKey="hour" tickLine={false} axisLine={false} />
                     <YAxis tickLine={false} axisLine={false} />
                     <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line dataKey="Routine" type="monotone" stroke="var(--color-Routine)" strokeWidth={2} dot={false} />
-                    <Line dataKey="STAT" type="monotone" stroke="var(--color-STAT)" strokeWidth={2} dot={false} />
+                    <Line dataKey="Routine" type="monotone" stroke={tatChartConfig.Routine.color} strokeWidth={2} dot={false} />
+                    <Line dataKey="STAT" type="monotone" stroke={tatChartConfig.STAT.color} strokeWidth={2} dot={false} />
                     <ChartLegend content={<ChartLegendContent />} />
                 </LineChart>
                 </ChartContainer>
@@ -278,7 +305,7 @@ export default function ManagerDashboard() {
                         <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}
                     </Pie>
-                    <ChartLegend content={<ChartLegendContent nameKey="name" />} className="-translate-y-2 flex-wrap gap-2" />
+                    <ChartLegend content={<ChartLegendContent nameKey="name" />} className="-translate-y-2 flex-wrap gap-2 justify-center" />
                 </PieChart>
                 </ChartContainer>
              )}
@@ -290,9 +317,9 @@ export default function ManagerDashboard() {
             <CardTitle>Staff Workload</CardTitle>
             <CardDescription>Samples pending per tech</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="overflow-x-auto">
              {loading ? <Skeleton className="h-[120px] w-full"/> : kpiData && (
-                <ChartContainer config={workloadChartConfig} className="h-[120px] w-full">
+                <ChartContainer config={workloadChartConfig} className="h-[120px] min-w-[300px]">
                 <BarChart accessibilityLayer data={kpiData.workloadDistribution} margin={{ top: 0, right: 0, left: -25, bottom: -10 }}>
                     <CartesianGrid vertical={false} />
                     <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} tick={false} />
