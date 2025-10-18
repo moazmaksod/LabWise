@@ -153,6 +153,13 @@ export type OrderSample = {
     receivedTimestamp?: Date;
     accessionNumber?: string;
     status: 'AwaitingCollection' | 'Collected' | 'InLab' | 'Testing' | 'AwaitingVerification' | 'Verified' | 'Archived' | 'Rejected';
+    rejectionInfo?: {
+        reason: string;
+        notifiedUser: string;
+        notificationMethod: string;
+        timestamp: Date;
+        rejectedBy: ObjectId;
+    };
     tests: OrderTest[];
     specimenRequirements?: SpecimenRequirements; // Added for phlebotomist view
 }

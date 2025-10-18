@@ -3,7 +3,7 @@
 
 import { Suspense, useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, Loader2, Info, CheckCircle, AlertTriangle, CalendarIcon, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { Search, Loader2, Info, CheckCircle, AlertTriangle, CalendarIcon, ChevronLeft, ChevronRight, Check, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, subDays, addDays } from 'date-fns';
 
@@ -16,6 +16,80 @@ import type { ClientOrder, OrderSample } from '@/lib/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+
+function RejectSampleDialog({ sample, orderId, onSampleRejected }: { sample: OrderSample, orderId: string, onSampleRejected: () => void }) {
+    const { toast } = useToast();
+    const [reason, setReason] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    const handleReject = async () => {
+        if (!reason) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Please select a reason for rejection.' });
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            const token = localStorage.getItem('labwise-token');
+            const response = await fetch('/api/v1/samples/reject', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ orderId, sampleId: sample.sampleId, reason }),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to reject sample.');
+            }
+            toast({ title: 'Sample Rejected', description: `Sample has been marked as rejected.` });
+            onSampleRejected();
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Rejection Failed', description: error.message });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm">
+                    <XCircle className="mr-2 h-4 w-4" /> Reject
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Reject Sample: {sample.sampleType}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Select a reason for rejecting this sample. This action will be logged and cannot be undone.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="py-4 space-y-4">
+                    <Select onValueChange={setReason} value={reason}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select a rejection reason..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Hemolysis">Hemolysis</SelectItem>
+                            <SelectItem value="QNS">Insufficient Quantity (QNS)</SelectItem>
+                            <SelectItem value="Mislabeled">Mislabeled</SelectItem>
+                            <SelectItem value="Improper Container">Improper Container</SelectItem>
+                            <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleReject} disabled={!reason || isSubmitting}>
+                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Confirm Rejection
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    );
+}
 
 function AccessioningPageComponent() {
   const { toast } = useToast();
@@ -25,11 +99,6 @@ function AccessioningPageComponent() {
   const [isSearching, setIsSearching] = useState(false);
   const [foundOrders, setFoundOrders] = useState<ClientOrder[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-
-  useEffect(() => {
-    const storedToken = localStorage.getItem('labwise-token');
-    if (storedToken) setToken(storedToken);
-  }, []);
 
   const fetchCollectedOrders = useCallback(async (date: Date, authToken: string) => {
     setIsSearching(true);
@@ -51,6 +120,11 @@ function AccessioningPageComponent() {
         setIsSearching(false);
     }
   }, [toast]);
+  
+  useEffect(() => {
+    const storedToken = localStorage.getItem('labwise-token');
+    if (storedToken) setToken(storedToken);
+  }, []);
   
   useEffect(() => {
     if (token && !orderSearchTerm) {
@@ -85,6 +159,19 @@ function AccessioningPageComponent() {
         setIsSearching(false);
     }
   }, [orderSearchTerm, token, toast, fetchCollectedOrders, selectedDate]);
+  
+  const refreshOrderState = (orderId: string, sampleId: string, newStatus: OrderSample['status'], extraData: any = {}) => {
+      setFoundOrders(prevOrders => prevOrders.map(order => {
+          if (order.id !== orderId) return order;
+          const newSamples = order.samples.map(s => {
+              if (s.sampleId === sampleId) {
+                  return { ...s, status: newStatus, ...extraData };
+              }
+              return s;
+          });
+          return { ...order, samples: newSamples };
+      }));
+  }
 
   const handleAccessionSample = useCallback(async (orderId: string, sampleId: string) => {
     if (!token) return;
@@ -102,22 +189,16 @@ function AccessioningPageComponent() {
         toast({ title: 'Success', description: `Sample ${resData.accessionNumber} accessioned.` });
         
         // Refresh order data by locally updating the state
-        setFoundOrders(prevOrders => prevOrders.map(order => {
-            if (order.id !== orderId) return order;
-            
-            const newSamples = order.samples.map(s => {
-                if (s.sampleId === sampleId) {
-                    return { ...s, status: 'InLab' as const, accessionNumber: resData.accessionNumber, receivedTimestamp: new Date().toISOString() };
-                }
-                return s;
-            });
-            return { ...order, samples: newSamples };
-        }));
+        refreshOrderState(orderId, sampleId, 'InLab', { accessionNumber: resData.accessionNumber, receivedTimestamp: new Date().toISOString() });
 
     } catch (error: any) {
         toast({ variant: 'destructive', title: 'Accession Failed', description: error.message });
     }
   }, [token, toast]);
+  
+  const handleSampleRejected = (orderId: string, sampleId: string) => {
+      refreshOrderState(orderId, sampleId, 'Rejected');
+  }
 
   const getStatusVariant = (status: OrderSample['status']) => {
     switch (status) {
@@ -217,7 +298,7 @@ function AccessioningPageComponent() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {order.samples.map(sample => (
-                        <Card key={sample.sampleId} className={cn("bg-secondary/50", sample.status === 'InLab' && 'bg-green-900/20')}>
+                        <Card key={sample.sampleId} className={cn("bg-secondary/50", sample.status === 'InLab' && 'bg-green-900/20', sample.status === 'Rejected' && 'bg-red-900/40')}>
                              <CardHeader className="flex flex-row items-center justify-between pb-4">
                                 <CardTitle className="text-lg">{sample.sampleType}</CardTitle>
                                 <Badge variant={getStatusVariant(sample.status)}>{sample.status}</Badge>
@@ -250,11 +331,19 @@ function AccessioningPageComponent() {
                                                         <p>{format(new Date(sample.collectionTimestamp), 'PPpp')}</p>
                                                     </div>
                                                 )}
-                                                <Button onClick={() => handleAccessionSample(order.id, sample.sampleId)}>
-                                                    <Check className="mr-2 h-4 w-4" />
-                                                    Receive & Accession
-                                                </Button>
+                                                <div className="flex gap-2">
+                                                    <RejectSampleDialog sample={sample} orderId={order.id} onSampleRejected={() => handleSampleRejected(order.id, sample.sampleId)} />
+                                                    <Button onClick={() => handleAccessionSample(order.id, sample.sampleId)}>
+                                                        <Check className="mr-2 h-4 w-4" />
+                                                        Receive & Accession
+                                                    </Button>
+                                                </div>
                                             </>
+                                        ) : sample.status === 'Rejected' ? (
+                                            <Button variant="destructive" disabled>
+                                                <XCircle className="mr-2 h-4 w-4" />
+                                                Rejected
+                                            </Button>
                                         ) : (
                                             <Button variant="outline" disabled>
                                                 <AlertTriangle className="mr-2 h-4 w-4" />

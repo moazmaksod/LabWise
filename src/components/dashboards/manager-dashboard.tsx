@@ -22,8 +22,12 @@ import { Skeleton } from '../ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Server, Wrench, CircleOff, Loader2, ServerCrash, AlertTriangle } from 'lucide-react';
 
-// Chart Color Mapping: This object maps data keys from the API to specific
-// CSS color variables defined in `src/app/globals.css`.
+/**
+ * Chart Color Palette Definition
+ * These variables define the actual color values for charts across the application.
+ * They are mapped to specific data points within component files (e.g., manager-dashboard.tsx).
+ * The actual color values are defined in `src/app/globals.css`.
+ */
 const tatChartConfig = {
   STAT: {
     label: 'STAT (min)',
@@ -162,33 +166,38 @@ export default function ManagerDashboard() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
+  const fetchKpiData = useCallback(async (isInitialLoad = false) => {
+    if (isInitialLoad) {
+      setLoading(true);
+    }
     let isMounted = true;
-    const fetchKpiData = async () => {
-      try {
-        const token = localStorage.getItem('labwise-token');
-        const response = await fetch('/api/v1/reports/kpi', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (!response.ok) throw new Error('Failed to fetch KPI data.');
-        const data = await response.json();
-        if (isMounted) {
-          setKpiData(data);
-        }
-      } catch (error: any) {
-        if (isMounted) {
-          toast({ variant: 'destructive', title: 'Dashboard Error', description: error.message });
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+    try {
+      const token = localStorage.getItem('labwise-token');
+      const response = await fetch('/api/v1/reports/kpi', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to fetch KPI data.');
+      const data = await response.json();
+      if (isMounted) {
+        setKpiData(data);
       }
-    };
-    fetchKpiData();
-
+    } catch (error: any) {
+      if (isMounted) {
+        toast({ variant: 'destructive', title: 'Dashboard Error', description: error.message });
+      }
+    } finally {
+      if (isMounted) {
+        setLoading(false);
+      }
+    }
     return () => { isMounted = false; }
   }, [toast]);
+
+  useEffect(() => {
+    fetchKpiData(true); // Initial fetch
+    const interval = setInterval(() => fetchKpiData(false), 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
+  }, [fetchKpiData]);
   
   function getRejectionColor(reason: string): string {
     const configKey = reason as keyof typeof rejectionChartConfig;
@@ -204,7 +213,24 @@ export default function ManagerDashboard() {
     fill: getRejectionColor(item.reason),
   })) || [];
 
-  if (!loading && !kpiData) {
+  if (loading) {
+    return (
+      <div className="space-y-8">
+        <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4">
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-28 w-full" />
+        </div>
+        <div className="grid gap-8 lg:grid-cols-2">
+            <Skeleton className="h-80 w-full" />
+            <Skeleton className="h-80 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!kpiData) {
     return (
         <Card className="shadow-lg col-span-full">
              <CardHeader>
@@ -222,16 +248,14 @@ export default function ManagerDashboard() {
 
   return (
     <div className="space-y-8">
-      <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>STAT TAT (avg)</CardTitle>
             <CardDescription>Past 7 days</CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-10 w-24"/> : (
-                <p className="text-4xl font-bold">{kpiData?.averageTat.stat || 0} min</p>
-            )}
+            <p className="text-4xl font-bold">{kpiData?.averageTat.stat || 0} min</p>
           </CardContent>
         </Card>
         <Card className="shadow-lg">
@@ -240,9 +264,7 @@ export default function ManagerDashboard() {
             <CardDescription>Past 7 days</CardDescription>
           </CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-10 w-24"/> : (
-                <p className="text-4xl font-bold">{kpiData?.averageTat.routine || 0} min</p>
-            )}
+            <p className="text-4xl font-bold">{kpiData?.averageTat.routine || 0} min</p>
           </CardContent>
         </Card>
         <Card className="shadow-lg">
@@ -251,9 +273,7 @@ export default function ManagerDashboard() {
             <CardDescription>Past 7 days</CardDescription>
           </CardHeader>
           <CardContent>
-             {loading ? <Skeleton className="h-10 w-24"/> : (
-                <p className="text-4xl font-bold">{kpiData?.rejectionRate || 0}%</p>
-             )}
+            <p className="text-4xl font-bold">{kpiData?.rejectionRate || 0}%</p>
           </CardContent>
         </Card>
          <Card className="shadow-lg">
@@ -262,9 +282,7 @@ export default function ManagerDashboard() {
             <CardDescription>Live Status</CardDescription>
           </CardHeader>
           <CardContent>
-             {loading ? <Skeleton className="h-10 w-24"/> : (
-                <p className="text-4xl font-bold">{kpiData?.instrumentUptime || 100}%</p>
-             )}
+            <p className="text-4xl font-bold">{kpiData?.instrumentUptime || 100}%</p>
           </CardContent>
         </Card>
       </div>
@@ -276,19 +294,17 @@ export default function ManagerDashboard() {
             <CardDescription>Hourly average for STAT vs. Routine</CardDescription>
           </CardHeader>
           <CardContent className="overflow-x-auto">
-            {loading ? <Skeleton className="h-[250px] w-full"/> : kpiData && (
-                <ChartContainer config={tatChartConfig} className="h-[250px] min-w-[400px]">
-                <LineChart data={kpiData.tatHistory} margin={{ left: -10, right: 10 }}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis dataKey="hour" tickLine={false} axisLine={false} />
-                    <YAxis tickLine={false} axisLine={false} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line dataKey="Routine" type="monotone" stroke={tatChartConfig.Routine.color} strokeWidth={2} dot={false} />
-                    <Line dataKey="STAT" type="monotone" stroke={tatChartConfig.STAT.color} strokeWidth={2} dot={false} />
-                    <ChartLegend content={<ChartLegendContent />} />
-                </LineChart>
-                </ChartContainer>
-            )}
+            <ChartContainer config={tatChartConfig} className="h-[250px] min-w-[400px]">
+              <LineChart data={kpiData.tatHistory} margin={{ left: -10, right: 10 }}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis dataKey="hour" tickLine={false} axisLine={false} />
+                  <YAxis tickLine={false} axisLine={false} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Line dataKey="Routine" type="monotone" stroke={tatChartConfig.Routine.color} strokeWidth={2} dot={false} />
+                  <Line dataKey="STAT" type="monotone" stroke={tatChartConfig.STAT.color} strokeWidth={2} dot={false} />
+                  <ChartLegend content={<ChartLegendContent />} />
+              </LineChart>
+            </ChartContainer>
           </CardContent>
         </Card>
         <Card className="shadow-lg">
@@ -297,19 +313,17 @@ export default function ManagerDashboard() {
             <CardDescription>Breakdown of rejected samples this month</CardDescription>
           </CardHeader>
           <CardContent className="flex items-center justify-center">
-             {loading ? <Skeleton className="h-[250px] w-full"/> : kpiData && (
-                <ChartContainer config={rejectionChartConfig} className="h-[250px] w-full">
-                <PieChart>
-                    <ChartTooltip content={<ChartTooltipContent nameKey="name" hideLabel />} />
-                    <Pie data={rejectionChartData} dataKey="count" nameKey="name" innerRadius={60} strokeWidth={5}>
-                    {rejectionChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                    </Pie>
-                    <ChartLegend content={<ChartLegendContent nameKey="name" />} className="-translate-y-2 flex-wrap gap-2 justify-center" />
-                </PieChart>
-                </ChartContainer>
-             )}
+            <ChartContainer config={rejectionChartConfig} className="h-[250px] w-full">
+            <PieChart>
+                <ChartTooltip content={<ChartTooltipContent nameKey="name" hideLabel />} />
+                <Pie data={rejectionChartData} dataKey="count" nameKey="name" innerRadius={60} strokeWidth={5}>
+                {rejectionChartData.map((entry) => (
+                    <Cell key={`cell-${entry.name}`} fill={entry.fill} />
+                ))}
+                </Pie>
+                <ChartLegend content={<ChartLegendContent nameKey="name" />} className="-translate-y-2 flex-wrap gap-2 justify-center" />
+            </PieChart>
+            </ChartContainer>
           </CardContent>
         </Card>
         <InstrumentStatusWidget />
@@ -319,17 +333,15 @@ export default function ManagerDashboard() {
             <CardDescription>Samples pending per tech</CardDescription>
           </CardHeader>
           <CardContent className="overflow-x-auto">
-             {loading ? <Skeleton className="h-[120px] w-full"/> : kpiData && (
-                <ChartContainer config={workloadChartConfig} className="h-[120px] min-w-[300px]">
-                <BarChart accessibilityLayer data={kpiData.workloadDistribution} margin={{ top: 0, right: 0, left: -25, bottom: -10 }}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} tick={false} />
-                    <YAxis tickLine={false} axisLine={false} />
-                    <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
-                    <Bar dataKey="samples" fill="var(--color-samples)" radius={4} />
-                </BarChart>
-                </ChartContainer>
-            )}
+            <ChartContainer config={workloadChartConfig} className="h-[120px] min-w-[300px]">
+            <BarChart accessibilityLayer data={kpiData.workloadDistribution} margin={{ top: 0, right: 0, left: -25, bottom: -10 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} tick={false} />
+                <YAxis tickLine={false} axisLine={false} />
+                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
+                <Bar dataKey="samples" fill="var(--color-samples)" radius={4} />
+            </BarChart>
+            </ChartContainer>
           </CardContent>
         </Card>
       </div>
