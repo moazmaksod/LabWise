@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -23,6 +22,8 @@ import { Skeleton } from '../ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Server, Wrench, CircleOff, Loader2, ServerCrash, AlertTriangle } from 'lucide-react';
 
+// Chart Color Mapping: This object maps data keys from the API to specific
+// CSS color variables defined in `src/app/globals.css`.
 const tatChartConfig = {
   STAT: {
     label: 'STAT (min)',

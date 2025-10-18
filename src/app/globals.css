@@ -23,12 +23,16 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 217.2 91.2% 59.8%;
-    --chart-1: 217.2 91.2% 59.8%;
-    --chart-2: 270 90% 65%;
-    --chart-3: 197 37% 44%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
     --radius: 0.5rem;
+
+    /* Chart Color Palette Definition */
+    /* These variables define the actual color values for charts across the application. */
+    /* They are mapped to specific data points within component files (e.g., manager-dashboard.tsx). */
+    --chart-1: 217.2 91.2% 59.8%; /* Blue */
+    --chart-2: 270 90% 65%;     /* Purple */
+    --chart-3: 197 37% 44%;     /* Teal */
+    --chart-4: 43 74% 66%;      /* Yellow */
+    --chart-5: 27 87% 67%;      /* Orange */
 
     /* Sidebar variables */
     --sidebar-background: 222.2 84% 4.9%;
@@ -61,11 +65,13 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 217.2 91.2% 59.8%;
-    --chart-1: 217.2 91.2% 59.8%;
-    --chart-2: 270 90% 65%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    
+    /* Chart Color Palette Definition (Dark Theme) */
+    --chart-1: 217.2 91.2% 59.8%; /* Blue */
+    --chart-2: 270 90% 65%;     /* Purple */
+    --chart-3: 197 37% 44%;     /* Teal */
+    --chart-4: 43 74% 66%;      /* Yellow */
+    --chart-5: 27 87% 67%;      /* Orange */
 
     /* Sidebar variables */
     --sidebar-background: 222.2 84% 4.9%;
