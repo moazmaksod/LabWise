@@ -3,6 +3,7 @@ import { useUser } from '@/hooks/use-user';
 import ManagerDashboard from '@/components/dashboards/manager-dashboard';
 import ReceptionistDashboard from '@/components/dashboards/receptionist-dashboard';
 import TechnicianDashboard from '@/components/dashboards/technician-dashboard';
+import PhysicianDashboard from '@/components/dashboards/physician-dashboard';
 import CollectionListPage from '../collection-list/page';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
@@ -40,6 +41,8 @@ export default function DashboardPage() {
       return <ReceptionistDashboard />;
     case 'technician':
       return <TechnicianDashboard />;
+    case 'physician':
+      return <PhysicianDashboard />;
     default:
       return (
         <div className="flex h-[calc(100vh-10rem)] items-center justify-center rounded-lg border border-dashed">

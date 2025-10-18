@@ -162,6 +162,12 @@ export async function POST(req: NextRequest) {
 // GET orders with search and filtering
 export async function GET(req: NextRequest) {
     try {
+        const token = req.headers.get('authorization')?.split(' ')[1];
+        if (!token) return NextResponse.json({ message: 'Authorization token missing.' }, { status: 401 });
+        const userPayload = await decrypt(token);
+        if (!userPayload?.userId) return NextResponse.json({ message: 'Invalid or expired token.' }, { status: 401 });
+
+
         const { searchParams } = new URL(req.url);
         const query = searchParams.get('q');
         const collectedDate = searchParams.get('collectedDate');
@@ -172,6 +178,21 @@ export async function GET(req: NextRequest) {
         let aggregationPipeline: any[] = [];
         
         let matchStage: any = { $match: {} };
+        
+        // --- RBAC: Restrict data access based on role ---
+        if (userPayload.role === 'physician') {
+            matchStage.$match.physicianId = new ObjectId(userPayload.userId as string);
+        } else if (userPayload.role === 'patient') {
+            // Find the patient document associated with the user account
+            const user = await db.collection('users').findOne({ _id: new ObjectId(userPayload.userId as string) });
+            const patient = user ? await db.collection('patients').findOne({ email: user.email }) : null;
+            if (patient) {
+                matchStage.$match.patientId = patient._id;
+            } else {
+                return NextResponse.json([], { status: 200 }); // Return empty if no patient found for user
+            }
+        }
+        // --- End RBAC ---
 
         // Date and Status based filtering for Accessioning page
         if (collectedDate && sampleStatus) {
@@ -201,8 +222,8 @@ export async function GET(req: NextRequest) {
             ];
         }
 
-        // Add patient info lookup before matching if search query involves patient
-        if (query) {
+        // Add patient info lookup before matching if search query involves patient OR if user is a physician/patient
+        if (query || ['physician', 'patient'].includes(userPayload.role)) {
             aggregationPipeline.push({
                 $lookup: {
                     from: 'patients',
@@ -219,8 +240,8 @@ export async function GET(req: NextRequest) {
             aggregationPipeline.push(matchStage);
         }
         
-        // Add patient info lookup if it wasn't added before
-        if (!query) {
+        // Add patient info lookup if it wasn't added before (for internal roles without a query)
+        if (!query && !['physician', 'patient'].includes(userPayload.role)) {
              aggregationPipeline.push({
                 $lookup: {
                     from: 'patients',
