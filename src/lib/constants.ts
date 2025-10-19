@@ -21,6 +21,7 @@ import {
   FileSearch,
   ClipboardPlus,
   Droplets,
+  Book,
 } from 'lucide-react';
 import type { Role, ClientUser, Sample } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -126,7 +127,11 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
   phlebotomist: [
     { href: '/dashboard', label: 'Collection List', icon: Droplets },
   ],
-  physician: [],
+  physician: [
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/test-catalog-search', label: 'Test Catalog', icon: Book },
+    { href: '/orders', label: 'My Orders', icon: ClipboardList },
+  ],
   patient: [],
 };
 
