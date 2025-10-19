@@ -3,12 +3,16 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { UserProvider } from '@/context/user-context';
 import { cn } from '@/lib/utils';
-import { PT_Sans } from 'next/font/google';
+import { Inter as FontSans, Source_Code_Pro as FontCode } from 'next/font/google';
 
-const ptSans = PT_Sans({
+const fontSans = FontSans({
   subsets: ['latin'],
-  weight: ['400', '700'],
-  variable: '--font-pt-sans',
+  variable: '--font-sans',
+});
+
+const fontCode = FontCode({
+  subsets: ['latin'],
+  variable: '--font-code',
 });
 
 export const metadata: Metadata = {
@@ -21,9 +25,11 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const isRtl = false; // Set to true to test RTL layout
+
   return (
-    <html lang="en" className="dark" style={{ colorScheme: 'dark' }} suppressHydrationWarning>
-      <body className={cn("min-h-screen bg-background font-body antialiased", ptSans.variable)}>
+    <html lang={isRtl ? "ar" : "en"} dir={isRtl ? "rtl" : "ltr"} className={isRtl ? "dark" : ""} style={isRtl ? { colorScheme: 'dark' } : {}} suppressHydrationWarning>
+      <body className={cn("min-h-screen bg-background font-body antialiased", fontSans.variable, fontCode.variable)}>
         <UserProvider>
           {children}
           <Toaster />
