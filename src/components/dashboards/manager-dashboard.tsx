@@ -23,6 +23,7 @@ import { Skeleton } from '../ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Server, Wrench, CircleOff, Loader2, ServerCrash, AlertTriangle, Boxes } from 'lucide-react';
 import Link from 'next/link';
+import { Button } from '../ui/button';
 
 /**
  * Chart Color Palette Definition
