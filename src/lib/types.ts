@@ -81,6 +81,7 @@ export type TestCatalogItem = {
   testCode: string;
   name: string;
   description?: string;
+  patientFriendlyExplanation?: string; // Sprint 14 Addition
   specimenRequirements: SpecimenRequirements;
   turnaroundTime: {
     value: number;
@@ -126,6 +127,8 @@ export type Patient = {
     }[];
     createdAt: Date;
     updatedAt: Date;
+    // This connects the patient to a user account
+    userId?: ObjectId; 
 };
 
 export type ClientPatient = Omit<Patient, '_id'> & {
@@ -136,6 +139,7 @@ export type ClientPatient = Omit<Patient, '_id'> & {
 export type OrderTest = {
     testCode: string; // Snapshotted
     name: string;     // Snapshotted
+    patientFriendlyExplanation?: string; // Sprint 14 Addition
     status: 'Pending' | 'In Progress' | 'AwaitingVerification' | 'Verified' | 'Cancelled';
     resultValue?: any;
     resultUnits?: string; // Snapshotted

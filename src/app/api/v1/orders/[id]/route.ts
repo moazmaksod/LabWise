@@ -1,4 +1,5 @@
 
+
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId, MongoServerError } from 'mongodb';
@@ -15,16 +16,37 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         }
         
         const { db } = await connectToDatabase();
-        const order = await db.collection('orders').findOne({ _id: new ObjectId(id) });
+
+        // Sprint 14 Enhancement: Join with patient data for patient portal
+        const aggregationPipeline: any[] = [
+            { $match: { _id: new ObjectId(id) } },
+            {
+                $lookup: {
+                    from: 'patients',
+                    localField: 'patientId',
+                    foreignField: '_id',
+                    as: 'patientInfo'
+                }
+            },
+            { $unwind: { path: '$patientInfo', preserveNullAndEmptyArrays: true } },
+        ];
+        
+        const order = await db.collection('orders').aggregate(aggregationPipeline).next();
 
         if (!order) {
             return NextResponse.json({ message: 'Order not found.' }, { status: 404 });
         }
         
-        const { _id, ...clientOrder } = order;
-        const result = { ...clientOrder, id: _id.toHexString(), appointmentId: order.appointmentId?.toHexString() };
+        const { _id, patientInfo, ...restOfOrder } = order;
+        const clientOrder = { 
+            ...restOfOrder, 
+            id: _id.toHexString(), 
+            appointmentId: order.appointmentId?.toHexString(),
+            patientInfo: patientInfo ? { ...patientInfo, id: patientInfo._id.toHexString(), _id: undefined } : undefined,
+            samples: order.samples.map((s: any) => ({ ...s, sampleId: s.sampleId.toHexString() }))
+        };
 
-        return NextResponse.json(result);
+        return NextResponse.json(clientOrder);
     } catch (error) {
         console.error(`Failed to fetch order ${params.id}:`, error);
         return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });

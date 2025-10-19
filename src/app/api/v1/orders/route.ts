@@ -5,7 +5,7 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { getNextOrderId } from '@/lib/counters';
 import { decrypt } from '@/lib/auth';
-import type { Order, TestCatalogItem, OrderSample, OrderTest, Role, Appointment } from '@/lib/types';
+import type { Order, TestCatalogItem, OrderSample, OrderTest, Role, Appointment, User } from '@/lib/types';
 import { addMinutes, startOfDay, endOfDay } from 'date-fns';
 
 // POST a new order
@@ -98,6 +98,7 @@ export async function POST(req: NextRequest) {
             const testsForSample: OrderTest[] = tests.map((testDef) => ({
                 testCode: testDef.testCode,
                 name: testDef.name,
+                patientFriendlyExplanation: testDef.patientFriendlyExplanation, // Sprint 14 Addition
                 status: 'Pending',
                 referenceRange: testDef.referenceRanges?.length > 0 ? `${testDef.referenceRanges[0].rangeLow} - ${testDef.referenceRanges[0].rangeHigh}` : 'N/A',
                 resultUnits: testDef.referenceRanges?.length > 0 ? testDef.referenceRanges[0].units : '',
@@ -183,9 +184,7 @@ export async function GET(req: NextRequest) {
         if (userPayload.role === 'physician') {
             matchStage.$match.physicianId = new ObjectId(userPayload.userId as string);
         } else if (userPayload.role === 'patient') {
-            // Find the patient document associated with the user account
-            const user = await db.collection('users').findOne({ _id: new ObjectId(userPayload.userId as string) });
-            const patient = user ? await db.collection('patients').findOne({ email: user.email }) : null;
+            const patient = await db.collection('patients').findOne({ userId: new ObjectId(userPayload.userId as string) });
             if (patient) {
                 matchStage.$match.patientId = patient._id;
             } else {
