@@ -59,7 +59,8 @@ export async function POST(req: NextRequest) {
             isActive: true,
             createdAt: new Date(),
             updatedAt: new Date(),
-            avatar: `https://i.pravatar.cc/150?u=${email}`
+            avatar: `https://i.pravatar.cc/150?u=${email}`,
+            trainingRecords: [], // Initialize with empty array
         };
 
         const result = await db.collection('users').insertOne(newUserDocument);
@@ -101,6 +102,14 @@ export async function PUT(req: NextRequest) {
             ...updateData,
             updatedAt: new Date(),
         };
+
+        if (updateData.trainingRecords) {
+            updateObject.trainingRecords = updateData.trainingRecords.map((rec: any) => ({
+                ...rec,
+                completionDate: new Date(rec.completionDate),
+                expiryDate: new Date(rec.expiryDate),
+            }));
+        }
 
         const result = await db.collection('users').updateOne(
             { _id: new ObjectId(id) },
