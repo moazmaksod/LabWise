@@ -49,6 +49,10 @@ export const USERS: Record<string, Omit<ClientUser, 'id'>> = {
     isActive: true,
     createdAt: now,
     updatedAt: now,
+    trainingRecords: [
+        { documentName: 'Annual Safety Training', completionDate: new Date('2024-01-15'), expiryDate: new Date('2025-01-15'), uploadedFileUrl: '#' },
+        { documentName: 'Competency Assessment - Chemistry', completionDate: new Date('2023-11-20'), expiryDate: new Date('2024-11-20'), uploadedFileUrl: '#' },
+    ]
   },
   'user-mgr-01': {
     firstName: 'Emily',
@@ -117,12 +121,8 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
   manager: [
     { href: '/dashboard', label: 'KPI Dashboard', icon: AreaChart },
     { href: '/user-management', label: 'User Management', icon: Users },
-    { href: '/patient-management', label: 'Patients', icon: Users },
-    { href: '/orders', label: 'Orders', icon: ClipboardPlus },
     { href: '/test-catalog', label: 'Test Catalog', icon: FlaskConical },
-    { href: '/reports', label: 'Reports & Analytics', icon: BarChart },
     { href: '/inventory', label: 'Inventory Mgmt', icon: Boxes },
-    { href: '/quality-assurance', label: 'Quality Assurance', icon: FileCheck },
     { href: '/audit-trail', label: 'Audit Trail', icon: FileSearch },
   ],
   phlebotomist: [
