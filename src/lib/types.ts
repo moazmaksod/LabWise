@@ -35,6 +35,7 @@ export type User = {
 // This is a client-safe version of the User object
 export type ClientUser = Omit<User, 'passwordHash' | '_id'> & {
   id: string;
+  trainingRecords?: TrainingRecord[];
 };
 
 export type Sample = {
