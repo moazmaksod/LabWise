@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -89,7 +88,9 @@ export default function PhysicianDashboard() {
                                     <p>
                                         <span className="font-semibold">{alert.patientInfo?.firstName} {alert.patientInfo?.lastName}</span> (Order: {alert.orderId}) has a critical lab value.
                                     </p>
-                                    <Button variant="link" className="p-0 h-auto text-destructive-foreground">View Results</Button>
+                                    <Button variant="link" asChild className="p-0 h-auto text-destructive-foreground">
+                                       <Link href={`/portal/report/${alert.id}`}>View Results</Link>
+                                    </Button>
                                 </div>
                                 <Button variant="ghost" size="icon" onClick={() => dismissAlert(alert.id)}>
                                     <X className="h-4 w-4"/>
@@ -150,7 +151,7 @@ export default function PhysicianDashboard() {
                         <TableCell>{format(new Date(order.createdAt), 'PP')}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="outline" size="sm" asChild disabled={order.orderStatus !== 'Complete'}>
-                            <Link href="#">
+                            <Link href={`/portal/report/${order.id}`}>
                                 <FileText className="mr-2 h-4 w-4"/>
                                 View Report
                             </Link>
