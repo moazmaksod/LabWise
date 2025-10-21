@@ -2,7 +2,7 @@
 
 'use client';
 
-import { Suspense, useState, useEffect, useCallback } from 'react';
+import { Suspense, useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -44,31 +44,6 @@ const orderFormSchema = z.object({
 type OrderFormValues = z.infer<typeof orderFormSchema>;
 
 const TIME_ZONE = 'Africa/Cairo';
-
-function findNextAvailableTime(appointments: ClientAppointment[]): Date {
-    const nowInCairo = toZonedTime(new Date(), TIME_ZONE);
-    const todayInCairo = startOfToday();
-    let lastEndTime = setMinutes(setHours(todayInCairo, 9), 0); // Default to 9:00 AM Cairo time
-
-    if (appointments && appointments.length > 0) {
-        const sortedAppointments = [...appointments].sort((a, b) => new Date(a.scheduledTime).getTime() - new Date(b.scheduledTime).getTime());
-        const lastAppointment = sortedAppointments[sortedAppointments.length - 1];
-        lastEndTime = addMinutes(new Date(lastAppointment.scheduledTime), lastAppointment.durationMinutes);
-    }
-    
-    const lastEndTimeInCairo = toZonedTime(lastEndTime, TIME_ZONE);
-
-    if (lastEndTimeInCairo < nowInCairo) {
-      lastEndTime = nowInCairo;
-    }
-
-    let nextTime = addMinutes(lastEndTime, 5);
-    const minutes = nextTime.getMinutes();
-    const roundedMinutes = Math.ceil(minutes / 5) * 5;
-    nextTime.setMinutes(roundedMinutes, 0, 0);
-
-    return nextTime;
-}
 
 
 function OrderForm({ user, patient, onOrderSaved, editingOrder, onCancel }: { user: ClientUser | null; patient: ClientPatient; onOrderSaved: () => void; editingOrder?: ClientOrder | null, onCancel: () => void; }) {
@@ -370,7 +345,6 @@ function OrderEntryPageComponent() {
   const [editingOrder, setEditingOrder] = useState<ClientOrder | null>(null);
   const [pageIsLoading, setPageIsLoading] = useState(true);
 
-  const [physicianOrders, setPhysicianOrders] = useState<ClientOrder[]>([]);
   const [physicianPatients, setPhysicianPatients] = useState<ClientPatient[]>([]);
 
 
@@ -416,7 +390,6 @@ function OrderEntryPageComponent() {
           const response = await fetch('/api/v1/orders', { headers: { Authorization: `Bearer ${authToken}` } });
           if (!response.ok) throw new Error('Could not fetch physician orders.');
           const orders: ClientOrder[] = await response.json();
-          setPhysicianOrders(orders);
           
           const patientMap = new Map<string, ClientPatient>();
           orders.forEach(order => {
@@ -479,6 +452,17 @@ function OrderEntryPageComponent() {
       router.push('/orders');
   }
 
+  const filteredPhysicianPatients = useMemo(() => {
+    if (!patientSearchTerm) {
+      return physicianPatients;
+    }
+    return physicianPatients.filter(patient =>
+      patient.firstName.toLowerCase().includes(patientSearchTerm.toLowerCase()) ||
+      patient.lastName.toLowerCase().includes(patientSearchTerm.toLowerCase()) ||
+      patient.mrn.toLowerCase().includes(patientSearchTerm.toLowerCase())
+    );
+  }, [physicianPatients, patientSearchTerm]);
+
   if (pageIsLoading || userLoading) {
       return (
           <div className="space-y-4">
@@ -494,18 +478,27 @@ function OrderEntryPageComponent() {
         return (
             <div className="space-y-4 py-4">
                 <p className="text-sm text-muted-foreground">Select one of your existing patients or register a new one.</p>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search your patients by name or MRN..." 
+                    className="pl-10" 
+                    value={patientSearchTerm} 
+                    onChange={e => setPatientSearchTerm(e.target.value)}
+                  />
+                </div>
                 <div className="mt-4 overflow-hidden rounded-md border max-h-60 overflow-y-auto">
                     <Table>
                         <TableHeader><TableRow className="bg-secondary hover:bg-secondary"><TableHead>Patient</TableHead><TableHead>MRN</TableHead><TableHead>Age</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
                         <TableBody>
-                            {physicianPatients.length > 0 ? physicianPatients.map((patient) => (
+                            {filteredPhysicianPatients.length > 0 ? filteredPhysicianPatients.map((patient) => (
                                 <TableRow key={patient.id}>
                                     <TableCell><div className="font-medium">{patient.firstName} {patient.lastName}</div></TableCell>
                                     <TableCell>{patient.mrn}</TableCell>
                                     <TableCell>{calculateAge(patient.dateOfBirth)}</TableCell>
                                     <TableCell className="text-right"><Button size="sm" onClick={() => setSelectedPatient(patient)}><FilePlus className="mr-2 h-4 w-4" />Select</Button></TableCell>
                                 </TableRow>
-                            )) : <TableRow><TableCell colSpan={4} className="h-24 text-center">You have no existing patient orders.</TableCell></TableRow>}
+                            )) : <TableRow><TableCell colSpan={4} className="h-24 text-center">No existing patients found.</TableCell></TableRow>}
                         </TableBody>
                     </Table>
                 </div>
