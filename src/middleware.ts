@@ -27,7 +27,7 @@ const rbacMatrix: Record<string, { methods: string[], roles: Role[] }[]> = {
     ],
      '/api/v1/patients/.*': [
         // Note: Technician access is limited at the app layer per spec
-        { methods: ['GET'], roles: ['receptionist', 'technician', 'manager', 'phlebotomist'] },
+        { methods: ['GET'], roles: ['receptionist', 'technician', 'manager', 'phlebotomist', 'physician'] },
         { methods: ['PUT'], roles: ['receptionist', 'manager'] }
     ],
     '/api/v1/orders': [
