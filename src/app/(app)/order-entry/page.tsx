@@ -80,6 +80,7 @@ function OrderForm({ user, patient, onOrderSaved, editingOrder, onCancel }: { us
   const [testSearchResults, setTestSearchResults] = useState<ClientTestCatalogItem[]>([]);
   const [isTestSearching, setIsTestSearching] = useState(false);
   const [selectedTests, setSelectedTests] = useState<ClientTestCatalogItem[]>([]);
+  const [isPhysicianListLoading, setIsPhysicianListLoading] = useState(false);
   
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderFormSchema),
@@ -102,14 +103,19 @@ function OrderForm({ user, patient, onOrderSaved, editingOrder, onCancel }: { us
   }, []);
 
   const fetchPhysicians = useCallback(async () => {
-    if (!token) return;
+    if (!token || user?.role === 'physician' || physicians.length > 0) return;
+    setIsPhysicianListLoading(true);
     try {
       const response = await fetch('/api/v1/users?role=physician', { headers: { 'Authorization': `Bearer ${token}` }});
       if (!response.ok) throw new Error('Failed to fetch physicians');
       const data = await response.json();
       setPhysicians(data);
-    } catch (error) { toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch physician list.' }); }
-  }, [token, toast]);
+    } catch (error) { 
+      console.error("Could not fetch physician list:", error);
+    } finally {
+      setIsPhysicianListLoading(false);
+    }
+  }, [token, user, physicians.length]);
 
   const fetchInitialTests = useCallback(async (testCodes: string[]) => {
     if (!token || testCodes.length === 0) return;
@@ -163,9 +169,8 @@ function OrderForm({ user, patient, onOrderSaved, editingOrder, onCancel }: { us
   }, [token, editingOrder, form]);
 
   useEffect(() => {
-    fetchPhysicians();
     if(editingOrder) fetchInitialTests(editingOrder.samples.flatMap(s => s.tests.map(t => t.testCode)));
-  }, [token, editingOrder, fetchPhysicians, fetchInitialTests]);
+  }, [token, editingOrder, fetchInitialTests]);
   
   const handleTestPopoverOpenChange = useCallback(async (open: boolean) => {
     setIsTestPopoverOpen(open);
@@ -264,10 +269,13 @@ function OrderForm({ user, patient, onOrderSaved, editingOrder, onCancel }: { us
                     onValueChange={field.onChange}
                     defaultValue={field.value}
                     disabled={user?.role === 'physician'}
+                    onOpenChange={(open) => {
+                      if(open) fetchPhysicians();
+                    }}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a physician" />
+                        <SelectValue placeholder={isPhysicianListLoading ? "Loading..." : "Select a physician"} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
