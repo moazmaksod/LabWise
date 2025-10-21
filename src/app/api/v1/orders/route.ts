@@ -21,10 +21,10 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { patientId, physicianId, icd10Code, priority, testCodes, appointmentDetails } = body;
+        const { patientId, physicianId, icd10Code, priority, testIds, appointmentDetails } = body;
 
         // Validation
-        if (!patientId || !physicianId || !icd10Code || !testCodes || !Array.isArray(testCodes) || testCodes.length === 0 || !appointmentDetails) {
+        if (!patientId || !physicianId || !icd10Code || !testIds || !Array.isArray(testIds) || testIds.length === 0 || !appointmentDetails) {
             return NextResponse.json({ message: 'Missing or invalid required fields. Order must have an appointment.' }, { status: 400 });
         }
 
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
         const physician = await db.collection('users').findOne({ _id: new ObjectId(physicianId) });
         if (!physician || physician.role !== 'physician') return NextResponse.json({ message: 'Physician not found.' }, { status: 404 });
 
-        if(testCodes.length === 0) {
+        if(testIds.length === 0) {
              return NextResponse.json({ message: 'At least one test must be selected.' }, { status: 400 });
         }
 
@@ -62,11 +62,11 @@ export async function POST(req: NextRequest) {
         // ---- End overlap check ----
         
         // Fetch all test definitions from the catalog
-        const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: testCodes } }).toArray();
+        const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: testIds } }).toArray();
 
-        if (testDefs.length !== testCodes.length) {
+        if (testDefs.length !== testIds.length) {
             const foundCodes = new Set(testDefs.map(t => t.testCode));
-            const missingCodes = testCodes.filter((c: string) => !foundCodes.has(c));
+            const missingCodes = testIds.filter((c: string) => !foundCodes.has(c));
             return NextResponse.json({ message: `One or more invalid test codes provided: ${missingCodes.join(', ')}` }, { status: 400 });
         }
 
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
             details: {
                 orderId: newOrderId,
                 patientId: patientId,
-                tests: testCodes,
+                tests: testIds,
                 message: `New order ${newOrderId} created.`
             },
             ipAddress: req.ip || req.headers.get('x-forwarded-for'),
@@ -218,22 +218,11 @@ export async function GET(req: NextRequest) {
                 }
             };
         }
-        // General query based searching
-        else if (query) {
+        
+        // Add patient info lookup before matching if search query involves patient
+        if (query) {
              const searchRegex = new RegExp(query, 'i');
-            matchStage.$match['$or'] = [
-                { orderId: searchRegex },
-                { 'samples.accessionNumber': searchRegex },
-                { 'patientInfo.mrn': searchRegex },
-                { 'patientInfo.firstName': searchRegex },
-                { 'patientInfo.lastName': searchRegex },
-                { 'patientInfo.contactInfo.phone': searchRegex },
-            ];
-        }
-
-        // Add patient info lookup before matching if search query involves patient OR if user is a physician/patient
-        if (query || ['physician', 'patient'].includes(userPayload.role)) {
-            aggregationPipeline.push({
+             aggregationPipeline.push({
                 $lookup: {
                     from: 'patients',
                     localField: 'patientId',
@@ -243,6 +232,15 @@ export async function GET(req: NextRequest) {
             }, { 
                 $unwind: { path: "$patientInfo", preserveNullAndEmptyArrays: true }
             });
+            
+            matchStage.$match['$or'] = [
+                { orderId: searchRegex },
+                { 'samples.accessionNumber': searchRegex },
+                { 'patientInfo.mrn': searchRegex },
+                { 'patientInfo.firstName': searchRegex },
+                { 'patientInfo.lastName': searchRegex },
+                { 'patientInfo.contactInfo.phone': searchRegex },
+            ];
         }
         
         if (Object.keys(matchStage.$match).length > 0) {
@@ -250,7 +248,7 @@ export async function GET(req: NextRequest) {
         }
         
         // Add patient info lookup if it wasn't added before (for internal roles without a query)
-        if (!query && !['physician', 'patient'].includes(userPayload.role)) {
+        if (!query) {
              aggregationPipeline.push({
                 $lookup: {
                     from: 'patients',

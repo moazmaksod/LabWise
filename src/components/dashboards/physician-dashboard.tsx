@@ -248,9 +248,6 @@ export default function PhysicianDashboard() {
                                     View Report
                                 </Link>
                             </Button>
-                            <Button variant="secondary" size="sm" onClick={() => handleDownloadPdf(order.id, order.orderId)} disabled={!['Complete', 'Partially Complete'].includes(order.orderStatus)}>
-                                Download PDF
-                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>

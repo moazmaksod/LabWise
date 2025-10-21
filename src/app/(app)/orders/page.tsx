@@ -35,14 +35,14 @@ function OrdersPageComponent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const fetchOrders = useCallback(async (query?: string, status?: string, priority?: string) => {
+  const fetchOrders = useCallback(async () => {
       if (!token) return;
       setIsSearching(true);
       try {
           const params = new URLSearchParams();
-          if (query) params.append('q', query);
-          if (status && status !== 'All') params.append('status', status);
-          if (priority && priority !== 'All') params.append('priority', priority);
+          if (searchTerm) params.append('q', searchTerm);
+          if (statusFilter && statusFilter !== 'All') params.append('status', statusFilter);
+          if (priorityFilter && priorityFilter !== 'All') params.append('priority', priorityFilter);
 
           const url = `/api/v1/orders?${params.toString()}`;
           const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -54,7 +54,7 @@ function OrdersPageComponent() {
       } finally {
           setIsSearching(false);
       }
-  }, [token, toast]);
+  }, [token, toast, searchTerm, statusFilter, priorityFilter]);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('labwise-token');
@@ -64,7 +64,7 @@ function OrdersPageComponent() {
   useEffect(() => {
     if(token) {
         const debounce = setTimeout(() => {
-            fetchOrders(searchTerm, statusFilter, priorityFilter);
+            fetchOrders();
         }, 300);
         return () => clearTimeout(debounce);
     }

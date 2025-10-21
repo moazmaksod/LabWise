@@ -102,6 +102,13 @@ const rbacMatrix: Record<string, { methods: string[], roles: Role[] }[]> = {
     '/api/v1/qc-logs/.*': [
         { methods: ['GET', 'PUT', 'DELETE'], roles: ['manager', 'technician'] }
     ],
+    // This is the new rule for the portal endpoints from Sprint 12
+    '/api/v1/portal/orders': [
+        { methods: ['GET'], roles: ['physician', 'patient'] }
+    ],
+    '/api/v1/portal/orders/.*': [
+        { methods: ['GET'], roles: ['physician', 'patient'] }
+    ]
 };
 
 
