@@ -383,13 +383,13 @@ function OrderEntryPageComponent() {
   
   // For Physician: Fetch their existing orders to derive their patient list
   const fetchPhysicianData = useCallback(async (authToken: string) => {
+      setPageIsLoading(true);
       try {
           const response = await fetch('/api/v1/orders', { headers: { Authorization: `Bearer ${authToken}` } });
           if (!response.ok) throw new Error('Could not fetch physician orders.');
           const orders: ClientOrder[] = await response.json();
           setPhysicianOrders(orders);
           
-          // Create a unique list of patients from the orders
           const patientMap = new Map<string, ClientPatient>();
           orders.forEach(order => {
               if (order.patientInfo) {
@@ -400,6 +400,8 @@ function OrderEntryPageComponent() {
 
       } catch (error: any) {
           toast({ variant: 'destructive', title: 'Error', description: error.message });
+      } finally {
+          setPageIsLoading(false);
       }
   }, [toast]);
 
@@ -412,14 +414,14 @@ function OrderEntryPageComponent() {
 
   useEffect(() => {
     if (token) {
-        if (orderId) {
-            fetchOrderAndPatient(orderId, token);
-        } else if (patientId) {
+        // Highest priority: if a specific patientId is in the URL, fetch them immediately.
+        if (patientId) {
             fetchPatientById(patientId, token);
-        } else if (user?.role === 'physician') {
+        } else if (orderId) { // Next priority: editing an existing order
+            fetchOrderAndPatient(orderId, token);
+        } else if (user?.role === 'physician') { // For physicians, default to their patient list
             fetchPhysicianData(token);
-            setPageIsLoading(false);
-        } else {
+        } else { // For other roles, default to search
             setPageIsLoading(false);
         }
     }

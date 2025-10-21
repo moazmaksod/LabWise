@@ -69,6 +69,11 @@ export async function POST(req: NextRequest) {
             createdAt: new Date(),
             updatedAt: new Date(),
         };
+
+        // If the creator is a physician, link the patient to their user account
+        if (userPayload.role === 'physician') {
+            newPatientDocument.userId = new ObjectId(userPayload.userId as string);
+        }
         
         const result = await db.collection('patients').insertOne(newPatientDocument);
         const createdPatient = { ...newPatientDocument, _id: result.insertedId };
