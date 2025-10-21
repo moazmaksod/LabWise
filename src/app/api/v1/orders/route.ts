@@ -173,6 +173,8 @@ export async function GET(req: NextRequest) {
         const query = searchParams.get('q');
         const collectedDate = searchParams.get('collectedDate');
         const sampleStatus = searchParams.get('sampleStatus');
+        const status = searchParams.get('status');
+        const priority = searchParams.get('priority');
         
         const { db } = await connectToDatabase();
 
@@ -192,6 +194,14 @@ export async function GET(req: NextRequest) {
             }
         }
         // --- End RBAC ---
+
+        if (status && status !== 'All') {
+            matchStage.$match.orderStatus = status;
+        }
+        if (priority && priority !== 'All') {
+            matchStage.$match.priority = priority;
+        }
+
 
         // Date and Status based filtering for Accessioning page
         if (collectedDate && sampleStatus) {
