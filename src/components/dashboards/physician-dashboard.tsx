@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -99,6 +100,35 @@ export default function PhysicianDashboard() {
     setCriticalAlerts(alerts => alerts.filter(alert => alert.id !== orderId));
     toast({ title: 'Alert Acknowledged', description: `Critical alert for order ${allOrders.find(o=>o.id === orderId)?.orderId} has been dismissed.`});
   }
+
+  const handleDownloadPdf = async (orderId: string, orderDisplayId: string) => {
+    try {
+        const token = localStorage.getItem('labwise-token');
+        const response = await fetch(`/api/v1/orders/${orderId}/pdf`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Could not download PDF report.');
+        
+        // This is a placeholder for actual PDF download
+        const textContent = await response.text();
+        console.log("PDF Placeholder Content:", textContent);
+        
+        // Simulating file download
+        const blob = new Blob([textContent], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `LabReport-${orderDisplayId}.txt`; // Save as .txt for demo
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Download Failed', description: error.message });
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -211,12 +241,17 @@ export default function PhysicianDashboard() {
                         </TableCell>
                         <TableCell>{format(new Date(order.createdAt), 'PP')}</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="outline" size="sm" asChild disabled={!['Complete', 'Partially Complete'].includes(order.orderStatus)}>
-                            <Link href={`/portal/report/${order.id}`}>
-                                <FileText className="mr-2 h-4 w-4"/>
-                                View Report
-                            </Link>
-                          </Button>
+                          <div className="flex gap-2 justify-end">
+                            <Button variant="outline" size="sm" asChild disabled={!['Complete', 'Partially Complete'].includes(order.orderStatus)}>
+                                <Link href={`/portal/report/${order.id}`}>
+                                    <FileText className="mr-2 h-4 w-4"/>
+                                    View Report
+                                </Link>
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => handleDownloadPdf(order.id, order.orderId)} disabled={!['Complete', 'Partially Complete'].includes(order.orderStatus)}>
+                                Download PDF
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
