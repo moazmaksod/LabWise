@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { Suspense, useState, useEffect, useCallback } from 'react';
@@ -70,7 +71,7 @@ function findNextAvailableTime(appointments: ClientAppointment[]): Date {
 }
 
 
-function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient: ClientPatient; onOrderSaved: () => void; editingOrder?: ClientOrder | null, onCancel: () => void; }) {
+function OrderForm({ user, patient, onOrderSaved, editingOrder, onCancel }: { user: ClientUser | null; patient: ClientPatient; onOrderSaved: () => void; editingOrder?: ClientOrder | null, onCancel: () => void; }) {
   const { toast } = useToast();
   const [token, setToken] = useState<string | null>(null);
   const [isTestPopoverOpen, setIsTestPopoverOpen] = useState(false);
@@ -85,7 +86,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
     defaultValues: {
       id: editingOrder?.id,
       patientId: patient.id,
-      physicianId: editingOrder?.physicianId || '',
+      physicianId: editingOrder?.physicianId || (user?.role === 'physician' ? user.id : ''),
       icd10Code: editingOrder?.icd10Code || '',
       priority: editingOrder?.priority || 'Routine',
       testIds: editingOrder?.samples.flatMap(s => s.tests.map(t => t.testCode)) || [],
@@ -253,7 +254,40 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField control={form.control} name="physicianId" render={({ field }) => ( <FormItem><FormLabel>Ordering Physician</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a physician" /></SelectTrigger></FormControl><SelectContent>{physicians.map(p => (<SelectItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
+            <FormField
+              control={form.control}
+              name="physicianId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Ordering Physician</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    disabled={user?.role === 'physician'}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a physician" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {user?.role === 'physician' ? (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.firstName} {user.lastName}
+                        </SelectItem>
+                      ) : (
+                        physicians.map(p => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.firstName} {p.lastName}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField control={form.control} name="icd10Code" render={({ field }) => ( <FormItem><FormLabel>ICD-10 Diagnosis Code</FormLabel><FormControl><Input placeholder="e.g., R53.83" {...field} /></FormControl><FormMessage /></FormItem>)} />
         </div>
          <FormField
@@ -552,7 +586,7 @@ function OrderEntryPageComponent() {
 
                 {showPatientSearch ? renderPatientSearch() 
                 : selectedPatient ? (
-                    <OrderForm patient={selectedPatient} onOrderSaved={handleOrderSaved} editingOrder={editingOrder} onCancel={() => router.push('/orders')} />
+                    <OrderForm user={user} patient={selectedPatient} onOrderSaved={handleOrderSaved} editingOrder={editingOrder} onCancel={() => router.push('/orders')} />
                 ) : (
                     <div className="flex h-60 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
                 )}
