@@ -165,12 +165,25 @@ function OrdersPageComponent() {
                     const isPhysician = user?.role === 'physician';
                     const canEdit = user?.role === 'manager' || (isPhysician && order.createdBy === user?.id);
                     
-                    const rowContent = (
+                    const orderIdCellContent = (
+                        <span className={cn("font-mono", canEdit && "cursor-pointer hover:underline text-primary")}>
+                            {order.orderId}
+                        </span>
+                    );
+                    
+                    return (
                         <TableRow key={order.id} className={cn(canEdit && "cursor-pointer hover:bg-muted/50")} onClick={() => canEdit && router.push(`/order-entry?id=${order.id}`)}>
                            <TableCell>
-                                <span className={cn("font-mono", canEdit && "cursor-pointer hover:underline text-primary")}>
-                                    {order.orderId}
-                                </span>
+                                {isPhysician && !canEdit ? (
+                                    <Tooltip delayDuration={100}>
+                                        <TooltipTrigger>{orderIdCellContent}</TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>This order was created by another user and cannot be edited.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                ) : (
+                                    orderIdCellContent
+                                )}
                           </TableCell>
                           <TableCell>
                             {order.patientInfo ? (
@@ -187,19 +200,6 @@ function OrdersPageComponent() {
                           <TableCell className="text-right"><Badge variant={order.priority === 'STAT' ? 'destructive' : 'outline'}>{order.priority}</Badge></TableCell>
                         </TableRow>
                     );
-                    
-                    if (isPhysician && !canEdit) {
-                        return (
-                          <Tooltip key={order.id} delayDuration={100}>
-                            <TooltipTrigger asChild>{rowContent}</TooltipTrigger>
-                            <TooltipContent>
-                              <p>This order was created by another user and cannot be edited.</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        )
-                    }
-                    return rowContent;
-
                 })) 
                 : (<TableRow><TableCell colSpan={5} className="h-24 text-center">{isSearching ? 'Searching...' : 'No orders found matching your criteria.'}</TableCell></TableRow>)}
               </TableBody>
