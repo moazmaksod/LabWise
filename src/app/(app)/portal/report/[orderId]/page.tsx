@@ -154,7 +154,7 @@ function PatientReportPageComponent() {
                     </div>
                      <div className="text-right text-sm">
                         <p className="font-semibold">Collection Date</p>
-                        <p className="text-muted-foreground">{format(parseISO(order.samples[0].collectionTimestamp as unknown as string), 'PPP')}</p>
+                        <p className="text-muted-foreground">{format(new Date(order.samples[0]?.collectionTimestamp || order.createdAt), 'PPP')}</p>
                      </div>
                 </CardHeader>
             </Card>
