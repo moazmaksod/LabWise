@@ -79,8 +79,9 @@ function OrderForm({ user, patient, onOrderSaved, editingOrder, onCancel }: { us
   const [testSearchInput, setTestSearchInput] = useState('');
   const [testSearchResults, setTestSearchResults] = useState<ClientTestCatalogItem[]>([]);
   const [isTestSearching, setIsTestSearching] = useState(false);
-  const [selectedTests, setSelectedTests] = useState<ClientTestCatalogItem[]>([]);
   const [isPhysicianListLoading, setIsPhysicianListLoading] = useState(false);
+  
+  const [selectedTests, setSelectedTests] = useState<ClientTestCatalogItem[]>([]);
   
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderFormSchema),
@@ -103,11 +104,11 @@ function OrderForm({ user, patient, onOrderSaved, editingOrder, onCancel }: { us
   }, []);
 
   const fetchPhysicians = useCallback(async () => {
-    if (!token || user?.role === 'physician' || physicians.length > 0) return;
+    if (!token || physicians.length > 0) return;
     setIsPhysicianListLoading(true);
     try {
       const response = await fetch('/api/v1/users?role=physician', { headers: { 'Authorization': `Bearer ${token}` }});
-      if (!response.ok) throw new Error('Failed to fetch physicians');
+      if (!response.ok) return; // Fail silently
       const data = await response.json();
       setPhysicians(data);
     } catch (error) { 
@@ -115,7 +116,7 @@ function OrderForm({ user, patient, onOrderSaved, editingOrder, onCancel }: { us
     } finally {
       setIsPhysicianListLoading(false);
     }
-  }, [token, user, physicians.length]);
+  }, [token, physicians.length]);
 
   const fetchInitialTests = useCallback(async (testCodes: string[]) => {
     if (!token || testCodes.length === 0) return;
@@ -128,27 +129,8 @@ function OrderForm({ user, patient, onOrderSaved, editingOrder, onCancel }: { us
   }, [token, toast]);
   
   useEffect(() => {
-    if (token && !editingOrder) {
-        const fetchAppointmentsAndSetTime = async () => {
-            try {
-                const dateString = format(toZonedTime(new Date(), TIME_ZONE), 'yyyy-MM-dd');
-                const url = `/api/v1/appointments?date=${dateString}`;
-                const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
-                if (!response.ok) throw new Error('Could not fetch schedule');
-                const appointments: ClientAppointment[] = await response.json();
-                const nextAvailableTime = findNextAvailableTime(appointments);
-                const localTimeString = format(nextAvailableTime, "yyyy-MM-dd'T'HH:mm");
-                form.setValue('appointmentDateTime', localTimeString);
-            } catch (error) {
-                console.error("Failed to get next available time slot, defaulting to 1 hour from now.", error);
-                const nextHour = addMinutes(toZonedTime(new Date(), TIME_ZONE), 60);
-                form.setValue('appointmentDateTime', format(nextHour, "yyyy-MM-dd'T'HH:mm"));
-            }
-        };
-        fetchAppointmentsAndSetTime();
-    } else if (editingOrder && editingOrder.appointmentId) {
+    if (editingOrder && editingOrder.appointmentId && token) {
         const fetchExistingAppointment = async () => {
-             if (!token) return;
              try {
                 const apptRes = await fetch(`/api/v1/appointments/${editingOrder.appointmentId}`, { headers: { 'Authorization': `Bearer ${token}` }});
                 if (!apptRes.ok) throw new Error('Could not fetch appointment time.');
@@ -156,17 +138,21 @@ function OrderForm({ user, patient, onOrderSaved, editingOrder, onCancel }: { us
                 const localTimeString = formatInTimeZone(new Date(apptData.scheduledTime), TIME_ZONE, "yyyy-MM-dd'T'HH:mm");
                 form.setValue('appointmentDateTime', localTimeString);
                 form.setValue('durationMinutes', apptData.durationMinutes);
-                form.setValue('appointmentId', apptData.id); // Ensure appointmentId is set in the form
+                form.setValue('appointmentId', apptData.id);
              } catch (e: any) {
                  console.error(e.message);
-                 // Fallback
                  const localTimeString = format(new Date(), "yyyy-MM-dd'T'HH:mm");
                  form.setValue('appointmentDateTime', localTimeString);
              }
         }
         fetchExistingAppointment();
+    } else if (!editingOrder) {
+        // Default to 1 hour from now instead of fetching schedule
+        const nextHour = addMinutes(toZonedTime(new Date(), TIME_ZONE), 60);
+        form.setValue('appointmentDateTime', format(nextHour, "yyyy-MM-dd'T'HH:mm"));
     }
   }, [token, editingOrder, form]);
+
 
   useEffect(() => {
     if(editingOrder) fetchInitialTests(editingOrder.samples.flatMap(s => s.tests.map(t => t.testCode)));
@@ -230,7 +216,7 @@ function OrderForm({ user, patient, onOrderSaved, editingOrder, onCancel }: { us
             physicianId: data.physicianId,
             icd10Code: data.icd10Code,
             priority: data.priority,
-            testCodes: data.testIds, // Changed from testIds to testCodes
+            testCodes: data.testIds, 
             appointmentId: data.appointmentId,
             appointmentDetails: {
                 scheduledTime: scheduledTimeInCairo.toISOString(),
@@ -270,7 +256,7 @@ function OrderForm({ user, patient, onOrderSaved, editingOrder, onCancel }: { us
                     defaultValue={field.value}
                     disabled={user?.role === 'physician'}
                     onOpenChange={(open) => {
-                      if(open) fetchPhysicians();
+                      if(open && user?.role !== 'physician') fetchPhysicians();
                     }}
                   >
                     <FormControl>
@@ -456,14 +442,13 @@ function OrderEntryPageComponent() {
 
   useEffect(() => {
     if (token) {
-        // Highest priority: if a specific patientId is in the URL, fetch them immediately.
         if (patientId) {
             fetchPatientById(patientId, token);
-        } else if (orderId) { // Next priority: editing an existing order
+        } else if (orderId) {
             fetchOrderAndPatient(orderId, token);
-        } else if (user?.role === 'physician') { // For physicians, default to their patient list
+        } else if (user?.role === 'physician') {
             fetchPhysicianData(token);
-        } else { // For other roles, default to search
+        } else {
             setPageIsLoading(false);
         }
     }
@@ -486,7 +471,7 @@ function OrderEntryPageComponent() {
       } catch (error) { toast({ variant: 'destructive', title: 'Error', description: 'Could not perform patient search.' }); setPatientSearchResults([]); } finally { setIsPatientSearching(false); }
     }, 300);
     return () => clearTimeout(searchDebounce);
-  }, [patientSearchTerm, token, toast, user]);
+  }, [patientSearchTerm, token, toast, user, isPatientSearching]);
   
   const showPatientSearch = !isEditing && !selectedPatient;
 
