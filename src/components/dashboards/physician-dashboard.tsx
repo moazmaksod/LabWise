@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { ClipboardList, FileText, Loader2, AlertTriangle, X, PlusCircle } from 'lucide-react';
+import { ClipboardList, FileText, Loader2, AlertTriangle, X, PlusCircle, Search, Filter } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -13,24 +13,31 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import type { ClientOrder } from '@/lib/types';
 import Link from 'next/link';
+import { Input } from '../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 export default function PhysicianDashboard() {
-  const [orders, setOrders] = useState<ClientOrder[]>([]);
+  const [allOrders, setAllOrders] = useState<ClientOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const [criticalAlerts, setCriticalAlerts] = useState<ClientOrder[]>([]);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('labwise-token');
       if (!token) throw new Error('Authentication token not found.');
+      
       const response = await fetch('/api/v1/orders', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error('Failed to fetch patient orders.');
+      
       const data: ClientOrder[] = await response.json();
-      setOrders(data);
+      setAllOrders(data);
       
       // Simulate finding critical alerts
       const alerts = data.filter(order => 
@@ -54,6 +61,25 @@ export default function PhysicianDashboard() {
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  const filteredOrders = useMemo(() => {
+    return allOrders
+      .filter(order => {
+        if (statusFilter === 'All') return true;
+        return order.orderStatus === statusFilter;
+      })
+      .filter(order => {
+        if (!searchTerm) return true;
+        const term = searchTerm.toLowerCase();
+        const patient = order.patientInfo;
+        return (
+          patient?.firstName.toLowerCase().includes(term) ||
+          patient?.lastName.toLowerCase().includes(term) ||
+          patient?.mrn.toLowerCase().includes(term) ||
+          order.orderId.toLowerCase().includes(term)
+        );
+      });
+  }, [allOrders, statusFilter, searchTerm]);
   
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -71,7 +97,7 @@ export default function PhysicianDashboard() {
 
   const dismissAlert = (orderId: string) => {
     setCriticalAlerts(alerts => alerts.filter(alert => alert.id !== orderId));
-    toast({ title: 'Alert Acknowledged', description: `Critical alert for order ${orders.find(o=>o.id === orderId)?.orderId} has been dismissed.`});
+    toast({ title: 'Alert Acknowledged', description: `Critical alert for order ${allOrders.find(o=>o.id === orderId)?.orderId} has been dismissed.`});
   }
 
   return (
@@ -121,7 +147,34 @@ export default function PhysicianDashboard() {
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="overflow-hidden rounded-md border">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="relative flex-grow">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search by Patient Name, MRN, Order ID..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Filter className="h-5 w-5 text-muted-foreground" />
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full md:w-[180px]">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All Statuses</SelectItem>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="In Progress">In Progress</SelectItem>
+                    <SelectItem value="Complete">Complete</SelectItem>
+                    <SelectItem value="Cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="overflow-hidden rounded-md border mt-4">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-secondary hover:bg-secondary">
@@ -142,8 +195,8 @@ export default function PhysicianDashboard() {
                         </TableCell>
                       </TableRow>
                     ))
-                  ) : orders.length > 0 ? (
-                    orders.map((order) => (
+                  ) : filteredOrders.length > 0 ? (
+                    filteredOrders.map((order) => (
                       <TableRow key={order.id}>
                         <TableCell>
                           <div className="font-medium">{order.patientInfo?.firstName} {order.patientInfo?.lastName}</div>
@@ -159,7 +212,7 @@ export default function PhysicianDashboard() {
                         <TableCell>{format(new Date(order.createdAt), 'PP')}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="outline" size="sm" asChild disabled={order.orderStatus !== 'Complete'}>
-                            <Link href={`/report/${order.id}`}>
+                            <Link href={`/portal/report/${order.id}`}>
                                 <FileText className="mr-2 h-4 w-4"/>
                                 View Report
                             </Link>
@@ -170,7 +223,7 @@ export default function PhysicianDashboard() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={6} className="h-24 text-center">
-                        No orders found.
+                        No orders found matching your filters.
                       </TableCell>
                     </TableRow>
                   )}
