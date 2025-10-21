@@ -163,7 +163,8 @@ function OrdersPageComponent() {
                 {isSearching ? (Array.from({ length: 5 }).map((_, i) => (<TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell></TableRow>))) 
                 : searchResults.length > 0 ? (searchResults.map((order) => {
                     const isPhysician = user?.role === 'physician';
-                    const canEdit = user?.role === 'manager' || (isPhysician && order.createdBy === user.id);
+                    const canEdit = user?.role === 'manager' || (isPhysician && order.createdBy === user?.id);
+                    
                     const rowContent = (
                         <TableRow key={order.id} className={cn(canEdit && "cursor-pointer hover:bg-muted/50")} onClick={() => canEdit && router.push(`/order-entry?id=${order.id}`)}>
                            <TableCell>
@@ -186,15 +187,15 @@ function OrdersPageComponent() {
                           <TableCell className="text-right"><Badge variant={order.priority === 'STAT' ? 'destructive' : 'outline'}>{order.priority}</Badge></TableCell>
                         </TableRow>
                     );
-
+                    
                     if (isPhysician && !canEdit) {
                         return (
-                            <Tooltip key={order.id} delayDuration={100}>
-                                <TooltipTrigger asChild>{rowContent}</TooltipTrigger>
-                                <TooltipContent>
-                                    <p>This order was created by another user and cannot be edited.</p>
-                                </TooltipContent>
-                            </Tooltip>
+                          <Tooltip key={order.id} delayDuration={100}>
+                            <TooltipTrigger asChild>{rowContent}</TooltipTrigger>
+                            <TooltipContent>
+                              <p>This order was created by another user and cannot be edited.</p>
+                            </TooltipContent>
+                          </Tooltip>
                         )
                     }
                     return rowContent;
