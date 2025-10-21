@@ -53,7 +53,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 }
 
-// PUT (update) an order - REWRITTEN WITH DEBUGGING AND FINAL FIX
+// PUT (update) an order
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
     try {
         const id = params.id;
@@ -87,10 +87,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             return NextResponse.json({ message: 'Order not found' }, { status: 404 });
         }
         
-        if (userPayload.role === 'physician' && existingOrder.physicianId.toHexString() !== userPayload.userId) {
-             return NextResponse.json({ message: 'Forbidden: You can only modify your own orders.' }, { status: 403 });
+        // A physician can only edit orders they created themselves.
+        if (userPayload.role === 'physician' && existingOrder.createdBy.toHexString() !== userPayload.userId) {
+             return NextResponse.json({ message: 'Forbidden: You can only modify orders that you created.' }, { status: 403 });
         }
-
 
         const newApptStartTime = new Date(appointmentDetails.scheduledTime);
         const newApptDuration = parseInt(appointmentDetails.durationMinutes, 10) || 15;

@@ -18,6 +18,8 @@ import { Badge } from '@/components/ui/badge';
 import type { ClientOrder } from '@/lib/types';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 function OrdersPageComponent() {
   const { toast } = useToast();
@@ -159,31 +161,45 @@ function OrdersPageComponent() {
               <TableHeader><TableRow className="bg-secondary hover:bg-secondary"><TableHead>Order ID</TableHead><TableHead>Patient</TableHead><TableHead>Created</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Priority</TableHead></TableRow></TableHeader>
               <TableBody>
                 {isSearching ? (Array.from({ length: 5 }).map((_, i) => (<TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell></TableRow>))) 
-                : searchResults.length > 0 ? (searchResults.map((order) => (
-                    <TableRow key={order.id} className="cursor-pointer hover:bg-muted/50" onClick={() => (user?.role === 'manager' || user?.role === 'physician') && router.push(`/order-entry?id=${order.id}`)}>
-                       <TableCell>
-                          {(user?.role === 'manager' || user?.role === 'physician') ? (
-                            <span className="font-mono cursor-pointer hover:underline text-primary">
-                                {order.orderId}
-                            </span>
-                          ) : (
-                            <span className="font-mono">{order.orderId}</span>
-                          )}
-                      </TableCell>
-                      <TableCell>
-                        {order.patientInfo ? (
-                          <>
-                            <div className="font-medium">{order.patientInfo.firstName} {order.patientInfo.lastName}</div>
-                            <div className="text-sm text-muted-foreground">{order.patientInfo.mrn}</div>
-                          </>
-                        ) : (
-                          <div className="text-muted-foreground">Patient not found</div>
-                        )}
-                      </TableCell>
-                       <TableCell>{format(new Date(order.createdAt), 'PPpp')}</TableCell>
-                      <TableCell><Badge variant={getStatusVariant(order.orderStatus)}>{order.orderStatus}</Badge></TableCell>
-                      <TableCell className="text-right"><Badge variant={order.priority === 'STAT' ? 'destructive' : 'outline'}>{order.priority}</Badge></TableCell>
-                    </TableRow>))) 
+                : searchResults.length > 0 ? (searchResults.map((order) => {
+                    const isPhysician = user?.role === 'physician';
+                    const canEdit = user?.role === 'manager' || (isPhysician && order.createdBy === user.id);
+                    const rowContent = (
+                        <TableRow key={order.id} className={cn(canEdit && "cursor-pointer hover:bg-muted/50")} onClick={() => canEdit && router.push(`/order-entry?id=${order.id}`)}>
+                           <TableCell>
+                                <span className={cn("font-mono", canEdit && "cursor-pointer hover:underline text-primary")}>
+                                    {order.orderId}
+                                </span>
+                          </TableCell>
+                          <TableCell>
+                            {order.patientInfo ? (
+                              <>
+                                <div className="font-medium">{order.patientInfo.firstName} {order.patientInfo.lastName}</div>
+                                <div className="text-sm text-muted-foreground">{order.patientInfo.mrn}</div>
+                              </>
+                            ) : (
+                              <div className="text-muted-foreground">Patient not found</div>
+                            )}
+                          </TableCell>
+                           <TableCell>{format(new Date(order.createdAt), 'PPpp')}</TableCell>
+                          <TableCell><Badge variant={getStatusVariant(order.orderStatus)}>{order.orderStatus}</Badge></TableCell>
+                          <TableCell className="text-right"><Badge variant={order.priority === 'STAT' ? 'destructive' : 'outline'}>{order.priority}</Badge></TableCell>
+                        </TableRow>
+                    );
+
+                    if (isPhysician && !canEdit) {
+                        return (
+                            <Tooltip key={order.id} delayDuration={100}>
+                                <TooltipTrigger asChild>{rowContent}</TooltipTrigger>
+                                <TooltipContent>
+                                    <p>This order was created by another user and cannot be edited.</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        )
+                    }
+                    return rowContent;
+
+                })) 
                 : (<TableRow><TableCell colSpan={5} className="h-24 text-center">{isSearching ? 'Searching...' : 'No orders found matching your criteria.'}</TableCell></TableRow>)}
               </TableBody>
             </Table>
