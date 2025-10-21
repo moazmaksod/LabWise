@@ -191,7 +191,7 @@ function OrderForm({ user, patient, onOrderSaved, editingOrder, onCancel }: { us
             physicianId: data.physicianId,
             icd10Code: data.icd10Code,
             priority: data.priority,
-            testCodes: data.testIds, 
+            testIds: data.testIds, 
             appointmentId: data.appointmentId,
             appointmentDetails: {
                 scheduledTime: scheduledTimeInCairo.toISOString(),
@@ -213,7 +213,7 @@ function OrderForm({ user, patient, onOrderSaved, editingOrder, onCancel }: { us
         const result = await response.json();
         toast({ title: `Order ${isEditing ? 'Updated' : 'Created'} Successfully`, description: `Order ID: ${result.orderId}. Collection appointment scheduled.` });
         onOrderSaved();
-    } catch (error: any) { toast({ variant: 'destructive', title: `Order ${isEditing ? 'Creation' : 'Update'} Failed`, description: error.message }); }
+    } catch (error: any) { toast({ variant: 'destructive', title: `Order ${isEditing ? 'Update' : 'Creation'} Failed`, description: error.message }); }
   };
 
   return (
