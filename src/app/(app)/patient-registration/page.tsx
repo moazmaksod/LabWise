@@ -198,7 +198,7 @@ function PatientRegistrationPageComponent() {
     return <Skeleton className="h-96 w-full" />;
   }
 
-  if (user?.role !== 'receptionist' && user?.role !== 'manager') {
+  if (user?.role !== 'receptionist' && user?.role !== 'manager' && user?.role !== 'physician') {
     setTimeout(() => router.push('/dashboard'), 3000);
     return (
         <Alert variant="destructive">
