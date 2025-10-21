@@ -115,7 +115,7 @@ export default function PhysicianDashboard() {
                                         <span className="font-semibold">{alert.patientInfo?.firstName} {alert.patientInfo?.lastName}</span> (Order: {alert.orderId}) has a critical lab value.
                                     </p>
                                     <Button variant="link" asChild className="p-0 h-auto text-destructive-foreground">
-                                       <Link href={`/report/${alert.id}`}>View Results</Link>
+                                       <Link href={`/portal/report/${alert.id}`}>View Results</Link>
                                     </Button>
                                 </div>
                                 <Button variant="ghost" size="icon" onClick={() => dismissAlert(alert.id)}>
@@ -211,7 +211,7 @@ export default function PhysicianDashboard() {
                         </TableCell>
                         <TableCell>{format(new Date(order.createdAt), 'PP')}</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="outline" size="sm" asChild disabled={order.orderStatus !== 'Complete'}>
+                          <Button variant="outline" size="sm" asChild disabled={!['Complete', 'Partially Complete'].includes(order.orderStatus)}>
                             <Link href={`/portal/report/${order.id}`}>
                                 <FileText className="mr-2 h-4 w-4"/>
                                 View Report
