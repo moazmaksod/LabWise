@@ -6,8 +6,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Search, PlusCircle, X, Loader2, FilePlus, TestTube, ArrowLeft, Clock } from 'lucide-react';
+import { Search, PlusCircle, X, Loader2, FilePlus, TestTube, ArrowLeft, Clock, User as UserIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@/hooks/use-user';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,7 @@ import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { addMinutes, startOfToday, setHours, setMinutes } from 'date-fns';
 import { calculateAge } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import Link from 'next/link';
 
 const orderFormSchema = z.object({
   id: z.string().optional(),
@@ -125,7 +127,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
                 const dateString = format(toZonedTime(new Date(), TIME_ZONE), 'yyyy-MM-dd');
                 const url = `/api/v1/appointments?date=${dateString}`;
                 const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
-                if (!response.ok) throw new Error('Failed to fetch schedule');
+                if (!response.ok) throw new Error('Could not fetch schedule');
                 const appointments: ClientAppointment[] = await response.json();
                 const nextAvailableTime = findNextAvailableTime(appointments);
                 const localTimeString = format(nextAvailableTime, "yyyy-MM-dd'T'HH:mm");
@@ -325,6 +327,7 @@ function OrderForm({ patient, onOrderSaved, editingOrder, onCancel }: { patient:
 
 function OrderEntryPageComponent() {
   const router = useRouter();
+  const { user, loading: userLoading } = useUser();
   const searchParams = useSearchParams();
   const patientId = searchParams.get('patientId');
   const orderId = searchParams.get('id');
@@ -338,6 +341,10 @@ function OrderEntryPageComponent() {
   const [selectedPatient, setSelectedPatient] = useState<ClientPatient | null>(null);
   const [editingOrder, setEditingOrder] = useState<ClientOrder | null>(null);
   const [pageIsLoading, setPageIsLoading] = useState(true);
+
+  const [physicianOrders, setPhysicianOrders] = useState<ClientOrder[]>([]);
+  const [physicianPatients, setPhysicianPatients] = useState<ClientPatient[]>([]);
+
 
   const isEditing = !!orderId;
 
@@ -373,6 +380,29 @@ function OrderEntryPageComponent() {
         setPageIsLoading(false);
     }
   }, [toast]);
+  
+  // For Physician: Fetch their existing orders to derive their patient list
+  const fetchPhysicianData = useCallback(async (authToken: string) => {
+      try {
+          const response = await fetch('/api/v1/orders', { headers: { Authorization: `Bearer ${authToken}` } });
+          if (!response.ok) throw new Error('Could not fetch physician orders.');
+          const orders: ClientOrder[] = await response.json();
+          setPhysicianOrders(orders);
+          
+          // Create a unique list of patients from the orders
+          const patientMap = new Map<string, ClientPatient>();
+          orders.forEach(order => {
+              if (order.patientInfo) {
+                  patientMap.set(order.patientInfo.id, order.patientInfo);
+              }
+          });
+          setPhysicianPatients(Array.from(patientMap.values()));
+
+      } catch (error: any) {
+          toast({ variant: 'destructive', title: 'Error', description: error.message });
+      }
+  }, [toast]);
+
 
   useEffect(() => {
     const storedToken = localStorage.getItem('labwise-token');
@@ -386,18 +416,22 @@ function OrderEntryPageComponent() {
             fetchOrderAndPatient(orderId, token);
         } else if (patientId) {
             fetchPatientById(patientId, token);
+        } else if (user?.role === 'physician') {
+            fetchPhysicianData(token);
+            setPageIsLoading(false);
         } else {
             setPageIsLoading(false);
         }
     }
-  }, [token, orderId, patientId, fetchOrderAndPatient, fetchPatientById]);
-
+  }, [token, orderId, patientId, user, fetchOrderAndPatient, fetchPatientById, fetchPhysicianData]);
+  
   useEffect(() => {
-    if (!patientSearchTerm.trim() || !token) {
+    if (user?.role === 'physician' || !patientSearchTerm.trim() || !token) {
         setPatientSearchResults([]);
         if(isPatientSearching) setIsPatientSearching(false);
         return;
     };
+
     setIsPatientSearching(true);
     const searchDebounce = setTimeout(async () => {
       try {
@@ -408,7 +442,7 @@ function OrderEntryPageComponent() {
       } catch (error) { toast({ variant: 'destructive', title: 'Error', description: 'Could not perform patient search.' }); setPatientSearchResults([]); } finally { setIsPatientSearching(false); }
     }, 300);
     return () => clearTimeout(searchDebounce);
-  }, [patientSearchTerm, token, toast]);
+  }, [patientSearchTerm, token, toast, user]);
   
   const showPatientSearch = !isEditing && !selectedPatient;
 
@@ -416,13 +450,71 @@ function OrderEntryPageComponent() {
       router.push('/orders');
   }
 
-  if (pageIsLoading) {
+  if (pageIsLoading || userLoading) {
       return (
           <div className="space-y-4">
               <Skeleton className="h-10 w-48" />
               <Card><CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader><CardContent><Skeleton className="h-96 w-full" /></CardContent></Card>
           </div>
       )
+  }
+
+  const renderPatientSearch = () => {
+    // Physician workflow
+    if (user?.role === 'physician') {
+        return (
+            <div className="space-y-4 py-4">
+                <p className="text-sm text-muted-foreground">Select one of your existing patients or register a new one.</p>
+                <div className="mt-4 overflow-hidden rounded-md border max-h-60 overflow-y-auto">
+                    <Table>
+                        <TableHeader><TableRow className="bg-secondary hover:bg-secondary"><TableHead>Patient</TableHead><TableHead>MRN</TableHead><TableHead>Age</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                        <TableBody>
+                            {physicianPatients.length > 0 ? physicianPatients.map((patient) => (
+                                <TableRow key={patient.id}>
+                                    <TableCell><div className="font-medium">{patient.firstName} {patient.lastName}</div></TableCell>
+                                    <TableCell>{patient.mrn}</TableCell>
+                                    <TableCell>{calculateAge(patient.dateOfBirth)}</TableCell>
+                                    <TableCell className="text-right"><Button size="sm" onClick={() => setSelectedPatient(patient)}><FilePlus className="mr-2 h-4 w-4" />Select</Button></TableCell>
+                                </TableRow>
+                            )) : <TableRow><TableCell colSpan={4} className="h-24 text-center">You have no existing patient orders.</TableCell></TableRow>}
+                        </TableBody>
+                    </Table>
+                </div>
+                <div className="flex justify-center pt-4">
+                    <Button asChild variant="secondary">
+                        <Link href="/patient-registration">
+                            <UserIcon className="mr-2 h-4 w-4" />
+                            Register a New Patient
+                        </Link>
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
+    // Receptionist/Manager workflow
+    return (
+        <div className="space-y-4 py-4">
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input type="search" placeholder="Start typing to search for a patient..." value={patientSearchTerm} onChange={(e) => setPatientSearchTerm(e.target.value)} className="pl-10" />
+            </div>
+            <div className="mt-4 overflow-hidden rounded-md border max-h-60 overflow-y-auto">
+                <Table><TableHeader><TableRow className="bg-secondary hover:bg-secondary"><TableHead>Patient</TableHead><TableHead>Age</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                <TableBody>
+                    {isPatientSearching ? <TableRow><TableCell colSpan={3}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                    : patientSearchResults.length > 0 ? patientSearchResults.map((patient) => (
+                        <TableRow key={patient.id}>
+                        <TableCell><div className="font-medium">{patient.firstName} {patient.lastName}</div><div className="text-sm text-muted-foreground">MRN: {patient.mrn}</div></TableCell>
+                        <TableCell>{calculateAge(patient.dateOfBirth)}</TableCell>
+                        <TableCell className="text-right"><Button size="sm" onClick={() => setSelectedPatient(patient)}><FilePlus className="mr-2 h-4 w-4" />Select</Button></TableCell>
+                        </TableRow>))
+                    : <TableRow><TableCell colSpan={3} className="h-24 text-center">{patientSearchTerm ? 'No patients found.' : 'Start typing to see results.'}</TableCell></TableRow>}
+                </TableBody>
+                </Table>
+            </div>
+        </div>
+    );
   }
 
   return (
@@ -435,7 +527,7 @@ function OrderEntryPageComponent() {
         <Card>
             <CardHeader>
                 <CardTitle>{isEditing ? `Edit Order ${editingOrder?.orderId}` : 'Create New Order'}</CardTitle>
-                <CardDescription>{selectedPatient ? `For ${selectedPatient.firstName} ${selectedPatient.lastName}` : "Search for a patient to begin."}</CardDescription>
+                <CardDescription>{selectedPatient ? `For ${selectedPatient.firstName} ${selectedPatient.lastName}` : "Select a patient to begin."}</CardDescription>
             </CardHeader>
             <CardContent>
                 {selectedPatient && (
@@ -444,7 +536,7 @@ function OrderEntryPageComponent() {
                         <CardContent className="pb-4">
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <p className="font-semibold text-xl">{selectedPatient.firstName} ${selectedPatient.lastName}</p>
+                                    <p className="font-semibold text-xl">{selectedPatient.firstName} {selectedPatient.lastName}</p>
                                     <p className="text-muted-foreground">MRN: {selectedPatient.mrn}</p>
                                 </div>
                                 <div className="text-right">
@@ -456,28 +548,8 @@ function OrderEntryPageComponent() {
                     </Card>
                 )}
 
-                {showPatientSearch ? (
-                    <div className="space-y-4 py-4">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input type="search" placeholder="Start typing to search for a patient..." value={patientSearchTerm} onChange={(e) => setPatientSearchTerm(e.target.value)} className="pl-10" />
-                        </div>
-                        <div className="mt-4 overflow-hidden rounded-md border max-h-60 overflow-y-auto">
-                            <Table><TableHeader><TableRow className="bg-secondary hover:bg-secondary"><TableHead>Patient</TableHead><TableHead>Age</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-                            <TableBody>
-                                {isPatientSearching ? <TableRow><TableCell colSpan={3}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                                : patientSearchResults.length > 0 ? patientSearchResults.map((patient) => (
-                                    <TableRow key={patient.id}>
-                                    <TableCell><div className="font-medium">{patient.firstName} {patient.lastName}</div><div className="text-sm text-muted-foreground">MRN: {patient.mrn}</div></TableCell>
-                                    <TableCell>{calculateAge(patient.dateOfBirth)}</TableCell>
-                                    <TableCell className="text-right"><Button size="sm" onClick={() => setSelectedPatient(patient)}><FilePlus className="mr-2 h-4 w-4" />Select</Button></TableCell>
-                                    </TableRow>))
-                                : <TableRow><TableCell colSpan={3} className="h-24 text-center">{patientSearchTerm ? 'No patients found.' : 'Start typing to see results.'}</TableCell></TableRow>}
-                            </TableBody>
-                            </Table>
-                        </div>
-                    </div>
-                ) : selectedPatient ? (
+                {showPatientSearch ? renderPatientSearch() 
+                : selectedPatient ? (
                     <OrderForm patient={selectedPatient} onOrderSaved={handleOrderSaved} editingOrder={editingOrder} onCancel={() => router.push('/orders')} />
                 ) : (
                     <div className="flex h-60 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
