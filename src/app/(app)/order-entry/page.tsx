@@ -429,22 +429,27 @@ function OrderEntryPageComponent() {
   
   useEffect(() => {
     if (user?.role === 'physician' || !patientSearchTerm.trim() || !token) {
-        setPatientSearchResults([]);
-        if(isPatientSearching) setIsPatientSearching(false);
+        if (patientSearchResults.length > 0) setPatientSearchResults([]);
+        if (isPatientSearching) setIsPatientSearching(false);
         return;
     };
 
-    setIsPatientSearching(true);
     const searchDebounce = setTimeout(async () => {
+      setIsPatientSearching(true);
       try {
         const response = await fetch(`/api/v1/patients?q=${patientSearchTerm}`, { headers: { 'Authorization': `Bearer ${token}` }});
         if (!response.ok) throw new Error('Search failed');
         const data = await response.json();
         setPatientSearchResults(data);
-      } catch (error) { toast({ variant: 'destructive', title: 'Error', description: 'Could not perform patient search.' }); setPatientSearchResults([]); } finally { setIsPatientSearching(false); }
+      } catch (error) { 
+          toast({ variant: 'destructive', title: 'Error', description: 'Could not perform patient search.' }); 
+          setPatientSearchResults([]); 
+      } finally { 
+          setIsPatientSearching(false); 
+      }
     }, 300);
     return () => clearTimeout(searchDebounce);
-  }, [patientSearchTerm, token, toast, user, isPatientSearching]);
+  }, [patientSearchTerm, token]);
   
   const showPatientSearch = !isEditing && !selectedPatient;
 
