@@ -163,7 +163,15 @@ function OrdersPageComponent() {
                 {isSearching ? (Array.from({ length: 5 }).map((_, i) => (<TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell></TableRow>))) 
                 : searchResults.length > 0 ? (searchResults.map((order) => {
                     const isPhysician = user?.role === 'physician';
-                    const canEdit = user?.role === 'manager' || (isPhysician && order.createdBy === user?.id);
+                    const isReceptionist = user?.role === 'receptionist';
+                    
+                    let canEdit = user?.role === 'manager';
+                    if (isPhysician && order.createdBy === user?.id) {
+                        canEdit = true;
+                    }
+                    if (isReceptionist && ['Pending', 'Partially Collected'].includes(order.orderStatus)) {
+                        canEdit = true;
+                    }
                     
                     const orderIdCellContent = (
                         <span className={cn("font-mono", canEdit && "cursor-pointer hover:underline text-primary")}>
@@ -174,16 +182,16 @@ function OrdersPageComponent() {
                     return (
                         <TableRow key={order.id} className={cn(canEdit && "cursor-pointer hover:bg-muted/50")} onClick={() => canEdit && router.push(`/order-entry?id=${order.id}`)}>
                            <TableCell>
-                                {isPhysician && !canEdit ? (
-                                    <Tooltip delayDuration={100}>
-                                        <TooltipTrigger>{orderIdCellContent}</TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>This order was created by another user and cannot be edited.</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                ) : (
-                                    orderIdCellContent
-                                )}
+                                <Tooltip delayDuration={100}>
+                                    <TooltipTrigger asChild>
+                                        <div>{orderIdCellContent}</div>
+                                    </TooltipTrigger>
+                                    {isPhysician && !canEdit && (
+                                    <TooltipContent>
+                                        <p>This order was created by another user and cannot be edited.</p>
+                                    </TooltipContent>
+                                    )}
+                                </Tooltip>
                           </TableCell>
                           <TableCell>
                             {order.patientInfo ? (

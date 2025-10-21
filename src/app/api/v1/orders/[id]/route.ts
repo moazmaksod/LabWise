@@ -87,10 +87,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             return NextResponse.json({ message: 'Order not found' }, { status: 404 });
         }
         
-        // A physician can only edit orders they created themselves.
+        // --- Permission Checks ---
         if (userPayload.role === 'physician' && existingOrder.createdBy.toHexString() !== userPayload.userId) {
              return NextResponse.json({ message: 'Forbidden: You can only modify orders that you created.' }, { status: 403 });
         }
+        if (userPayload.role === 'receptionist' && !['Pending', 'Partially Collected'].includes(existingOrder.orderStatus)) {
+            return NextResponse.json({ message: 'Forbidden: Receptionists can only edit orders before collection is complete.' }, { status: 403 });
+        }
+        // --- End Permission Checks ---
 
         const newApptStartTime = new Date(appointmentDetails.scheduledTime);
         const newApptDuration = parseInt(appointmentDetails.durationMinutes, 10) || 15;
