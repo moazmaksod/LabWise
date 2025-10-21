@@ -71,11 +71,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             return NextResponse.json({ message: 'Authorization token missing.' }, { status: 401 });
         }
         const userPayload = await decrypt(token);
-        if (!userPayload?.userId || userPayload.role !== 'manager') {
-            console.error(`[ERROR] Forbidden access attempt by user role: ${userPayload?.role}`);
-            return NextResponse.json({ message: 'Forbidden: You do not have permission to update orders.' }, { status: 403 });
+        if (!userPayload?.userId) {
+            console.error(`[ERROR] Invalid token provided.`);
+            return NextResponse.json({ message: 'Invalid or expired token.' }, { status: 401 });
         }
-        console.log(`[DEBUG] 2. User authenticated as manager (ID: ${userPayload.userId})`);
+        console.log(`[DEBUG] 2. User authenticated as ${userPayload.role} (ID: ${userPayload.userId})`);
         
         const body = await req.json();
         console.log('[DEBUG] 3. Received request body:', JSON.stringify(body, null, 2));
@@ -96,6 +96,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             return NextResponse.json({ message: 'Order not found' }, { status: 404 });
         }
         console.log('[DEBUG] 4. Successfully fetched existing order.');
+        
+        if (userPayload.role === 'physician' && existingOrder.physicianId.toHexString() !== userPayload.userId) {
+             console.error(`[ERROR] Physician ${userPayload.userId} attempted to modify order belonging to ${existingOrder.physicianId.toHexString()}.`);
+             return NextResponse.json({ message: 'Forbidden: You can only modify your own orders.' }, { status: 403 });
+        }
+        console.log(`[DEBUG] 4a. User has permission to modify this order.`);
+
 
         const newApptStartTime = new Date(appointmentDetails.scheduledTime);
         const newApptDuration = parseInt(appointmentDetails.durationMinutes, 10) || 15;
@@ -218,7 +225,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             userId: new ObjectId(userPayload.userId as string),
             action: 'ORDER_UPDATE',
             entity: { collectionName: 'orders', documentId: orderObjectId },
-            details: { orderId: existingOrder.orderId, message: `Order ${existingOrder.orderId} updated by manager.`, changes: updatePayload.$set },
+            details: { orderId: existingOrder.orderId, message: `Order ${existingOrder.orderId} updated by ${userPayload.role}.`, changes: updatePayload.$set },
             ipAddress: req.ip || req.headers.get('x-forwarded-for'),
         });
         console.log('[DEBUG] 10. Audit log created successfully.');
