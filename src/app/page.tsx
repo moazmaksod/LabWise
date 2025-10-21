@@ -1,10 +1,11 @@
+
 'use client';
 
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { AreaChart, Beaker, Loader2, User } from 'lucide-react';
+import { AreaChart, Beaker, FileText, Loader2, User, Droplets } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -152,8 +153,16 @@ export default function LoginPage() {
                     Manager
                 </Button>
                 <Button variant="outline" onClick={() => handleLoginAs('phlebotomist')}>
-                    <Beaker className="mr-2 h-4 w-4" />
+                    <Droplets className="mr-2 h-4 w-4" />
                     Phlebotomist
+                </Button>
+                <Button variant="outline" onClick={() => handleLoginAs('physician')}>
+                    <User className="mr-2 h-4 w-4" />
+                    Physician
+                </Button>
+                <Button variant="outline" onClick={() => handleLoginAs('patient')}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Patient
                 </Button>
             </div>
           </div>
