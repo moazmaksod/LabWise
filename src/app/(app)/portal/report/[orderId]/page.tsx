@@ -4,7 +4,7 @@
 import { Suspense, useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
-import { ArrowLeft, User, FlaskConical, Download } from 'lucide-react';
+import { ArrowLeft, User, FlaskConical, Download, Loader2 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
@@ -70,6 +70,7 @@ function PatientReportPageComponent() {
 
   const [order, setOrder] = useState<ClientOrder | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const fetchOrderDetails = useCallback(async (id: string) => {
     setLoading(true);
@@ -100,10 +101,42 @@ function PatientReportPageComponent() {
   }, [toast, router, user]);
 
   useEffect(() => {
-    if (orderId) {
+    if (orderId && user) {
         fetchOrderDetails(orderId);
     }
-  }, [orderId, fetchOrderDetails]);
+  }, [orderId, user, fetchOrderDetails]);
+
+  const handleDownloadPdf = async () => {
+    if (!order) return;
+    setIsDownloading(true);
+    try {
+        const token = localStorage.getItem('labwise-token');
+        if (!token) throw new Error('Authentication required.');
+
+        const response = await fetch(`/api/v1/orders/${order.id}/pdf`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Could not download PDF report.');
+        }
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `LabReport-${order.orderId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Download Failed', description: error.message });
+    } finally {
+        setIsDownloading(false);
+    }
+  };
   
   if (loading) {
     return (
@@ -129,7 +162,7 @@ function PatientReportPageComponent() {
     <div className="space-y-6 max-w-4xl mx-auto">
       <Button variant="outline" onClick={() => router.back()}>
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to Dashboard
+        Back
       </Button>
 
       <Card className="shadow-lg">
@@ -139,7 +172,10 @@ function PatientReportPageComponent() {
                     <CardTitle className="text-2xl">Lab Report</CardTitle>
                     <CardDescription>Order ID: {order.orderId}</CardDescription>
                  </div>
-                 <Button variant="secondary"><Download className="mr-2 h-4 w-4" /> Download Official Report (PDF)</Button>
+                 <Button variant="secondary" onClick={handleDownloadPdf} disabled={isDownloading}>
+                    {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                    Download Official Report (PDF)
+                </Button>
             </div>
         </CardHeader>
         <CardContent>
