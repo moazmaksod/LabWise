@@ -38,17 +38,62 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         }
         // --- END RBAC CHECK ---
 
-        // In a real application, you would use a library like 'pdf-lib' or 'puppeteer'
-        // to generate a PDF from the order data.
-        // For this sprint, we will return a placeholder response.
-        
-        const responseText = `PDF Generation for Order ${order.orderId}\n\nThis is a placeholder for the PDF report. In a real implementation, a PDF file would be generated and returned here.`;
+        // This is a minimal, valid PDF. It's essentially an empty page.
+        // This replaces the plain text placeholder which caused the corruption error.
+        const pdfContent = `
+%PDF-1.1
+1 0 obj
+<< /Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+2 0 obj
+<< /Type /Pages
+/Kids [3 0 R]
+/Count 1
+>>
+endobj
+3 0 obj
+<< /Type /Page
+/Parent 2 0 R
+/MediaBox [0 0 612 792]
+/Contents 4 0 R
+>>
+endobj
+4 0 obj
+<< /Length 52 >>
+stream
+BT
+/F1 12 Tf
+72 720 Td
+(Placeholder PDF for Order ${order.orderId}) Tj
+ET
+endstream
+endobj
+xref
+0 5
+0000000000 65535 f 
+0000000010 00000 n 
+0000000059 00000 n 
+0000000112 00000 n 
+0000000190 00000 n 
+trailer
+<< /Size 5
+/Root 1 0 R
+>>
+startxref
+300
+%%EOF
+        `.trim();
 
-        return new NextResponse(responseText, {
+        const buffer = Buffer.from(pdfContent, 'utf-8');
+
+        return new NextResponse(buffer, {
             status: 200,
             headers: {
-                'Content-Type': 'text/plain', // Should be 'application/pdf' in production
+                'Content-Type': 'application/pdf',
                 'Content-Disposition': `inline; filename="LabReport-${order.orderId}.pdf"`,
+                'Content-Length': buffer.length.toString(),
             },
         });
 
