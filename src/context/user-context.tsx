@@ -54,7 +54,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password?: string) => {
     setLoading(true);
     try {
-        const response = await fetch('/api/v1/auth/login', {
+        // Determine which login endpoint to use
+        const isInternalUser = email.endsWith('@labwise.com');
+        const apiEndpoint = isInternalUser ? '/api/v1/auth/login' : '/api/v1/portal/auth/login';
+
+        const response = await fetch(apiEndpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
