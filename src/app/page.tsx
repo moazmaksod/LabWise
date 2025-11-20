@@ -156,14 +156,6 @@ export default function LoginPage() {
                     <Droplets className="mr-2 h-4 w-4" />
                     Phlebotomist
                 </Button>
-                <Button variant="outline" onClick={() => handleLoginAs('physician')}>
-                    <User className="mr-2 h-4 w-4" />
-                    Physician
-                </Button>
-                <Button variant="outline" onClick={() => handleLoginAs('patient')}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    Patient
-                </Button>
             </div>
           </div>
         </CardContent>

@@ -21,6 +21,11 @@ export async function POST(req: NextRequest) {
     if (!user) {
         return NextResponse.json({ message: 'Invalid credentials.' }, { status: 401 });
     }
+
+    // Security Enhancement: Prevent portal roles from using the main login
+    if (user.role === 'physician' || user.role === 'patient') {
+        return NextResponse.json({ message: 'Access denied. Please use the designated portal login.' }, { status: 403 });
+    }
     
     const isPasswordValid = await compare(password, user.passwordHash);
 
