@@ -58,18 +58,18 @@ export default function PortalLoginPage() {
   };
 
   const onSubmit = async (data: LoginFormValues) => {
-    const success = await login(data.email, data.password);
-    if (success) {
+    const result = await login(data.email, data.password);
+    if (result.success) {
       router.push('/dashboard'); // useUser hook will redirect them appropriately from there
     } else {
       toast({
         variant: 'destructive',
         title: 'Login Failed',
-        description: 'Invalid email or password. Please try again.',
+        description: result.message || 'Invalid email or password. Please try again.',
       });
       form.setError('password', {
         type: 'manual',
-        message: 'Invalid email or password.',
+        message: result.message || 'Invalid email or password.',
       });
     }
   };

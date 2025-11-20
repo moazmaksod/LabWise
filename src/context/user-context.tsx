@@ -8,7 +8,7 @@ import { USERS } from '@/lib/constants';
 interface UserContextType {
   user: ClientUser | null;
   loading: boolean;
-  login: (email: string, password?: string) => Promise<boolean>;
+  login: (email: string, password?: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
 }
 
@@ -54,7 +54,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password?: string) => {
     setLoading(true);
     try {
-        // Determine which login endpoint to use
         const isInternalUser = email.endsWith('@labwise.com');
         const apiEndpoint = isInternalUser ? '/api/v1/auth/login' : '/api/v1/portal/auth/login';
 
@@ -70,16 +69,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             const { accessToken } = await response.json();
             localStorage.setItem('labwise-token', accessToken);
             await fetchUser(accessToken);
-            return true;
+            return { success: true };
         } else {
-            console.error('Login failed');
+            const errorData = await response.json();
+            console.error('Login failed:', errorData.message);
             setLoading(false);
-            return false;
+            return { success: false, message: errorData.message || 'An unknown error occurred.' };
         }
-    } catch (error) {
+    } catch (error: any) {
         console.error('Login request failed', error);
         setLoading(false);
-        return false;
+        return { success: false, message: error.message };
     }
   }, [fetchUser]);
 
