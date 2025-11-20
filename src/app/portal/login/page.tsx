@@ -41,7 +41,7 @@ export default function PortalLoginPage() {
         if (['manager', 'receptionist', 'technician', 'phlebotomist'].includes(user.role)) {
             router.push('/dashboard');
         } else {
-            router.push('/portal/dashboard');
+            router.push('/dashboard');
         }
     }
   }, [user, loading, router]);

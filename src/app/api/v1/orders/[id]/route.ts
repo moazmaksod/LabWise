@@ -15,9 +15,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
             return NextResponse.json({ message: 'Invalid order ID format.' }, { status: 400 });
         }
         
+        const token = req.headers.get('authorization')?.split(' ')[1];
+        if (!token) return NextResponse.json({ message: 'Authorization token missing.' }, { status: 401 });
+        const userPayload = await decrypt(token);
+        if (!userPayload?.userId) return NextResponse.json({ message: 'Invalid or expired token.' }, { status: 401 });
+
         const { db } = await connectToDatabase();
 
-        // Sprint 14 Enhancement: Join with patient data for patient portal
         const aggregationPipeline: any[] = [
             { $match: { _id: new ObjectId(id) } },
             {
@@ -36,6 +40,19 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         if (!order) {
             return NextResponse.json({ message: 'Order not found.' }, { status: 404 });
         }
+        
+        // --- RBAC CHECK ---
+        const userRole = userPayload.role;
+        if (userRole === 'physician' && order.physicianId.toHexString() !== userPayload.userId) {
+            return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+        }
+        if (userRole === 'patient') {
+            const patient = await db.collection('patients').findOne({ _id: order.patientId });
+            if (patient?.userId?.toHexString() !== userPayload.userId) {
+                return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+            }
+        }
+        // --- END RBAC CHECK ---
         
         const { _id, patientInfo, ...restOfOrder } = order;
         const clientOrder = { 

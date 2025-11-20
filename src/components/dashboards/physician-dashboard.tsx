@@ -107,18 +107,16 @@ export default function PhysicianDashboard() {
         const response = await fetch(`/api/v1/orders/${orderId}/pdf`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        if (!response.ok) throw new Error('Could not download PDF report.');
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Could not download PDF report.');
+        }
         
-        // This is a placeholder for actual PDF download
-        const textContent = await response.text();
-        console.log("PDF Placeholder Content:", textContent);
-        
-        // Simulating file download
-        const blob = new Blob([textContent], { type: 'text/plain' });
+        const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `LabReport-${orderDisplayId}.txt`; // Save as .txt for demo
+        a.download = `LabReport-${orderDisplayId}.pdf`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
