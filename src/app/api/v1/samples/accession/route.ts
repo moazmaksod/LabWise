@@ -1,86 +1,87 @@
 
-
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { decrypt } from '@/lib/auth';
-import type { Order } from '@/lib/types';
-
+import { getNextSequenceValue } from '@/lib/counters';
 
 export async function POST(req: NextRequest) {
     try {
-        const { orderId, sampleId } = await req.json();
-
-        if (!orderId || !sampleId) {
-            return NextResponse.json({ message: 'Missing required fields: orderId and sampleId' }, { status: 400 });
-        }
-        if (!ObjectId.isValid(orderId) || !ObjectId.isValid(sampleId)) {
-            return NextResponse.json({ message: 'Invalid ID format' }, { status: 400 });
-        }
-        
         const token = req.headers.get('authorization')?.split(' ')[1];
-        if (!token) {
-            return NextResponse.json({ message: 'Authorization token missing.' }, { status: 401 });
-        }
+        if (!token) return NextResponse.json({ message: 'Authorization token missing.' }, { status: 401 });
         const userPayload = await decrypt(token);
-        if (!userPayload?.userId) {
-            return NextResponse.json({ message: 'Invalid or expired token.' }, { status: 401 });
+        if (!userPayload?.userId) return NextResponse.json({ message: 'Invalid or expired token.' }, { status: 401 });
+
+        const { orderId, sampleIndex } = await req.json();
+
+        if (!orderId || sampleIndex === undefined) {
+            return NextResponse.json({ message: 'Order ID and sample index are required.' }, { status: 400 });
         }
 
         const { db } = await connectToDatabase();
+        const orderObjectId = new ObjectId(orderId);
         
-        // This should be a unique accession number generation logic
-        const accessionNumber = `ACC-${Date.now()}`;
+        const order = await db.collection('orders').findOne({ _id: orderObjectId });
+        if (!order) {
+            return NextResponse.json({ message: 'Order not found.' }, { status: 404 });
+        }
 
-        // Find the specific sample and update its status from 'Collected' to 'InLab'
-        const updateResult = await db.collection<Order>('orders').updateOne(
-            { 
-                _id: new ObjectId(orderId), 
-                'samples.sampleId': new ObjectId(sampleId),
-                'samples.status': 'Collected' // Ensure we are not accessioning a sample that isn't collected yet
-            },
+        // Check if sample exists and isn't already accessioned
+        const sample = order.samples[sampleIndex];
+        if (!sample) {
+            return NextResponse.json({ message: 'Sample index out of bounds.' }, { status: 400 });
+        }
+
+        if (sample.status !== 'AwaitingCollection' && sample.status !== 'Collected') {
+             return NextResponse.json({ message: `Sample is already accessioned (Status: ${sample.status}).` }, { status: 409 });
+        }
+
+        // Generate Accession Number
+        const year = new Date().getFullYear();
+        const seq = await getNextSequenceValue(`accession_${year}`);
+        const accessionNumber = `ACC-${year}-${String(seq).padStart(6, '0')}`;
+        const receivedTimestamp = new Date();
+
+        // Update the specific sample in the array
+        const updateResult = await db.collection('orders').updateOne(
+            { _id: orderObjectId },
             { 
                 $set: { 
-                    'samples.$.status': 'InLab',
-                    'samples.$.accessionNumber': accessionNumber,
-                    'samples.$.receivedTimestamp': new Date(),
+                    [`samples.${sampleIndex}.status`]: 'InLab',
+                    [`samples.${sampleIndex}.accessionNumber`]: accessionNumber,
+                    [`samples.${sampleIndex}.receivedTimestamp`]: receivedTimestamp,
+                    orderStatus: 'In Progress' // Update overall order status
                 }
             }
         );
 
-        if (updateResult.matchedCount === 0) {
-            // Check why it failed
-            const orderExists = await db.collection('orders').findOne({ _id: new ObjectId(orderId), 'samples.sampleId': new ObjectId(sampleId) });
-            if (!orderExists) {
-                return NextResponse.json({ message: 'Sample or order not found.' }, { status: 404 });
-            }
-            // If order exists, the status must not have been 'Collected'
-            return NextResponse.json({ message: 'Sample cannot be accessioned. It might not be in "Collected" status or already accessioned.' }, { status: 409 });
+        if (updateResult.modifiedCount === 0) {
+             return NextResponse.json({ message: 'Failed to update sample.' }, { status: 500 });
         }
-        
-        // Create an audit log for this event
+
+        // --- Audit Log Entry ---
         await db.collection('auditLogs').insertOne({
             timestamp: new Date(),
             userId: new ObjectId(userPayload.userId as string),
             action: 'SAMPLE_ACCESSIONED',
             entity: {
                 collectionName: 'orders',
-                documentId: new ObjectId(orderId),
+                documentId: orderObjectId,
             },
             details: {
-                sampleId: sampleId,
-                accessionNumber: accessionNumber,
-                message: `Sample ${sampleId} assigned accession number ${accessionNumber} and status set to 'InLab'.`
+                sampleIndex,
+                accessionNumber,
+                message: `Sample accessioned with ID ${accessionNumber}.`
             },
             ipAddress: req.ip || req.headers.get('x-forwarded-for'),
         });
-
+        // --- End Audit Log ---
 
         return NextResponse.json({
-            message: "Sample accessioned successfully.",
-            accessionNumber: accessionNumber,
-            newStatus: "InLab"
-        }, { status: 200 });
+            message: 'Sample accessioned successfully.',
+            accessionNumber,
+            receivedTimestamp
+        });
 
     } catch (error) {
         console.error('Failed to accession sample:', error);

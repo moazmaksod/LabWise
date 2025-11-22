@@ -3,17 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { UserProvider } from '@/context/user-context';
 import { cn } from '@/lib/utils';
-import { Inter as FontSans, Source_Code_Pro as FontCode } from 'next/font/google';
-
-const fontSans = FontSans({
-  subsets: ['latin'],
-  variable: '--font-sans',
-});
-
-const fontCode = FontCode({
-  subsets: ['latin'],
-  variable: '--font-code',
-});
+import { fonts } from '@/lib/fonts';
 
 export const metadata: Metadata = {
   title: 'LabWise',
@@ -25,11 +15,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const isRtl = false; // Set to true to test RTL layout
+  // For now, we default to LTR/English. Sprint 15 handles full i18n/RTL.
+  const isRtl = false;
 
   return (
-    <html lang={isRtl ? "ar" : "en"} dir={isRtl ? "rtl" : "ltr"} className={isRtl ? "dark" : ""} style={isRtl ? { colorScheme: 'dark' } : {}} suppressHydrationWarning>
-      <body className={cn("min-h-screen bg-background font-body antialiased", fontSans.variable, fontCode.variable)}>
+    <html lang="en" dir="ltr" className={cn("antialiased", fonts.ptSans.variable, fonts.ptSansCaption.variable, fonts.fontCode.variable)}>
+      <body className="min-h-screen bg-background font-body text-foreground">
         <UserProvider>
           {children}
           <Toaster />

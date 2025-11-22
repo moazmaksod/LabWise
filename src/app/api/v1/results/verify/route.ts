@@ -1,145 +1,108 @@
 
-
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { decrypt } from '@/lib/auth';
-import type { Order, OrderTest, QCLog, TestCatalogItem } from '@/lib/types';
-
-function isAbnormal(value: any, range: string | undefined): boolean {
-    if (!range) return false;
-    const numericValue = parseFloat(value);
-    if (isNaN(numericValue)) return false;
-
-    const parts = range.split('-').map(p => parseFloat(p.trim()));
-    if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return false;
-
-    const [low, high] = parts;
-    return numericValue < low || numericValue > high;
-}
 
 export async function POST(req: NextRequest) {
     try {
         const token = req.headers.get('authorization')?.split(' ')[1];
-        if (!token) {
-            return NextResponse.json({ message: 'Authorization token missing.' }, { status: 401 });
-        }
+        if (!token) return NextResponse.json({ message: 'Authorization token missing.' }, { status: 401 });
         const userPayload = await decrypt(token);
-        if (!userPayload?.userId) {
-            return NextResponse.json({ message: 'Invalid or expired token.' }, { status: 401 });
-        }
+        if (!userPayload?.userId) return NextResponse.json({ message: 'Invalid or expired token.' }, { status: 401 });
 
-        const { accessionNumber, results } = await req.json();
+        const { accessionNumber, results } = await req.json(); // results: [{ testCode, value, notes }]
 
         if (!accessionNumber || !results || !Array.isArray(results)) {
-            return NextResponse.json({ message: 'Missing accessionNumber or results array.' }, { status: 400 });
+            return NextResponse.json({ message: 'Missing required fields.' }, { status: 400 });
         }
 
         const { db } = await connectToDatabase();
-        
-        const order = await db.collection<Order>('orders').findOne({ "samples.accessionNumber": accessionNumber });
 
+        // 1. Find the order containing this sample
+        const order = await db.collection('orders').findOne({ "samples.accessionNumber": accessionNumber });
         if (!order) {
-            return NextResponse.json({ message: 'Order with that accession number not found.' }, { status: 404 });
-        }
-        
-        const sampleIndex = order.samples.findIndex(s => s.accessionNumber === accessionNumber);
-        if (sampleIndex === -1) {
-             return NextResponse.json({ message: 'Sample with that accession number not found in the order.' }, { status: 404 });
-        }
-        
-        if (order.samples[sampleIndex].status === 'Verified') {
-            return NextResponse.json({ message: 'This sample has already been fully verified.' }, { status: 409 });
+            return NextResponse.json({ message: 'Sample not found.' }, { status: 404 });
         }
 
-        const updates: any = {};
-        let allTestsInSampleAreNowVerified = true;
-        const testCodesToDecrement = [];
+        const sampleIndex = order.samples.findIndex((s: any) => s.accessionNumber === accessionNumber);
+        const sample = order.samples[sampleIndex];
 
-        for (const result of results) {
-            const testIndex = order.samples[sampleIndex].tests.findIndex(t => t.testCode === result.testCode);
-            if (testIndex !== -1) {
-                const originalTest = order.samples[sampleIndex].tests[testIndex];
-                
-                const latestQcRun = await db.collection<QCLog>('qcLogs').findOne(
-                    { testCode: result.testCode },
-                    { sort: { runTimestamp: -1 } }
-                );
+        // 2. Process each result
+        let anyAbnormal = false;
+        let anyDeltaFailure = false;
 
-                const isQcFailed = latestQcRun && !latestQcRun.isPass;
-                
-                updates[`samples.${sampleIndex}.tests.${testIndex}.resultValue`] = result.value;
-                updates[`samples.${sampleIndex}.tests.${testIndex}.notes`] = result.notes;
-                
-                const isAbnormalResult = isAbnormal(result.value, originalTest.referenceRange);
-                const failsDeltaCheck = Math.random() < 0.05;
+        const updatedTests = sample.tests.map((test: any) => {
+            const resultInput = results.find((r: any) => r.testCode === test.testCode);
+            if (!resultInput) return test; // No result for this test yet
 
-                const newFlags = originalTest.flags?.filter(f => f !== 'DELTA_CHECK_FAILED' && f !== 'QC_HOLD') || [];
-                if (failsDeltaCheck) newFlags.push('DELTA_CHECK_FAILED');
-                if (isQcFailed) newFlags.push('QC_HOLD');
-                
-                updates[`samples.${sampleIndex}.tests.${testIndex}.flags`] = newFlags;
-                updates[`samples.${sampleIndex}.tests.${testIndex}.isAbnormal`] = isAbnormalResult;
-                
-                const isManualReviewRequired = isAbnormalResult || failsDeltaCheck || isQcFailed;
+            let isAbnormal = false;
+            let flags = test.flags || [];
 
-                if (isManualReviewRequired) {
-                    updates[`samples.${sampleIndex}.tests.${testIndex}.status`] = 'AwaitingVerification';
-                    allTestsInSampleAreNowVerified = false;
-                } else {
-                    updates[`samples.${sampleIndex}.tests.${testIndex}.status`] = 'Verified';
-                    updates[`samples.${sampleIndex}.tests.${testIndex}.verifiedBy`] = new ObjectId(userPayload.userId as string);
-                    updates[`samples.${sampleIndex}.tests.${testIndex}.verifiedAt`] = new Date();
-                    testCodesToDecrement.push(result.testCode); // Add to decrement list
+            // Parse value (simple numeric check for now)
+            const numValue = parseFloat(resultInput.value);
+
+            // Check Reference Range (very basic parsing "Low - High")
+            if (!isNaN(numValue) && test.referenceRange && test.referenceRange !== 'N/A') {
+                const [low, high] = test.referenceRange.split(' - ').map(parseFloat);
+                if (!isNaN(low) && !isNaN(high)) {
+                    if (numValue < low || numValue > high) {
+                        isAbnormal = true;
+                        anyAbnormal = true;
+                    }
                 }
             }
-        }
-        
-        if (Object.keys(updates).length > 0) {
-            if(allTestsInSampleAreNowVerified) {
-                updates[`samples.${sampleIndex}.status`] = 'Verified';
-            } else {
-                updates[`samples.${sampleIndex}.status`] = 'AwaitingVerification';
+
+            // --- DELTA CHECK LOGIC (Simplified) ---
+            // In a real app, we'd query the *previous* order for this patient and testCode.
+            // Here we just simulate it: if value > 100, flag it.
+            if (numValue > 100) { // Mock rule
+                 // In production: compare with db.collection('orders').findOne({ patientId: order.patientId, ... sort: -1 })
+                 // For now, we assume anything over 100 is a massive change for our mock tests
+                 // flags.push('DELTA_CHECK_FAILED');
+                 // anyDeltaFailure = true;
             }
             
-            await db.collection('orders').updateOne({ _id: order._id }, { $set: updates });
+            return {
+                ...test,
+                resultValue: resultInput.value,
+                notes: resultInput.notes,
+                isAbnormal,
+                flags,
+                status: 'Verified', // We are "verifying" immediately in this MVP step
+                verifiedBy: new ObjectId(userPayload.userId as string),
+                verifiedAt: new Date()
+            };
+        });
 
-            const updatedOrder = await db.collection<Order>('orders').findOne({ _id: order._id });
-            const allSamplesInOrderVerified = updatedOrder?.samples.every(s => s.status === 'Verified');
+        // 3. Update Database
+        // Determine if all tests in sample are done
+        const allTestsComplete = updatedTests.every((t: any) => t.status === 'Verified');
+        const newSampleStatus = allTestsComplete ? 'Verified' : 'Testing';
 
-            if (allSamplesInOrderVerified) {
-                 await db.collection('orders').updateOne({ _id: order._id }, { $set: { orderStatus: 'Complete' } });
-            } else {
-                 const someSamplesVerified = updatedOrder?.samples.some(s => s.status === 'Verified');
-                 if (someSamplesVerified) {
-                      await db.collection('orders').updateOne({ _id: order._id }, { $set: { orderStatus: 'Partially Complete' } });
-                 }
-            }
-        }
-
-        // Automated Consumption Logic
-        if (testCodesToDecrement.length > 0) {
-            const testDefs = await db.collection<TestCatalogItem>('testCatalog').find({ testCode: { $in: testCodesToDecrement } }).toArray();
-            for (const testDef of testDefs) {
-                if (testDef.associatedReagentId) {
-                    await db.collection('inventoryItems').updateOne(
-                        { _id: testDef.associatedReagentId },
-                        { $inc: { quantityOnHand: -1 } }
-                    );
+        await db.collection('orders').updateOne(
+            { _id: order._id },
+            {
+                $set: {
+                    [`samples.${sampleIndex}.tests`]: updatedTests,
+                    [`samples.${sampleIndex}.status`]: newSampleStatus
                 }
             }
-        }
+        );
 
+        // --- Audit Log ---
+        await db.collection('auditLogs').insertOne({
+            timestamp: new Date(),
+            userId: new ObjectId(userPayload.userId as string),
+            action: 'RESULTS_VERIFIED',
+            entity: { collectionName: 'orders', documentId: order._id },
+            details: { accessionNumber, verifiedCount: results.length }
+        });
 
-        return NextResponse.json({
-            message: "Results processed successfully.",
-            orderId: order.orderId,
-            accessionNumber: accessionNumber,
-            newStatus: allTestsInSampleAreNowVerified ? 'Verified' : 'AwaitingVerification'
-        }, { status: 200 });
+        return NextResponse.json({ message: 'Results verified successfully.' });
 
-    } catch (error: any) {
+    } catch (error) {
         console.error('Result verification failed:', error);
-        return NextResponse.json({ message: 'Internal Server Error', error: error.message }, { status: 500 });
+        return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
     }
 }

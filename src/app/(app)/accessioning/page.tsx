@@ -1,371 +1,172 @@
 
 'use client';
 
-import { Suspense, useState, useEffect, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, Loader2, Info, CheckCircle, AlertTriangle, CalendarIcon, ChevronLeft, ChevronRight, Check, XCircle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { format, subDays, addDays } from 'date-fns';
-
+import { useState, useEffect, useRef } from 'react';
+import { ScanBarcode, ArrowRight, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
+import { ClientOrder, ClientPatient } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
-import type { ClientOrder, OrderSample } from '@/lib/types';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
-import { Calendar } from '@/components/ui/calendar';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-
-function RejectSampleDialog({ sample, orderId, onSampleRejected }: { sample: OrderSample, orderId: string, onSampleRejected: () => void }) {
-    const { toast } = useToast();
-    const [reason, setReason] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    
-    const handleReject = async () => {
-        if (!reason) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Please select a reason for rejection.' });
-            return;
-        }
-        setIsSubmitting(true);
-        try {
-            const token = localStorage.getItem('labwise-token');
-            const response = await fetch('/api/v1/samples/reject', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ orderId, sampleId: sample.sampleId, reason }),
-            });
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to reject sample.');
-            }
-            toast({ title: 'Sample Rejected', description: `Sample has been marked as rejected.` });
-            onSampleRejected();
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Rejection Failed', description: error.message });
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    return (
-        <AlertDialog>
-            <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm">
-                    <XCircle className="mr-2 h-4 w-4" /> Reject
-                </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Reject Sample: {sample.sampleType}</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Select a reason for rejecting this sample. This action will be logged and cannot be undone.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <div className="py-4 space-y-4">
-                    <Select onValueChange={setReason} value={reason}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select a rejection reason..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Hemolysis">Hemolysis</SelectItem>
-                            <SelectItem value="QNS">Insufficient Quantity (QNS)</SelectItem>
-                            <SelectItem value="Mislabeled">Mislabeled</SelectItem>
-                            <SelectItem value="Improper Container">Improper Container</SelectItem>
-                            <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleReject} disabled={!reason || isSubmitting}>
-                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Confirm Rejection
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-    );
-}
-
-function AccessioningPageComponent() {
-  const { toast } = useToast();
-  const [token, setToken] = useState<string | null>(null);
-  
-  const [orderSearchTerm, setOrderSearchTerm] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [foundOrders, setFoundOrders] = useState<ClientOrder[]>([]);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-
-  const fetchCollectedOrders = useCallback(async (date: Date, authToken: string) => {
-    setIsSearching(true);
-    setFoundOrders([]);
-    try {
-        const dateString = format(date, 'yyyy-MM-dd');
-        const response = await fetch(`/api/v1/orders?collectedDate=${dateString}&sampleStatus=Collected`, { headers: { 'Authorization': `Bearer ${authToken}` }});
-        if (!response.ok) {
-            throw new Error('Failed to fetch orders waiting for accession.');
-        }
-        const data = await response.json();
-        setFoundOrders(data);
-        if (data.length === 0) {
-           toast({ title: 'No Orders Found', description: `No collected samples waiting for accession on ${format(date, 'PPP')}.` });
-        }
-    } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Error', description: error.message });
-    } finally {
-        setIsSearching(false);
-    }
-  }, [toast]);
-  
-  useEffect(() => {
-    const storedToken = localStorage.getItem('labwise-token');
-    if (storedToken) setToken(storedToken);
-  }, []);
-  
-  useEffect(() => {
-    if (token && !orderSearchTerm) {
-      fetchCollectedOrders(selectedDate, token);
-    }
-  }, [token, selectedDate, fetchCollectedOrders, orderSearchTerm]);
-
-  const handleSearch = useCallback(async () => {
-    if (!orderSearchTerm.trim() || !token) {
-        if (!orderSearchTerm.trim()) {
-            // If search is cleared, fetch default list for the date
-            fetchCollectedOrders(selectedDate, token);
-        }
-        return;
-    };
-    setIsSearching(true);
-    setFoundOrders([]);
-    try {
-        const response = await fetch(`/api/v1/orders?q=${orderSearchTerm}`, { headers: { 'Authorization': `Bearer ${token}` }});
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Order search failed.');
-        }
-        const data = await response.json();
-        setFoundOrders(data);
-        if (data.length === 0) {
-            toast({ variant: 'destructive', title: 'Not Found', description: 'No order found with that ID or patient info.' });
-        }
-    } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Error', description: error.message });
-    } finally {
-        setIsSearching(false);
-    }
-  }, [orderSearchTerm, token, toast, fetchCollectedOrders, selectedDate]);
-  
-  const refreshOrderState = (orderId: string, sampleId: string, newStatus: OrderSample['status'], extraData: any = {}) => {
-      setFoundOrders(prevOrders => prevOrders.map(order => {
-          if (order.id !== orderId) return order;
-          const newSamples = order.samples.map(s => {
-              if (s.sampleId === sampleId) {
-                  return { ...s, status: newStatus, ...extraData };
-              }
-              return s;
-          });
-          return { ...order, samples: newSamples };
-      }));
-  }
-
-  const handleAccessionSample = useCallback(async (orderId: string, sampleId: string) => {
-    if (!token) return;
-
-    try {
-        const response = await fetch('/api/v1/samples/accession', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
-            body: JSON.stringify({ orderId, sampleId }),
-        });
-        
-        const resData = await response.json();
-        if (!response.ok) throw new Error(resData.message || 'Failed to accession sample.');
-        
-        toast({ title: 'Success', description: `Sample ${resData.accessionNumber} accessioned.` });
-        
-        // Refresh order data by locally updating the state
-        refreshOrderState(orderId, sampleId, 'InLab', { accessionNumber: resData.accessionNumber, receivedTimestamp: new Date().toISOString() });
-
-    } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Accession Failed', description: error.message });
-    }
-  }, [token, toast]);
-  
-  const handleSampleRejected = (orderId: string, sampleId: string) => {
-      refreshOrderState(orderId, sampleId, 'Rejected');
-  }
-
-  const getStatusVariant = (status: OrderSample['status']) => {
-    switch (status) {
-        case 'InLab': return 'default';
-        case 'Collected': return 'secondary';
-        case 'AwaitingCollection': return 'outline';
-        case 'Rejected': return 'destructive';
-        default: return 'outline';
-    }
-  };
-  
-  const handleDateChange = (date: Date | undefined) => {
-    if (date) {
-        setSelectedDate(date);
-    }
-  }
-  
-  return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-        <Card>
-            <CardHeader>
-                <CardTitle>Sample Accessioning</CardTitle>
-                <CardDescription>Search for an order or view collected samples waiting to be received into the lab.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="flex flex-col md:flex-row gap-4">
-                    <div className="relative flex-grow">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Enter Order ID, Patient Name/MRN to override list..."
-                            value={orderSearchTerm}
-                            onChange={(e) => setOrderSearchTerm(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                            className="pl-10"
-                        />
-                    </div>
-                     <div className="flex items-center gap-2 justify-between">
-                         <div className="flex items-center gap-2">
-                            <Button variant="outline" size="icon" onClick={() => handleDateChange(subDays(selectedDate, 1))}>
-                                <ChevronLeft className="h-4 w-4" />
-                            </Button>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                        "w-[180px] justify-start text-left font-normal",
-                                        !selectedDate && "text-muted-foreground"
-                                    )}
-                                    >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" onPointerDownOutside={(e) => e.preventDefault()}>
-                                    <Calendar mode="single" selected={selectedDate} onSelect={handleDateChange} initialFocus />
-                                </PopoverContent>
-                            </Popover>
-                            <Button variant="outline" onClick={() => handleDateChange(new Date())}>Today</Button>
-                             <Button variant="outline" size="icon" onClick={() => handleDateChange(addDays(selectedDate, 1))}>
-                                <ChevronRight className="h-4 w-4" />
-                            </Button>
-                         </div>
-                        <Button onClick={handleSearch} disabled={isSearching || !orderSearchTerm}>
-                            {isSearching && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Search
-                        </Button>
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-        
-        {isSearching && <div className="space-y-4">
-            <Skeleton className="h-48 w-full" />
-            <Skeleton className="h-48 w-full" />
-        </div>}
-        
-        {!isSearching && foundOrders.length === 0 && (
-            <div className="text-center text-muted-foreground py-16">
-                <p className="text-lg">No orders found.</p>
-                <p>{orderSearchTerm ? `No results for "${orderSearchTerm}".` : `No samples waiting for accession on ${format(selectedDate, 'PPP')}.`}</p>
-            </div>
-        )}
-
-        {!isSearching && foundOrders.map(order => (
-             <Card key={order.id}>
-                <CardHeader>
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <CardTitle>Order Details: {order.orderId}</CardTitle>
-                            <CardDescription>
-                                Patient: {order.patientInfo?.firstName} {order.patientInfo?.lastName} (MRN: {order.patientInfo?.mrn})
-                            </CardDescription>
-                        </div>
-                         <Badge variant={order.priority === 'STAT' ? 'destructive' : 'outline'} className="text-base">{order.priority}</Badge>
-                    </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {order.samples.map(sample => (
-                        <Card key={sample.sampleId} className={cn("bg-secondary/50", sample.status === 'InLab' && 'bg-green-900/20', sample.status === 'Rejected' && 'bg-red-900/40')}>
-                             <CardHeader className="flex flex-row items-center justify-between pb-4">
-                                <CardTitle className="text-lg">{sample.sampleType}</CardTitle>
-                                <Badge variant={getStatusVariant(sample.status)}>{sample.status}</Badge>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex justify-between items-end">
-                                    <div>
-                                        <p className="font-semibold">Tests:</p>
-                                        <ul className="list-disc list-inside text-muted-foreground">
-                                            {sample.tests.map(t => <li key={t.testCode}>{t.name}</li>)}
-                                        </ul>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        {sample.status === 'InLab' ? (
-                                            <>
-                                                <div className="text-sm text-right">
-                                                    <p className='font-semibold'>{sample.accessionNumber}</p>
-                                                    <p className='text-muted-foreground'>{format(new Date(sample.receivedTimestamp!), 'PPpp')}</p>
-                                                </div>
-                                                <Button variant="ghost" disabled className="text-green-400">
-                                                    <CheckCircle className="mr-2 h-4 w-4" />
-                                                    Accessioned
-                                                </Button>
-                                            </>
-                                        ) : sample.status === 'Collected' ? (
-                                            <>
-                                                {sample.collectionTimestamp && (
-                                                    <div className="text-sm text-muted-foreground">
-                                                        <p>Collected:</p>
-                                                        <p>{format(new Date(sample.collectionTimestamp), 'PPpp')}</p>
-                                                    </div>
-                                                )}
-                                                <div className="flex gap-2">
-                                                    <RejectSampleDialog sample={sample} orderId={order.id} onSampleRejected={() => handleSampleRejected(order.id, sample.sampleId)} />
-                                                    <Button onClick={() => handleAccessionSample(order.id, sample.sampleId)}>
-                                                        <Check className="mr-2 h-4 w-4" />
-                                                        Receive & Accession
-                                                    </Button>
-                                                </div>
-                                            </>
-                                        ) : sample.status === 'Rejected' ? (
-                                            <Button variant="destructive" disabled>
-                                                <XCircle className="mr-2 h-4 w-4" />
-                                                Rejected
-                                            </Button>
-                                        ) : (
-                                            <Button variant="outline" disabled>
-                                                <AlertTriangle className="mr-2 h-4 w-4" />
-                                                Cannot Accession
-                                            </Button>
-                                        )}
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </CardContent>
-             </Card>
-        ))}
-    </div>
-  );
-}
+import { format } from 'date-fns';
 
 export default function AccessioningPage() {
-    return (
-        <Suspense fallback={<Skeleton className="h-[calc(100vh-8rem)] w-full" />}>
-            <AccessioningPageComponent />
-        </Suspense>
-    )
+  const { toast } = useToast();
+  const [barcodeInput, setBarcodeInput] = useState('');
+  const [activeOrder, setActiveOrder] = useState<ClientOrder | null>(null);
+  const [loading, setLoading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleScan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!barcodeInput.trim()) return;
+
+    setLoading(true);
+    try {
+        const token = localStorage.getItem('labwise-token');
+        // We are searching orders by "Order ID" which is simulated as the barcode on the requisition
+        const res = await fetch(`/api/v1/orders?q=${barcodeInput}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (res.ok) {
+            const orders: ClientOrder[] = await res.json();
+            if (orders.length > 0) {
+                setActiveOrder(orders[0]);
+                toast({ title: "Order Found", description: `Loaded requisition ${orders[0].orderId}` });
+                setBarcodeInput('');
+            } else {
+                toast({ variant: "destructive", title: "Not Found", description: "No order found with that ID." });
+            }
+        }
+    } catch (error) {
+        console.error(error);
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  const handleAccession = async (sampleIndex: number) => {
+      if (!activeOrder) return;
+
+      try {
+          const token = localStorage.getItem('labwise-token');
+          const res = await fetch('/api/v1/samples/accession', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ orderId: activeOrder.id, sampleIndex })
+          });
+
+          if (res.ok) {
+              const data = await res.json();
+              toast({ title: "Sample Accessioned", description: `Assigned ID: ${data.accessionNumber}` });
+
+              // Refresh order data locally
+              const updatedSamples = [...activeOrder.samples];
+              updatedSamples[sampleIndex] = {
+                  ...updatedSamples[sampleIndex],
+                  status: 'InLab',
+                  accessionNumber: data.accessionNumber,
+                  receivedTimestamp: data.receivedTimestamp
+              };
+              setActiveOrder({ ...activeOrder, samples: updatedSamples });
+
+          } else {
+              const err = await res.json();
+              toast({ variant: "destructive", title: "Error", description: err.message });
+          }
+      } catch (error) {
+          toast({ variant: "destructive", title: "Error", description: "Failed to accession sample." });
+      }
+  };
+
+  // Auto-focus input on load
+  useEffect(() => {
+      inputRef.current?.focus();
+  }, []);
+
+  return (
+    <div className="space-y-6 max-w-4xl mx-auto">
+      <div className="text-center space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight text-primary">Sample Accessioning</h1>
+          <p className="text-muted-foreground">Scan requisition barcode to receive samples.</p>
+      </div>
+
+      <Card className="border-2 border-primary/20 shadow-md">
+          <CardContent className="pt-6">
+              <form onSubmit={handleScan} className="flex gap-4">
+                  <div className="relative flex-1">
+                      <ScanBarcode className="absolute left-3 top-3 h-6 w-6 text-muted-foreground" />
+                      <Input
+                        ref={inputRef}
+                        value={barcodeInput}
+                        onChange={(e) => setBarcodeInput(e.target.value)}
+                        placeholder="Scan Order ID (e.g. ORD-2024-000001)"
+                        className="pl-12 h-12 text-lg font-mono"
+                        autoComplete="off"
+                      />
+                  </div>
+                  <Button type="submit" size="lg" className="h-12 px-8" disabled={loading}>
+                      {loading ? 'Searching...' : 'Lookup'}
+                  </Button>
+              </form>
+          </CardContent>
+      </Card>
+
+      {activeOrder && (
+          <div className="space-y-6 animate-accordion-down">
+              {/* Patient Header */}
+              <div className="bg-card border rounded-lg p-6 shadow-sm flex justify-between items-center">
+                  <div>
+                      <h2 className="text-2xl font-bold">{activeOrder.patientInfo?.firstName} {activeOrder.patientInfo?.lastName}</h2>
+                      <div className="flex gap-4 mt-1 text-muted-foreground">
+                          <span>MRN: <span className="font-mono text-foreground">{activeOrder.patientInfo?.mrn}</span></span>
+                          <span>DOB: {format(new Date(activeOrder.patientInfo!.dateOfBirth), 'MM/dd/yyyy')}</span>
+                      </div>
+                  </div>
+                  <div className="text-right">
+                      <div className="text-sm text-muted-foreground">Order Priority</div>
+                      {activeOrder.priority === 'STAT' ? (
+                          <Badge variant="destructive" className="text-lg px-3 py-1">STAT</Badge>
+                      ) : (
+                          <Badge variant="outline" className="text-lg px-3 py-1">Routine</Badge>
+                      )}
+                  </div>
+              </div>
+
+              {/* Samples List */}
+              <div className="grid gap-4">
+                  {activeOrder.samples.map((sample, index) => (
+                      <Card key={index} className={`border-l-4 ${sample.status === 'InLab' ? 'border-l-success' : 'border-l-primary'}`}>
+                          <CardHeader className="pb-2">
+                              <div className="flex justify-between items-start">
+                                  <div>
+                                      <CardTitle className="flex items-center gap-2">
+                                          {sample.sampleType} Sample
+                                          {sample.status === 'InLab' && <Badge className="bg-success hover:bg-success"><CheckCircle2 className="w-3 h-3 mr-1"/> Received</Badge>}
+                                      </CardTitle>
+                                      <CardDescription>
+                                          {sample.tests.map(t => t.name).join(', ')}
+                                      </CardDescription>
+                                  </div>
+                                  {sample.status === 'InLab' ? (
+                                      <div className="text-right">
+                                          <div className="text-sm font-bold text-success">{sample.accessionNumber}</div>
+                                          <div className="text-xs text-muted-foreground">{format(new Date(sample.receivedTimestamp!), 'HH:mm:ss')}</div>
+                                      </div>
+                                  ) : (
+                                    <Button onClick={() => handleAccession(index)}>
+                                        <ArrowRight className="mr-2 h-4 w-4" /> Receive Sample
+                                    </Button>
+                                  )}
+                              </div>
+                          </CardHeader>
+                      </Card>
+                  ))}
+              </div>
+          </div>
+      )}
+    </div>
+  );
 }

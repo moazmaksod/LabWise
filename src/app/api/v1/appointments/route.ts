@@ -1,40 +1,43 @@
 
-
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
-import { decrypt } from '@/lib/auth';
-import type { Appointment, TestCatalogItem, OrderSample } from '@/lib/types';
-import { format, startOfDay, endOfDay } from 'date-fns';
+import { startOfDay, endOfDay } from 'date-fns';
 
+// GET appointments (filtered by date range)
 export async function GET(req: NextRequest) {
     try {
-        const { db } = await connectToDatabase();
         const { searchParams } = new URL(req.url);
-        const dateParam = searchParams.get('date');
-        const query = searchParams.get('q');
-        const type = searchParams.get('type') as Appointment['appointmentType'] | null;
+        const dateStr = searchParams.get('date'); // YYYY-MM-DD
+        const start = searchParams.get('start');
+        const end = searchParams.get('end');
 
-        let targetDate: Date;
-        if (dateParam && !isNaN(Date.parse(dateParam))) {
-            const localDate = new Date(dateParam + 'T00:00:00');
-            targetDate = localDate;
+        const { db } = await connectToDatabase();
+        
+        let filter: any = {};
+
+        if (dateStr) {
+            const targetDate = new Date(dateStr + 'T00:00:00');
+            filter.scheduledTime = {
+                $gte: startOfDay(targetDate),
+                $lte: endOfDay(targetDate),
+            };
+        } else if (start && end) {
+            filter.scheduledTime = {
+                $gte: new Date(start),
+                $lte: new Date(end),
+            };
         } else {
-            targetDate = new Date();
-        }
-        
-        const dayStart = startOfDay(targetDate);
-        const dayEnd = endOfDay(targetDate);
-
-        let filter: any = { scheduledTime: { $gte: dayStart, $lte: dayEnd } };
-        
-        if (type) {
-            filter.appointmentType = type;
+            // Default to today if no params
+            const today = new Date();
+            filter.scheduledTime = {
+                $gte: startOfDay(today),
+                $lte: endOfDay(today),
+            };
         }
 
-        const aggregationPipeline: any[] = [
+        const appointments = await db.collection('appointments').aggregate([
             { $match: filter },
-            { $sort: { scheduledTime: 1 } },
             {
                 $lookup: {
                     from: 'patients',
@@ -43,197 +46,60 @@ export async function GET(req: NextRequest) {
                     as: 'patientInfo'
                 }
             },
-            {
-                $unwind: {
-                    path: '$patientInfo',
-                    preserveNullAndEmptyArrays: true
-                }
-            },
-            {
-                $lookup: {
-                    from: 'orders',
-                    localField: 'orderId',
-                    foreignField: '_id',
-                    as: 'orderInfo'
-                }
-            },
-             {
-                $unwind: {
-                    path: '$orderInfo',
-                    preserveNullAndEmptyArrays: true
-                }
-            },
-        ];
-
-        if (query) {
-            const searchRegex = new RegExp(query, 'i');
-            aggregationPipeline.push({
-                $match: {
-                    $or: [
-                        { 'patientInfo.firstName': searchRegex },
-                        { 'patientInfo.lastName': searchRegex },
-                        { 'patientInfo.mrn': searchRegex },
-                        { 'notes': searchRegex },
-                    ]
-                }
-            });
-        }
+            { $unwind: '$patientInfo' },
+            { $sort: { scheduledTime: 1 } }
+        ]).toArray();
         
-        aggregationPipeline.push({ $limit: 50 });
-        
-        const appointments = await db.collection('appointments').aggregate(aggregationPipeline).toArray();
-
-        // Fetch all unique test codes from all pending orders
-        const allTestCodes = appointments.flatMap(appt => 
-            appt.orderInfo?.samples.flatMap((sample: any) => 
-                sample.tests.map((test: any) => test.testCode)
-            ) || []
-        );
-        const uniqueTestCodes = [...new Set(allTestCodes)];
-
-        // Fetch specimen requirements for all needed tests in one query
-        const testDefs = await db.collection<TestCatalogItem>('testCatalog').find(
-            { testCode: { $in: uniqueTestCodes } },
-            { projection: { testCode: 1, name: 1, specimenRequirements: 1 } }
-        ).toArray();
-        const testDefMap = new Map(testDefs.map(t => [t.testCode, t]));
-
-
-        const clientAppointments = appointments.map(appt => {
-            const { _id, patientId, orderId, patientInfo, orderInfo, ...rest } = appt;
-            
-            const clientPatientInfo = patientInfo ? {
-              ...patientInfo,
-              id: patientInfo._id.toHexString(),
-              _id: undefined,
-            } : undefined;
-            
-            let clientOrderInfo;
-            if (orderInfo) {
-                const { _id: orderInfoId, ...restOrder } = orderInfo;
-                 const samplesWithDetails = orderInfo.samples.map((sample: OrderSample) => {
-                    const testsWithDetails = sample.tests.map((test) => {
-                        const testDef = testDefMap.get(test.testCode);
-                        return {
-                            ...test,
-                            name: testDef?.name || test.name,
-                            specimenRequirements: testDef?.specimenRequirements,
-                        }
-                    });
-
-                    // Get requirements from the first test, assuming all tests in a sample have the same reqs
-                    const firstTestDef = testsWithDetails.length > 0 ? testDefMap.get(testsWithDetails[0].testCode) : undefined;
-
-                    return {
-                        ...sample,
-                        sampleId: sample.sampleId.toHexString(),
-                        tests: testsWithDetails,
-                        specimenRequirements: firstTestDef?.specimenRequirements,
-                    }
-                });
-
-                clientOrderInfo = {
-                    ...restOrder,
-                    id: orderInfoId.toHexString(),
-                    samples: samplesWithDetails
-                };
+        const clientAppointments = appointments.map(appt => ({
+            id: appt._id.toHexString(),
+            patientId: appt.patientId.toHexString(),
+            orderId: appt.orderId?.toHexString(),
+            appointmentType: appt.appointmentType,
+            scheduledTime: appt.scheduledTime,
+            durationMinutes: appt.durationMinutes,
+            status: appt.status,
+            notes: appt.notes,
+            patientInfo: {
+                firstName: appt.patientInfo.firstName,
+                lastName: appt.patientInfo.lastName,
+                mrn: appt.patientInfo.mrn,
             }
-           
+        }));
 
-            return { 
-                ...rest, 
-                id: _id.toHexString(),
-                patientId: patientId?.toHexString(),
-                orderId: orderId?.toHexString(),
-                patientInfo: clientPatientInfo,
-                orderInfo: clientOrderInfo
-            };
-        });
-
-        return NextResponse.json(clientAppointments, { status: 200 });
-
+        return NextResponse.json(clientAppointments);
     } catch (error) {
         console.error('Failed to fetch appointments:', error);
         return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
     }
 }
 
+// POST /appointments is handled via POST /orders mostly, but we can add a standalone if needed later.
+// PUT /appointments/{id} would be for rescheduling. Let's add that here.
 
-export async function POST(req: NextRequest) {
-    try {
-        const token = req.headers.get('authorization')?.split(' ')[1];
-        if (!token) {
-            return NextResponse.json({ message: 'Authorization token missing.' }, { status: 401 });
-        }
-        const userPayload = await decrypt(token);
-        if (!userPayload?.userId) {
-            return NextResponse.json({ message: 'Invalid or expired token.' }, { status: 401 });
-        }
-
+export async function PUT(req: NextRequest) {
+     try {
         const body = await req.json();
+        const { id, scheduledTime, status } = body;
 
-        const { patientId, scheduledTime, durationMinutes, status, notes, appointmentType } = body;
-
-        if (!patientId || !scheduledTime || !status || !appointmentType) {
-            return NextResponse.json({ message: 'Missing required fields.' }, { status: 400 });
-        }
-        
-        if (!ObjectId.isValid(patientId)) {
-            return NextResponse.json({ message: 'Invalid patient ID format.' }, { status: 400 });
-        }
+        if (!id) return NextResponse.json({ message: 'ID required' }, { status: 400 });
 
         const { db } = await connectToDatabase();
-
-        const newAppointment: Omit<Appointment, '_id'> = {
-            patientId: new ObjectId(patientId),
-            appointmentType,
-            scheduledTime: new Date(scheduledTime),
-            durationMinutes: parseInt(durationMinutes, 10) || 15,
-            status: status,
-            notes: notes || '',
-        };
-
-        const result = await db.collection('appointments').insertOne(newAppointment);
         
-        if (!result.insertedId) {
-            throw new Error('MongoDB insert operation failed.');
-        }
-        
-        const createdAppointment = await db.collection('appointments').aggregate([
-            { $match: { _id: result.insertedId } },
-            {
-                $lookup: {
-                    from: 'patients',
-                    localField: 'patientId',
-                    foreignField: '_id',
-                    as: 'patientInfo'
-                }
-            },
-            {
-                $unwind: {
-                    path: '$patientInfo',
-                    preserveNullAndEmptyArrays: true
-                }
-            }
-        ]).next();
+        const updateData: any = { updatedAt: new Date() };
+        if (scheduledTime) updateData.scheduledTime = new Date(scheduledTime);
+        if (status) updateData.status = status;
 
-        if (!createdAppointment) {
-            return NextResponse.json({ message: 'Failed to retrieve created appointment.' }, { status: 500 });
-        }
-        
-        const { _id, ...rest } = createdAppointment;
-        const patientInfo = rest.patientInfo ? { ...rest.patientInfo, id: rest.patientInfo._id.toHexString(), _id: undefined } : undefined;
-        
-        const clientResponse = {
-            ...rest,
-            id: _id.toHexString(),
-            patientInfo
-        };
+        const result = await db.collection('appointments').updateOne(
+            { _id: new ObjectId(id) },
+            { $set: updateData }
+        );
 
-        return NextResponse.json(clientResponse, { status: 201 });
+        if (result.matchedCount === 0) return NextResponse.json({ message: 'Not found' }, { status: 404 });
 
-    } catch (error) {
-        console.error('ERROR in POST /api/v1/appointments:', error);
-        return NextResponse.json({ message: 'Internal Server Error', error: (error as Error).message }, { status: 500 });
-    }
+        return NextResponse.json({ message: 'Updated successfully' });
+
+     } catch (error) {
+        console.error('Failed to update appointment:', error);
+        return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
+     }
 }

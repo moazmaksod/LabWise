@@ -1,8 +1,6 @@
 
-
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
 import type { TestCatalogItem } from '@/lib/types';
 
 // GET all tests
@@ -29,7 +27,11 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        const tests = await db.collection('testCatalog').find(filter).sort({ name: 1 }).limit(10).toArray();
+        // By default only return active tests unless specified?
+        // For management UI we probably want all, but for ordering only active.
+        // For now, we return all and let the UI filter or sort.
+
+        const tests = await db.collection('testCatalog').find(filter).sort({ name: 1 }).limit(50).toArray();
         
         const clientTests = tests.map(test => {
             const { _id, ...clientTest } = test;
@@ -67,6 +69,7 @@ export async function POST(req: NextRequest) {
             panelComponents: body.panelComponents || [],
             referenceRanges: body.referenceRanges || [],
             reflexRules: body.reflexRules || [],
+            isActive: true,
         };
         
         const result = await db.collection('testCatalog').insertOne(newTestDocument);
@@ -78,32 +81,3 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
     }
 }
-
-// PUT (update) a test
-export async function PUT(req: NextRequest) {
-    try {
-        const { id, ...updateData } = await req.json();
-
-        if (!id) {
-            return NextResponse.json({ message: 'Test ID is required for updates' }, { status: 400 });
-        }
-
-        const { db } = await connectToDatabase();
-        
-        const result = await db.collection('testCatalog').updateOne(
-            { _id: new ObjectId(id) },
-            { $set: updateData }
-        );
-
-        if (result.matchedCount === 0) {
-            return NextResponse.json({ message: 'Test not found' }, { status: 404 });
-        }
-
-        return NextResponse.json({ message: 'Test updated successfully' }, { status: 200 });
-    } catch (error) {
-        console.error('Failed to update test:', error);
-        return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
-    }
-}
-
-    

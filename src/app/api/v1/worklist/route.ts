@@ -1,41 +1,25 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
-import { decrypt } from '@/lib/auth';
 
+// GET worklist (Technician Dashboard)
 export async function GET(req: NextRequest) {
     try {
-        const token = req.headers.get('authorization')?.split(' ')[1];
-        if (!token) {
-            return NextResponse.json({ message: 'Authorization token missing.' }, { status: 401 });
-        }
-        const userPayload = await decrypt(token);
-        if (!userPayload?.userId) {
-            return NextResponse.json({ message: 'Invalid or expired token.' }, { status: 401 });
-        }
-
         const { db } = await connectToDatabase();
+
+        // Pipeline to aggregate samples from all active orders
+        // We unwind the samples array so we have one document per sample
+        // Then we match only samples that are InLab or Testing
         
-        const aggregationPipeline = [
-            // Stage 1: Deconstruct the samples array to process each sample individually
-            { $unwind: "$samples" },
-            // Stage 2: Filter for samples that are currently active in the lab workflow
+        const pipeline = [
+            { $match: { orderStatus: { $nin: ['Complete', 'Cancelled'] } } },
+            { $unwind: '$samples' },
             { 
                 $match: { 
-                    "samples.status": { $in: ['InLab', 'Testing', 'AwaitingVerification', 'Verified'] } 
+                    'samples.status': { $in: ['InLab', 'Testing', 'AwaitingVerification'] }
                 } 
             },
-            // Stage 3: Sort by STAT priority first, then by the time they were received
-            { 
-                $sort: {
-                    "priority": -1, // Sorts 'STAT' (desc) before 'Routine' (asc)
-                    "samples.receivedTimestamp": 1 // Oldest first
-                } 
-            },
-            // Stage 4: Limit the number of results to prevent overwhelming the client
-            { $limit: 150 },
-             // Stage 5: Join with the patients collection to get patient details
+            // Join with Patient info
             {
                 $lookup: {
                     from: 'patients',
@@ -44,31 +28,49 @@ export async function GET(req: NextRequest) {
                     as: 'patientInfo'
                 }
             },
-            { $unwind: { path: "$patientInfo", preserveNullAndEmptyArrays: true } },
-            // Stage 6: Project the final, clean shape for the worklist item
+            { $unwind: '$patientInfo' },
+            // Add a sort score based on priority and time
             {
-                $project: {
-                    _id: 0, // Exclude the default _id
-                    sampleId: "$samples.sampleId",
-                    accessionNumber: "$samples.accessionNumber",
-                    patientName: { $concat: ["$patientInfo.firstName", " ", "$patientInfo.lastName"] },
-                    patientMrn: "$patientInfo.mrn",
-                    tests: "$samples.tests",
-                    status: "$samples.status",
-                    priority: "$priority",
-                    receivedTimestamp: "$samples.receivedTimestamp",
-                    // Calculate a due timestamp (e.g., 4 hours after receipt)
-                    dueTimestamp: { $add: ["$samples.receivedTimestamp", 4 * 60 * 60 * 1000] } 
+                $addFields: {
+                    priorityScore: {
+                        $switch: {
+                            branches: [
+                                { case: { $eq: ['$priority', 'STAT'] }, then: 1 },
+                                { case: { $eq: ['samples.status', 'Overdue'] }, then: 2 }, // Logic for overdue calculation would go here in a real app
+                                { case: { $eq: ['$priority', 'Routine'] }, then: 3 },
+                            ],
+                            default: 4
+                        }
+                    }
                 }
             },
+            {
+                $sort: {
+                    priorityScore: 1, // STAT first
+                    'samples.receivedTimestamp': 1 // Oldest first (FIFO)
+                }
+            },
+            { $limit: 100 } // Cap at 100 for the dashboard view
         ];
 
-        const worklist = await db.collection('orders').aggregate(aggregationPipeline).toArray();
-        
-        return NextResponse.json(worklist, { status: 200 });
+        const worklist = await db.collection('orders').aggregate(pipeline).toArray();
 
-    } catch (error: any) {
-        console.error('An unexpected error occurred in /api/v1/worklist:', error);
-        return NextResponse.json({ message: 'Internal Server Error', error: error.message }, { status: 500 });
+        const clientWorklist = worklist.map(item => ({
+            orderId: item.orderId,
+            priority: item.priority,
+            patientName: `${item.patientInfo.firstName} ${item.patientInfo.lastName}`,
+            mrn: item.patientInfo.mrn,
+            accessionNumber: item.samples.accessionNumber,
+            sampleType: item.samples.sampleType,
+            status: item.samples.status,
+            tests: item.samples.tests.map((t: any) => t.name).join(', '),
+            receivedAt: item.samples.receivedTimestamp,
+        }));
+
+        return NextResponse.json(clientWorklist);
+
+    } catch (error) {
+        console.error('Failed to fetch worklist:', error);
+        return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
     }
 }
