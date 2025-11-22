@@ -23,7 +23,7 @@ export function Header() {
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           <span className="sr-only">Notifications</span>
-          <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-destructive" />
+           <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-destructive" />
         </Button>
       </div>
     </header>

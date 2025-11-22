@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { createContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import type { Role, ClientUser } from '@/lib/types';
 import { USERS } from '@/lib/constants';
 
@@ -93,3 +93,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }
+
+export const useUser = () => {
+  const context = useContext(UserContext);
+  if (context === undefined) {
+    throw new Error('useUser must be used within a UserProvider');
+  }
+  return context;
+};
