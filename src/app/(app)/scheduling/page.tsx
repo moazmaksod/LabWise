@@ -3,18 +3,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Calendar, dateFnsLocalizer, Views, View } from 'react-big-calendar';
-import format from 'date-fns/format';
-import parse from 'date-fns/parse';
-import startOfWeek from 'date-fns/startOfWeek';
-import getDay from 'date-fns/getDay';
-import enUS from 'date-fns/locale/en-US';
+import { format, parse, startOfWeek, getDay, addMinutes } from 'date-fns';
+import { enUS } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useToast } from '@/hooks/use-toast';
 import { ClientAppointment } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
-import { addMinutes } from 'date-fns';
 
 const locales = {
   'en-US': enUS,
@@ -47,9 +43,6 @@ export default function SchedulingPage() {
     setLoading(true);
     try {
         const token = localStorage.getItem('labwise-token');
-        // Fetch for the current view's range. For simplicity, just fetching the current day or week would be better optimization,
-        // but fetching all for the month is safer for calendar nav.
-        // Let's fetch simply by date for now to keep it robust.
         const response = await fetch(`/api/v1/appointments`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });

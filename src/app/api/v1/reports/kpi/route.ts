@@ -1,98 +1,77 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { decrypt } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
-import { MOCK_TAT_DATA, MOCK_REJECTION_DATA, MOCK_STAFF_WORKLOAD_DATA } from '@/lib/constants';
+import { subDays } from 'date-fns';
 
 export async function GET(req: NextRequest) {
     try {
-        const token = req.headers.get('authorization')?.split(' ')[1];
-        if (!token) {
-            return NextResponse.json({ message: 'Authorization token missing.' }, { status: 401 });
-        }
-        const userPayload = await decrypt(token);
-        if (!userPayload?.userId || userPayload.role !== 'manager') {
-            return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
-        }
-
         const { db } = await connectToDatabase();
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-        // --- Aggregation for Turnaround Time (TAT) ---
+        // 1. Turnaround Time (TAT) - Average time from Received to Verified in last 7 days
+        const sevenDaysAgo = subDays(new Date(), 7);
+
         const tatPipeline = [
-            { $match: { 'samples.verifiedAt': { $gte: sevenDaysAgo } } },
-            { $unwind: "$samples" },
-            { $match: { "samples.status": "Verified", "samples.receivedTimestamp": { $exists: true }, "samples.verifiedAt": { $exists: true } } },
+            { $unwind: '$samples' },
+            { $unwind: '$samples.tests' },
+            {
+                $match: {
+                    'samples.tests.status': 'Verified',
+                    'samples.receivedTimestamp': { $gte: sevenDaysAgo }
+                }
+            },
             {
                 $project: {
-                    priority: "$priority",
-                    tat: { $divide: [{ $subtract: ["$samples.verifiedAt", "$samples.receivedTimestamp"] }, 60000] } // TAT in minutes
+                    tatMinutes: {
+                        $divide: [
+                            { $subtract: ['$samples.tests.verifiedAt', '$samples.receivedTimestamp'] },
+                            60000
+                        ]
+                    }
                 }
             },
             {
                 $group: {
-                    _id: "$priority",
-                    averageTat: { $avg: "$tat" }
+                    _id: null,
+                    avgTAT: { $avg: '$tatMinutes' }
                 }
             }
         ];
-        const tatResults = await db.collection('orders').aggregate(tatPipeline).toArray();
-        
-        const averageTat: { stat: number; routine: number } = { stat: 0, routine: 0 };
-        tatResults.forEach((result: any) => {
-            if (result._id === 'STAT') {
-                averageTat.stat = Math.round(result.averageTat);
-            } else if (result._id === 'Routine') {
-                averageTat.routine = Math.round(result.averageTat);
-            }
-        });
+        const tatResult = await db.collection('orders').aggregate(tatPipeline).toArray();
+        const avgTAT = tatResult.length > 0 ? Math.round(tatResult[0].avgTAT) : 0;
 
-        // --- Aggregation for Rejection Rate ---
+        // 2. Sample Rejection Rate - % of samples rejected
         const rejectionPipeline = [
-            { $unwind: "$samples" },
-            { $match: { 'samples.rejectionInfo': { $exists: true, $ne: null } } },
+            { $unwind: '$samples' },
             {
                 $group: {
-                    _id: "$samples.rejectionInfo.reason",
-                    count: { $sum: 1 }
+                    _id: null,
+                    totalSamples: { $sum: 1 },
+                    rejectedSamples: {
+                        $sum: { $cond: [{ $eq: ['$samples.status', 'Rejected'] }, 1, 0] }
+                    }
                 }
-            },
-            { $project: { _id: 0, reason: "$_id", count: 1 } }
+            }
         ];
+        const rejResult = await db.collection('orders').aggregate(rejectionPipeline).toArray();
+        const rejectionRate = rejResult.length > 0 ? ((rejResult[0].rejectedSamples / rejResult[0].totalSamples) * 100).toFixed(1) : 0;
 
-        const rejectionReasonResults = await db.collection('orders').aggregate(rejectionPipeline).toArray();
-        
-        const totalSamplesInOrders = await db.collection('orders').aggregate([
-            { $unwind: "$samples" },
-            { $match: { "samples.status": { $ne: 'AwaitingCollection' } } },
-            { $count: "totalSamples" }
+        // 3. Instrument Status Counts
+        const instrumentStatus = await db.collection('instruments').aggregate([
+            { $group: { _id: '$status', count: { $sum: 1 } } }
         ]).toArray();
         
-        const totalSamples = totalSamplesInOrders.length > 0 ? totalSamplesInOrders[0].totalSamples : 0;
-        
-        const totalRejections = rejectionReasonResults.reduce((sum, item) => sum + (item as any).count, 0);
-        const rejectionRate = totalSamples > 0 ? (totalRejections / totalSamples) * 100 : 0;
-        
-        // --- Get Instrument Status ---
-        const instruments = await db.collection('instruments').find({}, { projection: { status: 1 } }).toArray();
-        const onlineInstruments = instruments.filter(inst => inst.status === 'Online').length;
-        const instrumentUptime = instruments.length > 0 ? (onlineInstruments / instruments.length) * 100 : 100;
+        // 4. Pending Orders Count
+        const pendingOrders = await db.collection('orders').countDocuments({ orderStatus: 'Pending' });
 
-        const kpiData = {
-            averageTat: averageTat,
-            rejectionRate: parseFloat(rejectionRate.toFixed(1)),
-            instrumentUptime: parseFloat(instrumentUptime.toFixed(1)),
-            staffWorkload: 8.4, // Keep as mock for now
-            tatHistory: MOCK_TAT_DATA, // Keep as mock for now
-            rejectionReasons: rejectionReasonResults.length > 0 ? rejectionReasonResults : MOCK_REJECTION_DATA,
-            workloadDistribution: MOCK_STAFF_WORKLOAD_DATA
-        };
+        return NextResponse.json({
+            avgTAT,
+            rejectionRate,
+            instrumentStatus,
+            pendingOrders
+        });
 
-        return NextResponse.json(kpiData, { status: 200 });
-
-    } catch (error: any) {
-        console.error('Failed to fetch KPI data:', error);
-        return NextResponse.json({ message: 'Internal Server Error', error: error.message }, { status: 500 });
+    } catch (error) {
+        console.error('KPI Fetch Error:', error);
+        return NextResponse.json({ message: 'Error fetching KPIs' }, { status: 500 });
     }
 }

@@ -4,12 +4,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/context/user-context';
-import { ClientUser } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertCircle, Clock, CheckCircle2, Play, ArrowRight } from 'lucide-react';
+import { AlertCircle, ArrowRight, Activity, Timer, AlertTriangle, ClipboardList } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 // Type for the worklist item as returned by the API
@@ -25,20 +24,21 @@ type WorklistItem = {
     receivedAt: string;
 };
 
+type KPIData = {
+    avgTAT: number;
+    rejectionRate: string;
+    instrumentStatus: { _id: string, count: number }[];
+    pendingOrders: number;
+}
+
 export default function DashboardPage() {
   const { user } = useUser();
   const router = useRouter();
   const [worklist, setWorklist] = useState<WorklistItem[]>([]);
+  const [kpiData, setKpiData] = useState<KPIData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-      if (user?.role === 'technician' || user?.role === 'manager') {
-          fetchWorklist();
-      }
-  }, [user]);
-
   const fetchWorklist = async () => {
-      setLoading(true);
       try {
           const token = localStorage.getItem('labwise-token');
           const res = await fetch('/api/v1/worklist', {
@@ -49,16 +49,103 @@ export default function DashboardPage() {
           }
       } catch (e) {
           console.error(e);
-      } finally {
-          setLoading(false);
       }
   };
 
-  if (!user) return null;
+  const fetchKPIs = async () => {
+      try {
+          const token = localStorage.getItem('labwise-token');
+          const res = await fetch('/api/v1/reports/kpi', {
+              headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+              setKpiData(await res.json());
+          }
+      } catch (e) {
+          console.error(e);
+      }
+  };
 
-  // Redirect non-technicians (except managers) to their own views if they land here
+  useEffect(() => {
+      const loadData = async () => {
+          setLoading(true);
+          if (user?.role === 'technician') {
+              await fetchWorklist();
+          } else if (user?.role === 'manager') {
+              await Promise.all([fetchWorklist(), fetchKPIs()]);
+          }
+          setLoading(false);
+      };
+      if (user) loadData();
+  }, [user]);
+
+  if (!user) return null;
   if (user.role === 'receptionist') router.push('/patients/register');
 
+  // --- MANAGER VIEW ---
+  if (user.role === 'manager') {
+      return (
+        <div className="space-y-6">
+            <div className="flex items-center justify-between">
+                <h1 className="text-3xl font-bold tracking-tight text-primary">Operational Dashboard</h1>
+                <Button onClick={() => window.location.reload()} variant="outline">Refresh Data</Button>
+            </div>
+
+            {/* KPI WIDGETS */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Avg Turnaround Time</CardTitle>
+                        <Timer className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{kpiData?.avgTAT || 0} min</div>
+                        <p className="text-xs text-muted-foreground">Last 7 Days</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Sample Rejection Rate</CardTitle>
+                        <AlertTriangle className="h-4 w-4 text-destructive" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{kpiData?.rejectionRate || 0}%</div>
+                        <p className="text-xs text-muted-foreground">Target: &lt; 1%</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Pending Orders</CardTitle>
+                        <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{kpiData?.pendingOrders || 0}</div>
+                        <p className="text-xs text-muted-foreground">Requiring Action</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Instrument Health</CardTitle>
+                        <Activity className="h-4 w-4 text-success" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">
+                            {kpiData?.instrumentStatus.find(s => s._id === 'Online')?.count || 0} / {kpiData?.instrumentStatus.reduce((a,b) => a + b.count, 0) || 0}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Online / Total</p>
+                    </CardContent>
+                </Card>
+            </div>
+
+            <div className="space-y-4">
+                <h2 className="text-xl font-bold">Active Worklist Monitor</h2>
+                <WorklistTable worklist={worklist} loading={loading} router={router} />
+            </div>
+        </div>
+      );
+  }
+
+  // --- TECHNICIAN VIEW ---
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -68,8 +155,14 @@ export default function DashboardPage() {
         </div>
         <Button onClick={fetchWorklist} variant="outline">Refresh List</Button>
       </div>
+      <WorklistTable worklist={worklist} loading={loading} router={router} />
+    </div>
+  );
+}
 
-      <div className="rounded-md border bg-card shadow-sm">
+function WorklistTable({ worklist, loading, router }: { worklist: WorklistItem[], loading: boolean, router: any }) {
+    return (
+        <div className="rounded-md border bg-card shadow-sm">
           <Table>
               <TableHeader>
                   <TableRow>
@@ -123,6 +216,5 @@ export default function DashboardPage() {
               </TableBody>
           </Table>
       </div>
-    </div>
-  );
+    );
 }
